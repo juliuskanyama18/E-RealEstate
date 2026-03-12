@@ -17,6 +17,10 @@ import Houses from './pages/landlord/Houses';
 import HouseDetail from './pages/landlord/HouseDetail';
 import Tenants from './pages/landlord/Tenants';
 import TenantDetail from './pages/landlord/TenantDetail';
+import Reports from './pages/landlord/Reports';
+import Maintenance from './pages/landlord/Maintenance';
+import Organisation from './pages/landlord/Organisation';
+import AccountSettings from './pages/landlord/AccountSettings';
 
 // Superadmin pages
 import SuperadminDashboard from './pages/superadmin/Dashboard';
@@ -40,6 +44,10 @@ const App = () => (
         <Route path="/houses/:id" element={<ProtectedRoute roles={['landlord']}><HouseDetail /></ProtectedRoute>} />
         <Route path="/tenants" element={<ProtectedRoute roles={['landlord']}><Tenants /></ProtectedRoute>} />
         <Route path="/tenants/:id" element={<ProtectedRoute roles={['landlord']}><TenantDetail /></ProtectedRoute>} />
+        <Route path="/reports" element={<ProtectedRoute roles={['landlord']}><Reports /></ProtectedRoute>} />
+        <Route path="/maintenance" element={<ProtectedRoute roles={['landlord']}><Maintenance /></ProtectedRoute>} />
+        <Route path="/organisation" element={<ProtectedRoute roles={['landlord']}><Organisation /></ProtectedRoute>} />
+        <Route path="/account" element={<ProtectedRoute roles={['landlord']}><AccountSettings /></ProtectedRoute>} />
 
         {/* Superadmin */}
         <Route path="/admin" element={<ProtectedRoute roles={['superadmin']}><SuperadminDashboard /></ProtectedRoute>} />

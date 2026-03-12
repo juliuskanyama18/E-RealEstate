@@ -712,3 +712,14 @@ pm2 logs buildestate-api
 ---
 
 Built with ❤️ for BuildEstate
+
+
+To run the system:
+
+
+# Terminal 1 — Backend
+cd backend && npm run dev
+
+# Terminal 2 — Frontend
+cd admin && npm run dev
+Visit http://localhost:5174. Login as superadmin with the credentials in backend/.env.local, or register a new landlord account.
