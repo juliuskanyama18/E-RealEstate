@@ -1,7 +1,11 @@
 import mongoose from "mongoose";
 import dotenv from "dotenv";
+import dns from "dns";
 
-dotenv.config();
+dotenv.config({ path: './.env.local' });
+
+// Override Node.js c-ares DNS to bypass broken Windows IPv6 loopback addresses
+dns.setServers(['8.8.8.8', '8.8.4.4']);
 
 const connectdb = async () => {
   try {

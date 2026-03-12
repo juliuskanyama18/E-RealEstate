@@ -1,190 +1,111 @@
-import express from 'express';
-import dotenv from 'dotenv';
-import cors from 'cors';
-import rateLimit from 'express-rate-limit';
-import helmet from 'helmet';
-import compression from 'compression';
-import connectdb from './config/mongodb.js';
-import { trackAPIStats } from './middleware/statsMiddleware.js';
-import propertyrouter from './routes/ProductRouter.js';
-import userrouter from './routes/UserRoute.js';
-import formrouter from './routes/formrouter.js';
-import newsrouter from './routes/newsRoute.js';
-import appointmentRouter from './routes/appointmentRoute.js';
-import adminRouter from './routes/adminRoute.js';
-import propertyRoutes from './routes/propertyRoutes.js';
-import getStatusPage from './serverweb.js';
+import express from "express";
+import dotenv from "dotenv";
+import cors from "cors";
+import helmet from "helmet";
+import compression from "compression";
+import rateLimit from "express-rate-limit";
+import bcrypt from "bcrypt";
+import connectdb from "./config/mongodb.js";
+import User from "./models/User.js";
+import { startCronJob } from "./utils/cronJob.js";
+import authRoute from "./routes/authRoute.js";
+import superadminRoute from "./routes/superadminRoute.js";
+import landlordRoute from "./routes/landlordRoute.js";
+import tenantRoute from "./routes/tenantRoute.js";
 
-
-dotenv.config();
+dotenv.config({ path: "./.env.local" });
 
 const app = express();
 
-// Configure trust proxy for different environments
-if (process.env.NODE_ENV === 'production') {
-  // Trust first proxy (Render, Heroku, etc.)
-  app.set('trust proxy', 1);
+if (process.env.NODE_ENV === "production") {
+  app.set("trust proxy", 1);
 } else {
-  // In development, trust local proxies
-  app.set('trust proxy', 'loopback');
+  app.set("trust proxy", "loopback");
 }
 
-// Enhanced rate limiting configuration
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === 'production' ? 500 : 1000, // More lenient in development
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { success: false, message: 'Too many requests, please try again later.' },
-  // Skip rate limiting for successful requests in development
-  skip: (req, res) => {
-    // Skip for health checks and in development for successful requests
-    if (req.path === '/status' || req.path === '/') return true;
-    return process.env.NODE_ENV === 'development' && res.statusCode < 400;
-  },
-  // Custom key generator to handle proxy scenarios
-  keyGenerator: (req) => {
-    // Use X-Forwarded-For in production, fallback to IP
-    const forwarded = req.headers['x-forwarded-for'];
-    if (forwarded && process.env.NODE_ENV === 'production') {
-      return forwarded.split(',')[0].trim();
-    }
-    return req.ip;
-  }
-});
-
-// Security middlewares
-app.use(limiter);
-app.use(helmet({
-  // Configure helmet for proxy environments
-  contentSecurityPolicy: process.env.NODE_ENV === 'production' ? {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "https:"],
-    },
-  } : false,
-  crossOriginEmbedderPolicy: false
-}));
+app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
 app.use(compression());
+app.use(
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: process.env.NODE_ENV === "production" ? 300 : 1000,
+    standardHeaders: true,
+    legacyHeaders: false,
+    skip: (req) => req.path === "/status",
+  })
+);
 
-// Middleware
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-app.use(trackAPIStats);
+app.use(express.json({ limit: "5mb" }));
+app.use(express.urlencoded({ extended: true }));
 
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5174",
+      "http://localhost:5173",
+      process.env.WEBSITE_URL,
+    ].filter(Boolean),
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 
-// CORS Configuration
-app.use(cors({
-  origin: [
-    'http://localhost:4000',
-    'http://localhost:5174',
-    'http://localhost:5173',
-    'https://buildestate.vercel.app',
-    'https://real-estate-website-admin.onrender.com',
-    'https://real-estate-website-backend-zfu7.onrender.com',
-  ],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'], // Added HEAD
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-}));
+app.use("/api/auth", authRoute);
+app.use("/api/admin", superadminRoute);
+app.use("/api/landlord", landlordRoute);
+app.use("/api/tenant", tenantRoute);
 
-// Database connection
-connectdb().then(() => {
-  console.log('Database connected successfully');
-}).catch(err => {
-  console.error('Database connection error:', err);
+app.get("/status", (req, res) => {
+  res.json({ ok: true, env: process.env.NODE_ENV, uptime: process.uptime() });
 });
 
-
-// API Routes
-app.use('/api/products', propertyrouter);
-app.use('/api/users', userrouter);
-app.use('/api/forms', formrouter);
-app.use('/api/news', newsrouter);
-app.use('/api/appointments', appointmentRouter);
-app.use('/api/admin', adminRouter);
-app.use('/api', propertyRoutes);
-
+app.use("*", (req, res) => {
+  res.status(404).json({ success: false, message: `Route ${req.originalUrl} not found` });
+});
 
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
-  const statusCode = err.status || 500;
-  res.status(statusCode).json({
+  console.error("Unhandled error:", err);
+  res.status(err.status || 500).json({
     success: false,
-    message: err.message || 'Internal server error',
-    statusCode,
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
-    timestamp: new Date().toISOString()
+    message: err.message || "Internal server error",
+    ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
   });
 });
 
+process.on("unhandledRejection", (err) => { console.error("UNHANDLED REJECTION:", err); process.exit(1); });
+process.on("uncaughtException", (err) => { console.error("UNCAUGHT EXCEPTION:", err); process.exit(1); });
+process.on("SIGTERM", () => process.exit(0));
 
-// Handle unhandled rejections
-process.on('unhandledRejection', (err) => {
-  console.log('UNHANDLED REJECTION! 💥 Shutting down...');
-  console.error(err);
-  process.exit(1);
-});
+const PORT = process.env.PORT || 4000;
 
-// Handle uncaught exceptions
-process.on('uncaughtException', (err) => {
-  console.log('UNCAUGHT EXCEPTION! 💥 Shutting down...');
-  console.error(err);
-  process.exit(1);
-});
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('👋 SIGTERM received. Shutting down gracefully...');
-  process.exit(0);
-});
-
-// Status check endpoint
-app.get('/status', (req, res) => {
-  res.status(200).json({ 
-    status: 'OK', 
-    time: new Date().toISOString(),
-    uptime: process.uptime(),
-    version: process.env.npm_package_version || '1.0.0',
-    environment: process.env.NODE_ENV || 'development',
-    trustProxy: app.get('trust proxy'),
-    clientIP: req.ip,
-    forwardedFor: req.headers['x-forwarded-for'] || 'not-set',
-    userAgent: req.headers['user-agent'] || 'not-set'
-  });
-});
-
-// Root endpoint - health check HTML
-app.get('/', (req, res) => {
+connectdb().then(async () => {
   try {
-    res.setHeader('Content-Type', 'text/html');
-    res.setHeader('Cache-Control', 'public, max-age=3600');
-    res.send(getStatusPage());
-  } catch (error) {
-    console.error('Error serving home page:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    const exists = await User.findOne({ role: "superadmin" });
+    if (!exists) {
+      const hashed = await bcrypt.hash(process.env.SUPERADMIN_PASSWORD, 12);
+      await User.create({
+        name: "Superadmin",
+        email: process.env.SUPERADMIN_EMAIL,
+        password: hashed,
+        role: "superadmin",
+      });
+      console.log("✅ Superadmin seeded");
+    }
+  } catch (err) {
+    console.error("Superadmin seed error:", err.message);
   }
+
+  startCronJob();
+
+  if (process.env.NODE_ENV !== "test") {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+    });
+  }
+}).catch((err) => {
+  console.error("Failed to connect to database:", err.message);
+  process.exit(1);
 });
-
-// 404 handler - must be after all other routes
-app.use('*', (req, res) => {
-  res.status(404).json({
-    success: false,
-    message: `Route ${req.originalUrl} not found`,
-    statusCode: 404,
-    timestamp: new Date().toISOString()
-  });
-});
-
-const port = process.env.PORT || 4000;
-
-// Start server
-if (process.env.NODE_ENV !== 'test') {
-  app.listen(port, '0.0.0.0', () => {
-    console.log(`Server running on port ${port}`);
-  });
-}
 
 export default app;

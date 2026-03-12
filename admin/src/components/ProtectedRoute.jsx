@@ -1,34 +1,23 @@
-import React from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
-const ProtectedRoute = () => {
-  const token = localStorage.getItem('token');
-  const isAdmin = localStorage.getItem('isAdmin');
+const dashboardByRole = { landlord: '/dashboard', superadmin: '/admin', tenant: '/portal' };
 
-  // Check both token and admin status
-  const isAuthenticated = token && isAdmin === 'true';
+const ProtectedRoute = ({ roles, children }) => {
+  const { isAuthenticated, role, loading } = useAuth();
 
-  // Verify token expiration
-  const isTokenExpired = () => {
-    if (!token) return true;
-    try {
-      const tokenData = JSON.parse(atob(token.split('.')[1]));
-      return tokenData.exp * 1000 < Date.now();
-    } catch (error) {
-      console.error('Error verifying token:', error);
-      return true;
-    }
-  };
-
-  if (!isAuthenticated || isTokenExpired()) {
-    // Clean up storage on invalid auth
-    localStorage.removeItem('token');
-    localStorage.removeItem('isAdmin');
-    return <Navigate to="/login" replace />;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
   }
 
-  // Return Outlet for nested routes
-  return <Outlet />;
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (roles && !roles.includes(role)) return <Navigate to={dashboardByRole[role] || '/login'} replace />;
+
+  return children;
 };
 
 export default ProtectedRoute;

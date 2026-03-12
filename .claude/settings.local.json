@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Test-NetConnection -ComputerName ac-x54mjcy-shard-00-00.6asml4p.mongodb.net -Port 27017)",
+      "Bash(powershell.exe -Command \"Get-DnsClientServerAddress | Where-Object {$_AddressFamily -eq 2} | Select-Object -First 5\")"
+    ]
+  }
+}

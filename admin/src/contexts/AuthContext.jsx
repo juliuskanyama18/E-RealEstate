@@ -1,81 +1,76 @@
-import { createContext, useState, useEffect, useCallback } from 'react';
-import PropTypes from 'prop-types';
-import { APP_CONSTANTS } from '../config/constants';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
+import { backendUrl, API, TOKEN_KEY, USER_KEY } from '../config/constants';
 
-const AuthContext = createContext();
+const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const logout = useCallback(() => {
-    localStorage.removeItem(APP_CONSTANTS.TOKEN_KEY);
-    localStorage.removeItem(APP_CONSTANTS.IS_ADMIN_KEY);
-    setIsAuthenticated(false);
-    setUser(null);
+  const applySession = useCallback((tok, userData) => {
+    setToken(tok);
+    setUser(userData);
+    localStorage.setItem(TOKEN_KEY, tok);
+    localStorage.setItem(USER_KEY, JSON.stringify(userData));
+    axios.defaults.headers.common['Authorization'] = `Bearer ${tok}`;
   }, []);
 
-  const checkAuthStatus = useCallback(() => {
-    try {
-      const token = localStorage.getItem(APP_CONSTANTS.TOKEN_KEY);
-      const isAdmin = localStorage.getItem(APP_CONSTANTS.IS_ADMIN_KEY);
-      
-      if (token && isAdmin === 'true') {
-        // Verify token expiration
-        const tokenData = JSON.parse(atob(token.split('.')[1]));
-        const isExpired = tokenData.exp * 1000 < Date.now();
-        
-        if (!isExpired) {
-          setIsAuthenticated(true);
-          setUser({ 
-            email: tokenData.email || 'Admin',
-            role: 'admin',
-            id: tokenData.id
-          });
-        } else {
-          // Token expired, clear storage
-          logout();
-        }
-      }
-    } catch (error) {
-      console.error('Error checking auth status:', error);
-      logout();
-    } finally {
-      setIsLoading(false);
-    }
-  }, [logout]);
+  const clearSession = useCallback(() => {
+    setToken(null);
+    setUser(null);
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+    delete axios.defaults.headers.common['Authorization'];
+  }, []);
 
-  // Check authentication status on mount
   useEffect(() => {
-    checkAuthStatus();
-  }, [checkAuthStatus]);
+    const restore = async () => {
+      const storedToken = localStorage.getItem(TOKEN_KEY);
+      if (!storedToken) { setLoading(false); return; }
+      try {
+        axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+        const { data } = await axios.get(`${backendUrl}${API.me}`);
+        if (data.success) {
+          applySession(storedToken, data.data);
+        } else {
+          clearSession();
+        }
+      } catch {
+        clearSession();
+      } finally {
+        setLoading(false);
+      }
+    };
+    restore();
+  }, [applySession, clearSession]);
 
-  const login = (token, userData) => {
-    localStorage.setItem(APP_CONSTANTS.TOKEN_KEY, token);
-    localStorage.setItem(APP_CONSTANTS.IS_ADMIN_KEY, 'true');
-    setIsAuthenticated(true);
-    setUser(userData);
+  const login = async (email, password) => {
+    const { data } = await axios.post(`${backendUrl}${API.login}`, { email, password });
+    if (data.success) applySession(data.data.token, data.data.user);
+    return data;
   };
 
-  const value = {
-    isAuthenticated,
-    isLoading,
-    user,
-    login,
-    logout,
-    checkAuthStatus
+  const register = async (formData) => {
+    const { data } = await axios.post(`${backendUrl}${API.register}`, formData);
+    if (data.success) applySession(data.data.token, data.data.user);
+    return data;
   };
+
+  const logout = () => clearSession();
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{ user, token, loading, isAuthenticated: !!token && !!user, role: user?.role || null, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-AuthProvider.propTypes = {
-  children: PropTypes.node.isRequired,
+export const useAuth = () => {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  return ctx;
 };
 
 export default AuthContext;

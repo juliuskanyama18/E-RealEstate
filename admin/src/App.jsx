@@ -1,117 +1,68 @@
-import { Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { Toaster } from "react-hot-toast";
-import { ErrorBoundary } from "react-error-boundary";
-import { motion, AnimatePresence } from "framer-motion";
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
+import { ErrorBoundary } from 'react-error-boundary';
 
+import { AuthProvider } from './contexts/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
+import ErrorFallback from './components/ErrorFallback';
 
+// Public pages
+import Landing from './pages/Landing';
+import Login from './pages/Login';
+import Register from './pages/Register';
 
+// Landlord pages
+import LandlordDashboard from './pages/landlord/Dashboard';
+import Houses from './pages/landlord/Houses';
+import HouseDetail from './pages/landlord/HouseDetail';
+import Tenants from './pages/landlord/Tenants';
+import TenantDetail from './pages/landlord/TenantDetail';
 
+// Superadmin pages
+import SuperadminDashboard from './pages/superadmin/Dashboard';
+import Landlords from './pages/superadmin/Landlords';
 
-// Context
-import { AuthProvider } from "./contexts/AuthContext";
+// Tenant portal
+import TenantPortal from './pages/tenant/Dashboard';
 
-// Components
-import Navbar from "./components/Navbar";
-import ProtectedRoute from "./components/ProtectedRoute";
-import ErrorFallback from "./components/ErrorFallback";
+const App = () => (
+  <ErrorBoundary FallbackComponent={ErrorFallback} onReset={() => window.location.reload()}>
+    <AuthProvider>
+      <Routes>
+        {/* Public */}
+        <Route path="/" element={<Landing />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
 
-// Pages
-import Login from "./components/login";
-import Dashboard from "./pages/Dashboard";
-import PropertyListings from "./pages/List";
-import Add from "./pages/Add";
-import Update from "./pages/Update";
-import Appointments from "./pages/Appointments";
+        {/* Landlord */}
+        <Route path="/dashboard" element={<ProtectedRoute roles={['landlord']}><LandlordDashboard /></ProtectedRoute>} />
+        <Route path="/houses" element={<ProtectedRoute roles={['landlord']}><Houses /></ProtectedRoute>} />
+        <Route path="/houses/:id" element={<ProtectedRoute roles={['landlord']}><HouseDetail /></ProtectedRoute>} />
+        <Route path="/tenants" element={<ProtectedRoute roles={['landlord']}><Tenants /></ProtectedRoute>} />
+        <Route path="/tenants/:id" element={<ProtectedRoute roles={['landlord']}><TenantDetail /></ProtectedRoute>} />
 
-// Config
-import { APP_CONSTANTS } from "./config/constants";
+        {/* Superadmin */}
+        <Route path="/admin" element={<ProtectedRoute roles={['superadmin']}><SuperadminDashboard /></ProtectedRoute>} />
+        <Route path="/admin/landlords" element={<ProtectedRoute roles={['superadmin']}><Landlords /></ProtectedRoute>} />
 
-// Page transition variants
-const pageVariants = {
-  initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -20 }
-};
+        {/* Tenant portal */}
+        <Route path="/portal" element={<ProtectedRoute roles={['tenant']}><TenantPortal /></ProtectedRoute>} />
 
-// App Layout component
-const AppLayout = () => {
-  const location = useLocation();
-  const isLoginPage = location.pathname === '/login';
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {!isLoginPage && <Navbar />}
-      
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={location.pathname}
-          initial="initial"
-          animate="animate"
-          exit="exit"
-          variants={pageVariants}
-          transition={{ duration: 0.3 }}
-          className={!isLoginPage ? "pt-16" : ""}
-        >
-          <Routes location={location}>
-            {/* Public Routes */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-
-            {/* Protected Routes */}
-            <Route element={<ProtectedRoute />}>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/list" element={<PropertyListings />} />
-              <Route path="/add" element={<Add />} />
-              <Route path="/update/:id" element={<Update />} />
-              <Route path="/appointments" element={<Appointments />} />
-            </Route>
-
-            {/* 404 Route */}
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
-          </Routes>
-        </motion.div>
-      </AnimatePresence>
-    </div>
-  );
-};
-
-const App = () => {
-  return (
-    <ErrorBoundary
-      FallbackComponent={ErrorFallback}
-      onReset={() => window.location.reload()}
-    >
-      <AuthProvider>
-        <AppLayout />
-        
-        {/* Toast Notifications */}
-        <Toaster 
-          position="top-right"
-          toastOptions={{
-            duration: APP_CONSTANTS.DEFAULT_TOAST_DURATION,
-            style: {
-              background: '#333',
-              color: '#fff',
-              borderRadius: '8px',
-              fontSize: '14px',
-            },
-            success: {
-              iconTheme: {
-                primary: '#10B981',
-                secondary: '#fff',
-              },
-            },
-            error: {
-              iconTheme: {
-                primary: '#EF4444',
-                secondary: '#fff',
-              },
-            },
-          }}
-        />
-      </AuthProvider>
-    </ErrorBoundary>
-  );
-};
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: { background: '#1f2937', color: '#fff', borderRadius: '8px', fontSize: '14px' },
+          success: { iconTheme: { primary: '#10B981', secondary: '#fff' } },
+          error: { iconTheme: { primary: '#EF4444', secondary: '#fff' } },
+        }}
+      />
+    </AuthProvider>
+  </ErrorBoundary>
+);
 
 export default App;
