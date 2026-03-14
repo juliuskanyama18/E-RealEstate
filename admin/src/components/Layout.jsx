@@ -3,7 +3,7 @@ import Sidebar from './Sidebar';
 import Navbar from './Navbar';
 
 const Layout = ({ children }) => {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
     <div className="flex min-h-screen bg-gray-50">

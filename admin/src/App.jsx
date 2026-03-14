@@ -14,6 +14,7 @@ import Register from './pages/Register';
 // Landlord pages
 import LandlordDashboard from './pages/landlord/Dashboard';
 import Houses from './pages/landlord/Houses';
+import AddProperty from './pages/landlord/AddProperty';
 import HouseDetail from './pages/landlord/HouseDetail';
 import Tenants from './pages/landlord/Tenants';
 import TenantDetail from './pages/landlord/TenantDetail';
@@ -41,6 +42,7 @@ const App = () => (
         {/* Landlord */}
         <Route path="/dashboard" element={<ProtectedRoute roles={['landlord']}><LandlordDashboard /></ProtectedRoute>} />
         <Route path="/houses" element={<ProtectedRoute roles={['landlord']}><Houses /></ProtectedRoute>} />
+        <Route path="/houses/new" element={<ProtectedRoute roles={['landlord']}><AddProperty /></ProtectedRoute>} />
         <Route path="/houses/:id" element={<ProtectedRoute roles={['landlord']}><HouseDetail /></ProtectedRoute>} />
         <Route path="/tenants" element={<ProtectedRoute roles={['landlord']}><Tenants /></ProtectedRoute>} />
         <Route path="/tenants/:id" element={<ProtectedRoute roles={['landlord']}><TenantDetail /></ProtectedRoute>} />

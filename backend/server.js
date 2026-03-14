@@ -4,6 +4,7 @@ import cors from "cors";
 import helmet from "helmet";
 import compression from "compression";
 import rateLimit from "express-rate-limit";
+import path from "path";
 import bcrypt from "bcrypt";
 import connectdb from "./config/mongodb.js";
 import User from "./models/User.js";
@@ -23,7 +24,7 @@ if (process.env.NODE_ENV === "production") {
   app.set("trust proxy", "loopback");
 }
 
-app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false, crossOriginResourcePolicy: false }));
 app.use(compression());
 app.use(
   rateLimit({
@@ -50,6 +51,8 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
+
+app.use("/uploads", express.static(path.resolve("uploads")));
 
 app.use("/api/auth", authRoute);
 app.use("/api/admin", superadminRoute);

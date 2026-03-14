@@ -4,6 +4,7 @@ import {
   getHouses,
   getHouse,
   updateHouse,
+  updateHousePhoto,
   deleteHouse,
   getHouseTenants,
   addTenant,
@@ -23,6 +24,7 @@ router.post("/houses", createHouse);
 router.get("/houses", getHouses);
 router.get("/houses/:id", getHouse);
 router.put("/houses/:id", updateHouse);
+router.put("/houses/:id/photo", updateHousePhoto);
 router.delete("/houses/:id", deleteHouse);
 router.get("/houses/:id/tenants", getHouseTenants);
 

@@ -1,9 +1,31 @@
 import bcrypt from "bcrypt";
 import validator from "validator";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 import House from "../models/House.js";
 import User from "../models/User.js";
 import { sendEmail } from "../config/nodemailer.js";
 import { getTenantWelcomeTemplate } from "../utils/emailTemplates.js";
+
+// ─── Multer setup for house photos ─────────────────────────────────────────
+const uploadDir = path.resolve("uploads/houses");
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, uploadDir),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `${Date.now()}-${Math.round(Math.random() * 1e6)}${ext}`);
+  },
+});
+export const uploadHousePhoto = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  fileFilter: (_req, file, cb) => {
+    cb(null, file.mimetype.startsWith("image/"));
+  },
+}).single("photo");
 
 // ─── Houses ────────────────────────────────────────────────────────────────
 
@@ -74,6 +96,35 @@ export const updateHouse = async (req, res) => {
   } catch (error) {
     res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
+};
+
+export const updateHousePhoto = (req, res) => {
+  uploadHousePhoto(req, res, async (err) => {
+    if (err) return res.status(400).json({ success: false, message: err.message });
+    try {
+      const house = await House.findOne({ _id: req.params.id, landlord: req.user._id });
+      if (!house) return res.status(404).json({ success: false, message: "House not found" });
+
+      // Delete old photo file if it exists
+      if (house.photo) {
+        const oldPath = path.resolve(house.photo.replace(/^\//, ""));
+        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+      }
+
+      const updates = {};
+      if (req.file) updates.photo = `/uploads/houses/${req.file.filename}`;
+      if (req.body.nickname !== undefined) updates.nickname = req.body.nickname.trim();
+
+      const updated = await House.findOneAndUpdate(
+        { _id: req.params.id, landlord: req.user._id },
+        updates,
+        { new: true }
+      );
+      res.json({ success: true, message: "House updated", data: updated });
+    } catch (error) {
+      res.status(500).json({ success: false, message: "Server error", error: error.message });
+    }
+  });
 };
 
 export const deleteHouse = async (req, res) => {

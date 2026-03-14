@@ -81,7 +81,7 @@ const Sidebar = ({ isOpen = true }) => {
               <Building2 size={20} className="text-white" />
             </div>
             <div className="min-w-0">
-              <p className="text-white font-bold text-sm leading-tight truncate">RentalSaaS</p>
+              <p className="text-white font-bold text-sm leading-tight">Rental<br/>Management<br/>System</p>
               <p className="text-gray-400 text-xs mt-0.5">Tanzania</p>
             </div>
           </div>

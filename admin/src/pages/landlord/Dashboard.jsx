@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import {
-  Home, Users, Building2, AlertCircle, Calendar,
-  CheckCircle, Clock, FileText, Bell, ChevronLeft, ChevronRight,
+  Home, Users, Building2, Calendar,
+  Clock, FileText, Bell, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import Layout from '../../components/Layout';
 import { backendUrl, API } from '../../config/constants';
@@ -78,24 +78,35 @@ const DateChip = ({ value, onChange }) => {
 };
 
 /* ── Cashflow Chart ────────────────────────────────────────── */
-// SVG: full-width (no left axis padding), bars fill entire width
 const CF_W        = 560;
-const CF_H        = 230;  // total SVG height
-const CF_BAR_AREA = 185;  // height reserved for bars (remaining = month labels)
-const CF_BASELINE = 123;  // income above, expenses below (≈66%)
-const CF_BAR_SLOT = CF_W / 12;          // 46.67px per month
-const CF_BAR_W    = 27;                 // bar width
-const CF_BAR_X0   = (CF_BAR_SLOT - CF_BAR_W) / 2;  // ≈9.8 (center bar in slot)
+const CF_H        = 230;
+const CF_BAR_AREA = 185;
+const CF_BASELINE = 123;
+const CF_BAR_SLOT = CF_W / 12;
+const CF_BAR_W    = 27;
+const CF_BAR_X0   = (CF_BAR_SLOT - CF_BAR_W) / 2;
 const CF_MONTHS_L = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-const CF_INC_H    = [84, 91, 85, 100, 87, 108, 89, 116, 90, 125, 92, 123];
-const CF_EXP_H    = [42, 46, 43,  50, 44,  55, 45,  59, 46,  63, 47,  62];
 const CF_GRID_Y   = Array.from({ length: 13 }, (_, i) => Math.round((CF_BAR_AREA / 12) * i));
 
 const CashflowChart = ({ income, expenses }) => {
   const yr = new Date().getFullYear();
+  const currentMonth = new Date().getMonth(); // 0–11
   const [fromDate, setFromDate] = useState(new Date(yr, 0, 1));
   const [toDate,   setToDate]   = useState(new Date(yr, 11, 31));
   const net = income - expenses;
+
+  // Scale: top of bar area = chartMax TZS. Give some headroom above the bar.
+  const chartMax = Math.max(income, expenses, 1) * 1.4;
+  const toBarH = (val, maxH) =>
+    val > 0 ? Math.max(Math.round((val / chartMax) * maxH), 4) : 0;
+
+  // Only current month has real data; all other months are 0 (no history yet)
+  const incBars = Array.from({ length: 12 }, (_, i) =>
+    i === currentMonth ? toBarH(income, CF_BASELINE) : 0
+  );
+  const expBars = Array.from({ length: 12 }, (_, i) =>
+    i === currentMonth ? toBarH(expenses, CF_H - CF_BASELINE - 30) : 0
+  );
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
@@ -108,12 +119,12 @@ const CashflowChart = ({ income, expenses }) => {
         </div>
       </div>
 
-      {/* Summary stats — value on top, circle dot + label below */}
+      {/* Summary stats */}
       <div className="flex items-start gap-8 mb-3">
         {[
           { label: 'INCOME',   value: income,   color: 'bg-blue-500' },
           { label: 'EXPENSES', value: expenses, color: 'bg-blue-200' },
-          { label: 'NET',      value: net,       color: 'bg-slate-700' },
+          { label: 'NET',      value: net,      color: 'bg-slate-700' },
         ].map(({ label, value, color }) => (
           <div key={label}>
             <p className="text-base font-bold text-gray-900">TZS {value.toLocaleString()}</p>
@@ -125,7 +136,7 @@ const CashflowChart = ({ income, expenses }) => {
         ))}
       </div>
 
-      {/* SVG — bars fill full card width, no left axis padding */}
+      {/* SVG */}
       <svg
         viewBox={`0 0 ${CF_W} ${CF_H}`}
         className="w-full"
@@ -141,16 +152,22 @@ const CashflowChart = ({ income, expenses }) => {
         ))}
 
         {/* Income bars — grow upward from baseline */}
-        {CF_INC_H.map((h, i) => (
+        {incBars.map((h, i) => (
           <g key={i} transform={`translate(${CF_BAR_X0 + i * CF_BAR_SLOT}, ${CF_BASELINE - h})`}>
-            <rect width={CF_BAR_W} height={h} rx={0} fill="#eeeeee" strokeWidth={0} />
+            <rect
+              width={CF_BAR_W} height={h} rx={0} strokeWidth={0}
+              fill={i === currentMonth && h > 0 ? '#3B82F6' : '#eeeeee'}
+            />
           </g>
         ))}
 
         {/* Expense bars — grow downward from baseline */}
-        {CF_EXP_H.map((h, i) => (
+        {expBars.map((h, i) => (
           <g key={i} transform={`translate(${CF_BAR_X0 + i * CF_BAR_SLOT}, ${CF_BASELINE})`}>
-            <rect width={CF_BAR_W} height={h} rx={0} fill="#f5f5f5" strokeWidth={0} />
+            <rect
+              width={CF_BAR_W} height={h} rx={0} strokeWidth={0}
+              fill={i === currentMonth && h > 0 ? '#93C5FD' : '#f5f5f5'}
+            />
           </g>
         ))}
 
@@ -163,7 +180,12 @@ const CashflowChart = ({ income, expenses }) => {
                 dominantBaseline="text-before-edge"
                 textAnchor="middle"
                 y={7}
-                style={{ fontFamily: 'sans-serif', fontSize: '11px', fill: 'rgb(134,156,189)' }}
+                style={{
+                  fontFamily: 'sans-serif',
+                  fontSize: '11px',
+                  fill: i === currentMonth ? '#3B82F6' : 'rgb(134,156,189)',
+                  fontWeight: i === currentMonth ? 'bold' : 'normal',
+                }}
               >
                 {m}
               </text>
@@ -174,6 +196,21 @@ const CashflowChart = ({ income, expenses }) => {
     </div>
   );
 };
+
+/* ── House Icon (Rent Received) ────────────────────────────── */
+const HouseIcon = ({ size = 18, className = '' }) => (
+  <svg className={className} focusable="false" aria-hidden="true" viewBox="0 0 24 24" width={size} height={size} fill="currentColor">
+    <path d="M19 9.3V4h-3v2.6L12 3 2 12h3v8h6v-6h2v6h6v-8h3zM17 18h-2v-6H9v6H7v-7.81l5-4.5 5 4.5z"/>
+    <path d="M10 10h4c0-1.1-.9-2-2-2s-2 .9-2 2"/>
+  </svg>
+);
+
+/* ── Alarm Clock Icon (Rent Overdue) ───────────────────────── */
+const AlarmClockIcon = ({ size = 18, className = '' }) => (
+  <svg className={className} focusable="false" aria-hidden="true" viewBox="0 0 24 24" width={size} height={size} fill="currentColor">
+    <path d="m22 5.7-4.6-3.9-1.3 1.5 4.6 3.9zM7.9 3.4 6.6 1.9 2 5.7l1.3 1.5zM12.5 8H11v6l4.7 2.9.8-1.2-4-2.4zM12 4c-5 0-9 4-9 9s4 9 9 9 9-4 9-9-4-9-9-9m0 16c-3.9 0-7-3.1-7-7s3.1-7 7-7 7 3.1 7 7-3.1 7-7 7"/>
+  </svg>
+);
 
 /* ── Payment Tile ──────────────────────────────────────────── */
 const PaymentTile = ({ title, amount, icon: Icon, iconBg, iconColor, sub }) => (
@@ -272,7 +309,7 @@ const LandlordDashboard = () => {
               <PaymentTile
                 title="Rent Received"
                 amount={rentReceived}
-                icon={CheckCircle}
+                icon={HouseIcon}
                 iconBg="bg-green-100"
                 iconColor="text-green-600"
                 sub={`${paidTenants.length} tenant${paidTenants.length !== 1 ? 's' : ''} paid this month`}
@@ -288,7 +325,7 @@ const LandlordDashboard = () => {
               <PaymentTile
                 title="Rent Overdue"
                 amount={overdueAmount}
-                icon={AlertCircle}
+                icon={AlarmClockIcon}
                 iconBg="bg-red-100"
                 iconColor="text-red-500"
                 sub={`${overdueTenants.length} tenant${overdueTenants.length !== 1 ? 's' : ''} overdue`}
@@ -302,7 +339,7 @@ const LandlordDashboard = () => {
               <div className="lg:col-span-3 space-y-4">
 
                 {/* Cashflow chart */}
-                <CashflowChart income={totalMonthlyRent} expenses={0} />
+                <CashflowChart income={rentReceived} expenses={0} />
 
                 {/* Properties & Tenants */}
                 <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">

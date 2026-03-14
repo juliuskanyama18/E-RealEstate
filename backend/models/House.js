@@ -42,6 +42,13 @@ const houseSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    nickname: {
+      type: String,
+      trim: true,
+    },
+    photo: {
+      type: String, // relative URL, e.g. /uploads/houses/<filename>
+    },
     isOccupied: {
       type: Boolean,
       default: false,
