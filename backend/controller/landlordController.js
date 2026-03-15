@@ -5,6 +5,7 @@ import path from "path";
 import fs from "fs";
 import House from "../models/House.js";
 import User from "../models/User.js";
+import MaintenanceRequest from "../models/MaintenanceRequest.js";
 import { sendEmail } from "../config/nodemailer.js";
 import { getTenantWelcomeTemplate } from "../utils/emailTemplates.js";
 
@@ -105,14 +106,24 @@ export const updateHousePhoto = (req, res) => {
       const house = await House.findOne({ _id: req.params.id, landlord: req.user._id });
       if (!house) return res.status(404).json({ success: false, message: "House not found" });
 
-      // Delete old photo file if it exists
-      if (house.photo) {
-        const oldPath = path.resolve(house.photo.replace(/^\//, ""));
-        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+      const updates = {};
+
+      if (req.file) {
+        // New photo uploaded — delete old file first, then replace
+        if (house.photo) {
+          const oldPath = path.resolve(house.photo.replace(/^\//, ""));
+          if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+        }
+        updates.photo = `/uploads/houses/${req.file.filename}`;
+      } else if (req.body.removePhoto === "true") {
+        // User explicitly deleted the photo — remove file and clear field
+        if (house.photo) {
+          const oldPath = path.resolve(house.photo.replace(/^\//, ""));
+          if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+        }
+        updates.photo = null;
       }
 
-      const updates = {};
-      if (req.file) updates.photo = `/uploads/houses/${req.file.filename}`;
       if (req.body.nickname !== undefined) updates.nickname = req.body.nickname.trim();
 
       const updated = await House.findOneAndUpdate(
@@ -314,6 +325,177 @@ export const removeTenant = async (req, res) => {
     }
 
     res.json({ success: true, message: "Tenant removed" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+// ─── Maintenance ────────────────────────────────────────────────────────────
+
+// Multer for maintenance photos
+const maintUploadDir = path.resolve("uploads/maintenance");
+if (!fs.existsSync(maintUploadDir)) fs.mkdirSync(maintUploadDir, { recursive: true });
+
+const maintStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, maintUploadDir),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `${Date.now()}-${Math.round(Math.random() * 1e6)}${ext}`);
+  },
+});
+export const uploadMaintenancePhotos = multer({
+  storage: maintStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => cb(null, file.mimetype.startsWith("image/")),
+}).array("photos", 10);
+
+export const createMaintenanceRequest = async (req, res) => {
+  try {
+    const { houseId, category, title, description, preferredTime } = req.body;
+
+    const house = await House.findOne({ _id: houseId, landlord: req.user._id });
+    if (!house) return res.status(404).json({ success: false, message: "House not found" });
+
+    const photos = (req.files || []).map(f => `/uploads/maintenance/${f.filename}`);
+
+    const request = await MaintenanceRequest.create({
+      landlord: req.user._id,
+      house: houseId,
+      category,
+      title,
+      description,
+      photos,
+      preferredTime: preferredTime || "ANYTIME",
+      submittedBy: "landlord",
+      activityLog: [{ entryType: "created", addedBy: "landlord", timestamp: new Date() }],
+    });
+
+    res.status(201).json({ success: true, data: request });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const getMaintenanceRequests = async (req, res) => {
+  try {
+    const filter = { landlord: req.user._id };
+    if (req.query.houseId) filter.house = req.query.houseId;
+
+    const requests = await MaintenanceRequest.find(filter)
+      .populate("house", "name address city")
+      .sort({ createdAt: -1 });
+
+    res.json({ success: true, data: requests });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const getMaintenanceRequest = async (req, res) => {
+  try {
+    const request = await MaintenanceRequest.findOne({ _id: req.params.id, landlord: req.user._id })
+      .populate("house", "name address city")
+      .populate("tenant", "name email");
+    if (!request) return res.status(404).json({ success: false, message: "Request not found" });
+    res.json({ success: true, data: request });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const updateMaintenanceRequest = async (req, res) => {
+  try {
+    const { category, title, description, preferredTime, existingPhotos } = req.body;
+
+    const request = await MaintenanceRequest.findOne({ _id: req.params.id, landlord: req.user._id });
+    if (!request) return res.status(404).json({ success: false, message: "Request not found" });
+
+    // Determine which existing photos to keep
+    const keepPhotos = existingPhotos ? JSON.parse(existingPhotos) : request.photos;
+
+    // Delete removed photos from filesystem
+    const removedPhotos = request.photos.filter(p => !keepPhotos.includes(p));
+    for (const photoPath of removedPhotos) {
+      const filePath = path.resolve(photoPath.replace(/^\//, ""));
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    }
+
+    // Add newly uploaded photos
+    const newPhotos = (req.files || []).map(f => `/uploads/maintenance/${f.filename}`);
+    const updatedPhotos = [...keepPhotos, ...newPhotos];
+
+    const updates = { photos: updatedPhotos };
+    if (category) updates.category = category;
+    if (title) updates.title = title;
+    if (description !== undefined) updates.description = description;
+    if (preferredTime) updates.preferredTime = preferredTime;
+
+    const updated = await MaintenanceRequest.findOneAndUpdate(
+      { _id: req.params.id, landlord: req.user._id },
+      updates,
+      { new: true, runValidators: true }
+    ).populate("house", "name address city").populate("tenant", "name email");
+
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const updateMaintenanceStatus = async (req, res) => {
+  try {
+    const entry = { entryType: "status_update", status: req.body.status, addedBy: "landlord", timestamp: new Date() };
+    const request = await MaintenanceRequest.findOneAndUpdate(
+      { _id: req.params.id, landlord: req.user._id },
+      { status: req.body.status, $push: { activityLog: entry } },
+      { new: true, runValidators: true }
+    );
+    if (!request) return res.status(404).json({ success: false, message: "Request not found" });
+    res.json({ success: true, data: request });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const addMaintenanceNote = async (req, res) => {
+  try {
+    const { note } = req.body;
+    if (!note?.trim()) return res.status(400).json({ success: false, message: "Note is required" });
+    const entry = { entryType: "note", note: note.trim(), addedBy: "landlord", timestamp: new Date() };
+    const request = await MaintenanceRequest.findOneAndUpdate(
+      { _id: req.params.id, landlord: req.user._id },
+      { $push: { activityLog: entry } },
+      { new: true, runValidators: true }
+    ).populate("house", "name address city").populate("tenant", "name email");
+    if (!request) return res.status(404).json({ success: false, message: "Request not found" });
+    res.json({ success: true, data: request });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const toggleMaintenanceStar = async (req, res) => {
+  try {
+    const request = await MaintenanceRequest.findOne({ _id: req.params.id, landlord: req.user._id });
+    if (!request) return res.status(404).json({ success: false, message: "Request not found" });
+    request.starred = !request.starred;
+    await request.save();
+    res.json({ success: true, data: { starred: request.starred } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const updateMaintenanceProContact = async (req, res) => {
+  try {
+    const { proContacts } = req.body;
+    const request = await MaintenanceRequest.findOneAndUpdate(
+      { _id: req.params.id, landlord: req.user._id },
+      { proContacts: proContacts || [] },
+      { new: true, runValidators: true }
+    );
+    if (!request) return res.status(404).json({ success: false, message: "Request not found" });
+    res.json({ success: true, data: request });
   } catch (error) {
     res.status(500).json({ success: false, message: "Server error", error: error.message });
   }

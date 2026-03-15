@@ -2,8 +2,9 @@ import { NavLink } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import {
   LayoutDashboard, Building2, Users, Wrench,
-  ShieldCheck, Home, Landmark, BarChart2,
+  ShieldCheck, Home, Landmark, CreditCard, LogOut,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 /* ── Nav config ─────────────────────────────────────────────── */
 const landlordSections = [
@@ -14,7 +15,7 @@ const landlordSections = [
       { to: '/organisation', icon: Landmark, label: 'Organisation' },
       { to: '/houses', icon: Building2, label: 'Properties' },
       { to: '/tenants', icon: Users, label: 'Tenants' },
-      { to: '/reports', icon: BarChart2, label: 'Reports' },
+      { to: '/payments', icon: CreditCard, label: 'Payments' },
       { to: '/maintenance', icon: Wrench, label: 'Maintenance' },
     ],
   },
@@ -50,81 +51,171 @@ const sectionsByRole = {
   tenant: tenantSections,
 };
 
+/* ── Sidebar styles — matching Avail nav spec ────────────────── */
+const navStyle = {
+  width: '100%',
+  height: '100%',
+  overflow: 'visible',
+  padding: '16px 0',
+  zIndex: 1012,
+  color: '#042238',
+  fontFamily: '"Inter", ui-sans-serif, system-ui, -apple-system, sans-serif',
+  fontSize: 14,
+  WebkitFontSmoothing: 'antialiased',
+  textRendering: 'optimizeLegibility',
+  lineHeight: 1.42857143,
+  boxSizing: 'border-box',
+};
+
 /* ── Component ──────────────────────────────────────────────── */
 const Sidebar = ({ isOpen = true }) => {
-  const { role } = useAuth();
+  const { role, user, logout } = useAuth();
+  const navigate = useNavigate();
   const sections = sectionsByRole[role] || [];
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
     <>
-      {/* Spacer keeps flex layout correct when sidebar is fixed */}
+      {/* Flex spacer */}
       <div
         className={`flex-shrink-0 transition-all duration-300 ${isOpen ? 'w-64' : 'w-0'}`}
         aria-hidden="true"
       />
 
       <aside
-        className={`fixed left-0 top-0 h-screen w-64 bg-gray-900 flex flex-col z-30 border-r border-gray-800 transition-transform duration-300 ${
+        className={`fixed left-0 top-0 h-screen w-64 flex flex-col z-30 transition-transform duration-300 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
+        style={{ background: '#042238', borderRight: '1px solid #0a3050' }}
       >
-        {/* ── Logo Area ─────────────────────────────────────────── */}
-        <div className="px-5 py-5 border-b border-gray-800">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center overflow-hidden flex-shrink-0">
+        {/* ── Logo ──────────────────────────────────────────────── */}
+        <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid #0a3050', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{
+              width: 36, height: 36, borderRadius: 8,
+              background: '#ffffff20', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0, overflow: 'hidden',
+            }}>
               <img
                 src="/logo.png"
                 alt="Logo"
-                className="w-full h-full object-contain"
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                 onError={(e) => { e.currentTarget.style.display = 'none'; }}
               />
-              <Building2 size={20} className="text-white" />
+              <Building2 size={18} color="#fff" />
             </div>
-            <div className="min-w-0">
-              <p className="text-white font-bold text-sm leading-tight">Rental<br/>Management<br/>System</p>
-              <p className="text-gray-400 text-xs mt-0.5">Tanzania</p>
+            <div style={{ minWidth: 0 }}>
+              <p style={{ fontWeight: 700, fontSize: 13, color: '#ffffff', lineHeight: 1.25, margin: 0 }}>
+                Rental<br />Management
+              </p>
+              <p style={{ fontSize: 11, color: '#7ea8c4', margin: '2px 0 0' }}>Tanzania</p>
             </div>
           </div>
         </div>
 
         {/* ── Navigation ────────────────────────────────────────── */}
-        <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-5">
+        <nav style={{ ...navStyle, color: '#fff', flex: 1, overflowY: 'auto' }}>
           {sections.map((section, si) => (
-            <div key={si}>
+            <div key={si} style={{ marginBottom: section.label ? 8 : 0 }}>
               {section.label && (
-                <p className="px-3 mb-1.5 text-xs font-semibold text-gray-500 uppercase tracking-widest">
+                <p style={{
+                  padding: '4px 20px 6px',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: '#7ea8c4',
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  margin: 0,
+                }}>
                   {section.label}
                 </p>
               )}
-              <div className="space-y-0.5">
-                {section.links.map(({ to, icon: Icon, label, end: isEnd }) => (
-                  <NavLink
-                    key={to}
-                    to={to}
-                    end={isEnd}
-                    className={({ isActive }) =>
-                      `group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
-                        isActive
-                          ? 'bg-blue-600 text-white shadow-sm'
-                          : 'text-gray-400 hover:bg-gray-800 hover:text-white'
-                      }`
-                    }
-                  >
-                    {({ isActive }) => (
-                      <>
-                        <Icon
-                          size={18}
-                          className={isActive ? 'text-white' : 'text-gray-500 group-hover:text-gray-300 transition-colors'}
-                        />
-                        {label}
-                      </>
-                    )}
-                  </NavLink>
-                ))}
-              </div>
+              {section.links.map(({ to, icon: Icon, label, end: isEnd }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  end={isEnd}
+                  style={({ isActive }) => ({
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '9px 20px',
+                    fontSize: 14,
+                    fontWeight: isActive ? 600 : 400,
+                    color: isActive ? '#ffffff' : '#93c5d8',
+                    background: isActive ? '#ffffff18' : 'transparent',
+                    borderLeft: isActive ? '3px solid #4da6d0' : '3px solid transparent',
+                    textDecoration: 'none',
+                    transition: 'background 0.15s, color 0.15s',
+                    lineHeight: 1.42857143,
+                    WebkitFontSmoothing: 'antialiased',
+                    textRendering: 'optimizeLegibility',
+                    boxSizing: 'border-box',
+                  })}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = '#ffffff12';
+                    e.currentTarget.style.color = '#ffffff';
+                  }}
+                  onMouseLeave={e => {
+                    const active = e.currentTarget.getAttribute('aria-current') === 'page';
+                    e.currentTarget.style.background = active ? '#ffffff18' : 'transparent';
+                    e.currentTarget.style.color = active ? '#ffffff' : '#93c5d8';
+                  }}
+                >
+                  {({ isActive }) => (
+                    <>
+                      <Icon
+                        size={17}
+                        color={isActive ? '#ffffff' : '#7ea8c4'}
+                        style={{ flexShrink: 0 }}
+                      />
+                      {label}
+                    </>
+                  )}
+                </NavLink>
+              ))}
             </div>
           ))}
         </nav>
+
+        {/* ── User + Logout ──────────────────────────────────────── */}
+        <div style={{ borderTop: '1px solid #0a3050', padding: '12px 16px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: '50%',
+              background: '#ffffff25', color: '#fff',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 12, fontWeight: 700, flexShrink: 0,
+            }}>
+              {user?.name?.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase() || '?'}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: 13, fontWeight: 600, color: '#ffffff', margin: 0, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {user?.name}
+              </p>
+              <p style={{ fontSize: 11, color: '#7ea8c4', margin: '1px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {user?.email}
+              </p>
+            </div>
+            <button
+              onClick={handleLogout}
+              title="Logout"
+              style={{
+                flexShrink: 0, border: 'none', background: 'none',
+                cursor: 'pointer', padding: 6, borderRadius: 6,
+                color: '#7ea8c4', display: 'flex', alignItems: 'center',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#ffffff15'; e.currentTarget.style.color = '#fff'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#7ea8c4'; }}
+            >
+              <LogOut size={16} />
+            </button>
+          </div>
+        </div>
       </aside>
     </>
   );

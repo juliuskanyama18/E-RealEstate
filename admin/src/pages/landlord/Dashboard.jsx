@@ -288,7 +288,8 @@ const LandlordDashboard = () => {
 
   return (
     <Layout>
-      <main className="flex-1 p-6 space-y-5">
+      <main className="flex-1 min-h-screen bg-[#f5f6f8]">
+      <div className="max-w-[1100px] mx-auto px-6 py-7 space-y-5">
 
         {/* Greeting */}
         <div>
@@ -423,6 +424,7 @@ const LandlordDashboard = () => {
             </div>
           </>
         )}
+      </div>
       </main>
     </Layout>
   );

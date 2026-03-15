@@ -13,6 +13,15 @@ import {
   updateTenant,
   updateTenantBalance,
   removeTenant,
+  createMaintenanceRequest,
+  getMaintenanceRequests,
+  getMaintenanceRequest,
+  updateMaintenanceRequest,
+  updateMaintenanceStatus,
+  addMaintenanceNote,
+  toggleMaintenanceStar,
+  updateMaintenanceProContact,
+  uploadMaintenancePhotos,
 } from "../controller/landlordController.js";
 import { protect, requireActive, requireRole } from "../middleware/auth.js";
 
@@ -34,5 +43,14 @@ router.get("/tenants/:id", getTenant);
 router.put("/tenants/:id", updateTenant);
 router.put("/tenants/:id/balance", updateTenantBalance);
 router.delete("/tenants/:id", removeTenant);
+
+router.post("/maintenance", uploadMaintenancePhotos, createMaintenanceRequest);
+router.get("/maintenance", getMaintenanceRequests);
+router.get("/maintenance/:id", getMaintenanceRequest);
+router.put("/maintenance/:id", uploadMaintenancePhotos, updateMaintenanceRequest);
+router.put("/maintenance/:id/status", updateMaintenanceStatus);
+router.post("/maintenance/:id/note", addMaintenanceNote);
+router.put("/maintenance/:id/star", toggleMaintenanceStar);
+router.put("/maintenance/:id/pro", updateMaintenanceProContact);
 
 export default router;

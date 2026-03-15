@@ -153,11 +153,13 @@ const Houses = () => {
   const [totalModal, setTotalModal] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [draftCount, setDraftCount] = useState(0);
-  const [photoModal, setPhotoModal]     = useState(null); // house object
+  const [photoModal, setPhotoModal]       = useState(null);
   const [photoNickname, setPhotoNickname] = useState('');
-  const [photoFile, setPhotoFile]       = useState(null);
-  const [photoPreview, setPhotoPreview] = useState(null);
-  const [photoSaving, setPhotoSaving]   = useState(false);
+  const [photoFile, setPhotoFile]         = useState(null);
+  const [photoPreview, setPhotoPreview]   = useState(null);
+  const [photoRotation, setPhotoRotation] = useState(0);
+  const [photoDeleted, setPhotoDeleted]   = useState(false);
+  const [photoSaving, setPhotoSaving]     = useState(false);
 
   const fetchHouses = async () => {
     try {
@@ -245,19 +247,24 @@ const Houses = () => {
     setPhotoModal(h);
     setPhotoNickname(h.nickname || '');
     setPhotoFile(null);
-    setPhotoPreview(h.photo || null);
+    setPhotoPreview(h.photo ? `${backendUrl}${h.photo}` : null);
+    setPhotoRotation(0);
+    setPhotoDeleted(false);
   };
   const closePhotoModal = () => {
     setPhotoModal(null);
     setPhotoNickname('');
     setPhotoFile(null);
     setPhotoPreview(null);
+    setPhotoRotation(0);
+    setPhotoDeleted(false);
   };
   const handlePhotoFileChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setPhotoFile(file);
     setPhotoPreview(URL.createObjectURL(file));
+    setPhotoDeleted(false);
   };
   const handlePhotoDrop = (e) => {
     e.preventDefault();
@@ -265,19 +272,22 @@ const Houses = () => {
     if (!file || !file.type.startsWith('image/')) return;
     setPhotoFile(file);
     setPhotoPreview(URL.createObjectURL(file));
+    setPhotoDeleted(false);
   };
   const handlePhotoSave = async (e) => {
     e.preventDefault();
     setPhotoSaving(true);
     try {
+      const fd = new FormData();
+      fd.append('nickname', photoNickname);
       if (photoFile) {
-        const fd = new FormData();
         fd.append('photo', photoFile);
-        if (photoNickname) fd.append('nickname', photoNickname);
-        await axios.put(`${backendUrl}${API.houses}/${photoModal._id}/photo`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
-      } else {
-        await axios.put(`${backendUrl}${API.houses}/${photoModal._id}`, { nickname: photoNickname });
+      } else if (photoDeleted) {
+        fd.append('removePhoto', 'true');
       }
+      await axios.put(`${backendUrl}${API.houses}/${photoModal._id}/photo`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
       toast.success('Property updated');
       closePhotoModal();
       fetchHouses();
@@ -403,22 +413,22 @@ const Houses = () => {
                         </button>
                       </div>
 
-                      {/* Content */}
-                      <div className="flex-1 min-w-0 flex flex-col justify-between px-5 py-4">
+                      {/* Content — matches Avail b9qcR: pl-6, full height flex-col justify-between */}
+                      <div className="flex-1 min-w-0 flex flex-col justify-between" style={{ paddingLeft: 24, paddingRight: 16, paddingTop: 20, paddingBottom: 20 }}>
 
-                        {/* Top: address + edit inline + delete */}
+                        {/* Top row — QlfSY bmNOA */}
                         <div className="flex items-start justify-between gap-2">
                           <div>
-                            <h3 className="text-sm font-semibold text-[#042238] flex items-center gap-1.5 leading-snug">
+                            <h3 style={{ fontSize: 14, fontWeight: 600, color: '#042238', lineHeight: '1.3', display: 'flex', alignItems: 'center', gap: 6 }}>
                               <Link to={`/houses/${h._id}`} className="hover:text-blue-600 transition-colors">
                                 {h.nickname || h.address || h.name}
                               </Link>
-                              <button onClick={() => openEdit(h)} className="flex-shrink-0">
-                                <Pencil size={14} className="text-[#033A6D]" />
+                              <button onClick={() => openEdit(h)} className="flex-shrink-0" style={{ color: '#033A6D', fontSize: 20, lineHeight: 1 }}>
+                                <Pencil size={14} color="#033A6D" />
                               </button>
                             </h3>
                             {locationLine && (
-                              <p className="text-xs text-gray-400 mt-0.5">{locationLine}</p>
+                              <p style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>{locationLine}</p>
                             )}
                           </div>
                           <button
@@ -429,27 +439,27 @@ const Houses = () => {
                           </button>
                         </div>
 
-                        {/* Bottom: Beds/baths | Lease | Rent */}
-                        <div className="flex gap-8">
-                          <div className="flex flex-col gap-0.5">
-                            <p className="text-[11px] text-gray-400">Beds/baths</p>
-                            <p className="text-sm font-medium text-[#042238]">
+                        {/* Bottom row — QlfSY -ws6e */}
+                        <div style={{ display: 'flex', gap: 32 }}>
+                          <div>
+                            <p style={{ fontSize: 11, color: '#9CA3AF', marginBottom: 2 }}>Beds/baths</p>
+                            <p style={{ fontSize: 14, fontWeight: 500, color: '#042238' }}>
                               {beds != null ? beds : '—'} | {baths != null ? baths : '—'}
                             </p>
                           </div>
-                          <div className="flex flex-col gap-0.5">
-                            <p className="text-[11px] text-gray-400">Lease</p>
+                          <div>
+                            <p style={{ fontSize: 11, color: '#9CA3AF', marginBottom: 2 }}>Lease</p>
                             {tenant ? (
-                              <Link to={`/houses/${h._id}`} className="text-sm text-blue-600 hover:underline font-medium leading-snug">
+                              <Link to={`/houses/${h._id}`} style={{ fontSize: 14, color: '#2563EB', fontWeight: 500, lineHeight: '1.3' }} className="hover:underline">
                                 {tenant}
                               </Link>
                             ) : (
-                              <p className="text-sm text-gray-300">—</p>
+                              <p style={{ fontSize: 14, color: '#D1D5DB' }}>—</p>
                             )}
                           </div>
-                          <div className="flex flex-col gap-0.5">
-                            <p className="text-[11px] text-gray-400">Rent</p>
-                            <p className="text-sm font-medium text-[#042238]">
+                          <div>
+                            <p style={{ fontSize: 11, color: '#9CA3AF', marginBottom: 2 }}>Rent</p>
+                            <p style={{ fontSize: 14, fontWeight: 500, color: '#042238' }}>
                               {h.rentAmount ? `TZS ${Number(h.rentAmount).toLocaleString()}` : '—'}
                             </p>
                           </div>
@@ -620,47 +630,94 @@ const Houses = () => {
 
                 {/* Photo upload */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-800 mb-1.5" htmlFor="pm-photo">
+                  <label className="block text-sm font-semibold text-gray-800 mb-1.5">
                     Property Photo
                   </label>
-                  <div
-                    className="border-2 border-dashed border-gray-200 rounded-xl overflow-hidden"
-                    onDragOver={e => e.preventDefault()}
-                    onDrop={handlePhotoDrop}
-                  >
-                    {photoPreview ? (
-                      <div className="relative">
-                        <img
-                          src={photoPreview}
-                          alt="Property preview"
-                          className="w-full h-48 object-cover"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => { setPhotoFile(null); setPhotoPreview(null); }}
-                          className="absolute top-2 right-2 bg-white/90 hover:bg-white text-gray-700 rounded-full p-1 shadow transition"
-                        >
-                          <X size={12} />
-                        </button>
+
+                  {/* RWPX4 — horizontal row: photo preview (left) + upload area (right) */}
+                  <div style={{ display: 'flex', gap: 12, height: 114, boxSizing: 'border-box' }}>
+
+                    {/* DK-iL — photo preview + action buttons (only when photo exists) */}
+                    {photoPreview && (
+                      <div style={{ display: 'flex', flex: '0 0 auto', width: 160, height: '100%', borderRadius: 6, border: '1px solid #e5e7eb', overflow: 'hidden', boxSizing: 'border-box' }}>
+                        {/* KrybB — photo */}
+                        <div style={{ flex: 1, overflow: 'hidden', background: '#f0f4f8' }}>
+                          <img
+                            src={photoPreview}
+                            alt="Property preview"
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover',
+                              display: 'block',
+                              transform: `rotate(${photoRotation}deg)`,
+                              transition: 'transform 0.3s',
+                            }}
+                          />
+                        </div>
+                        {/* Action buttons — stacked vertically, right edge */}
+                        <div style={{ display: 'flex', flexDirection: 'column', borderLeft: '1px solid #e5e7eb', flexShrink: 0 }}>
+                          <button
+                            type="button"
+                            onClick={() => setPhotoRotation(r => (r + 90) % 360)}
+                            title="Rotate"
+                            style={{
+                              flex: 1, width: 36, border: 'none', borderBottom: '1px solid #e5e7eb',
+                              background: '#fff', cursor: 'pointer', display: 'flex',
+                              alignItems: 'center', justifyContent: 'center', transition: 'background 0.15s',
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
+                            onMouseLeave={e => e.currentTarget.style.background = '#fff'}
+                          >
+                            <svg width="16" height="14" viewBox="0 0 19 16" fill="#033A6D">
+                              <path d="M2.89 9.343l-.06-.074L.578 5.98a.62.62 0 01.18-.874.66.66 0 01.838.101l.06.074 1.135 1.66C3.35 3.13 6.361.392 10.215.254c4.295-.153 7.904 3.11 8.06 7.289.161 4.18-3.193 7.693-7.488 7.846a.64.64 0 01-.67-.607.638.638 0 01.623-.653c3.58-.127 6.375-3.056 6.241-6.54-.13-3.483-3.139-6.203-6.718-6.075-3.235.116-5.754 2.415-6.2 5.672L5.51 5.581a.66.66 0 01.838-.115l.076.056c.245.208.29.556.119.815l-.058.074L3.9 9.288a.65.65 0 01-.477.26h-.1a.651.651 0 01-.433-.205z"/>
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setPhotoFile(null); setPhotoPreview(null); setPhotoRotation(0); setPhotoDeleted(true); }}
+                            title="Remove photo"
+                            style={{
+                              flex: 1, width: 36, border: 'none',
+                              background: '#fff', cursor: 'pointer', display: 'flex',
+                              alignItems: 'center', justifyContent: 'center', transition: 'background 0.15s',
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.background = '#fff1f2'}
+                            onMouseLeave={e => e.currentTarget.style.background = '#fff'}
+                          >
+                            <svg width="15" height="17" viewBox="0 0 18 20" fill="#033A6D">
+                              <path d="M12.445 0c.357 0 .646.274.646.612l-.001 1.836 4.317.001a.6.6 0 01.585.513l.008.1a.603.603 0 01-.593.611h-1.044v15.715a.622.622 0 01-.63.612H2.267a.622.622 0 01-.632-.612V3.673H.593a.6.6 0 01-.585-.512L0 3.06c0-.338.266-.612.593-.612l4.316-.001V.612C4.91.274 5.2 0 5.555 0h6.89zm2.656 3.673H2.9v15.103H15.1V3.673zm-9.456 1.94c.34 0 .614.273.614.611v9.796a.613.613 0 01-1.227 0V6.224c0-.338.275-.612.613-.612zm3.273 0c.34 0 .614.273.614.611v9.796a.613.613 0 01-1.227 0V6.224c0-.338.274-.612.613-.612zm3.273 0c.339 0 .614.273.614.611v9.796a.613.613 0 01-1.228 0V6.224c0-.338.275-.612.614-.612zm-.392-4.389H6.201V2.45h5.598V1.224z"/>
+                            </svg>
+                          </button>
+                        </div>
                       </div>
-                    ) : (
+                    )}
+
+                    {/* ojOk0 ux5Nd — upload drop zone (right side, or full width when no preview) */}
+                    <div
+                      style={{ flex: 1, height: '100%', boxSizing: 'border-box' }}
+                      className="border-2 border-dashed border-gray-200 rounded-xl overflow-hidden"
+                      onDragOver={e => e.preventDefault()}
+                      onDrop={handlePhotoDrop}
+                    >
                       <label
                         htmlFor="pm-photo"
-                        className="flex flex-col items-center justify-center gap-3 py-10 px-6 cursor-pointer hover:bg-gray-50 transition-colors"
+                        className="flex flex-col items-center justify-center gap-2 h-full px-4 cursor-pointer hover:bg-gray-50 transition-colors"
                       >
-                        <svg width="30" height="30" viewBox="0 0 24 24" fill="#042238">
+                        <svg width="26" height="26" viewBox="0 0 24 24" fill="#042238">
                           <path d="M24 5.633v17.632c0 .372-.276.68-.635.728l-.1.007H5.633v-1.47H22.53V5.634H24zm-1.96-2.94v18.613c0 .372-.276.68-.634.728l-.1.007H2.694v-1.47H20.57V2.694h1.47zM19.348 0c.406 0 .735.329.735.735v18.612a.735.735 0 01-.735.735H.735A.735.735 0 010 19.347V.735C0 .329.329 0 .735 0zm-.735 16.163H1.469v2.45h17.143v-2.45zm0-14.694H1.47v13.224h2.768l2.725-4.54a.735.735 0 011.12-.17l.074.077 1.818 2.182 3.374-5.058a.735.735 0 011.254.05l.045.1 2.759 7.359h1.206V1.469zm-4.838 7.724l-3.122 4.684a.735.735 0 01-1.098.143l-.078-.08-1.787-2.145-1.739 2.898h9.887l-2.063-5.5zM6.122 2.94a2.204 2.204 0 110 4.408 2.204 2.204 0 010-4.408zm0 1.47a.735.735 0 10.002 1.47.735.735 0 00-.002-1.47z" fillRule="evenodd"/>
                         </svg>
-                        <p className="text-sm text-gray-400">Click or drag to upload</p>
+                        <p className="text-xs text-gray-400 text-center">Click or drag to upload</p>
                       </label>
-                    )}
-                    <input
-                      id="pm-photo"
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handlePhotoFileChange}
-                    />
+                      <input
+                        id="pm-photo"
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handlePhotoFileChange}
+                      />
+                    </div>
+
                   </div>
                 </div>
 

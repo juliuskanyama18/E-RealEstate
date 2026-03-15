@@ -1,24 +1,41 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
-import { Plus, X, Trash2, Eye } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Layout from '../../components/Layout';
 import { backendUrl, API } from '../../config/constants';
 
+/* ─── design tokens ───────────────────────────────────────────── */
+const NAVY = '#042238';
+const BLUE = '#033A6D';
+const TEAL = '#069ED9';
+const FONT = '"Inter", sans-serif';
+
+/* ─── helpers ─────────────────────────────────────────────────── */
 const emptyForm = {
-  name: '', email: '', phone: '', password: '',
-  rentAmount: '', rentDueDate: '', leaseStart: '', leaseEnd: '',
-  houseId: '',
+  firstName: '', lastName: '', email: '', phone: '',
+  houseId: '', invitePortal: true,
 };
 
+const initials = name =>
+  name ? name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase() : '?';
+
+const AVATAR_COLORS = [
+  ['#EFF6FF', '#1D4ED8'], ['#F0FDF4', '#166534'],
+  ['#FEF9C3', '#A16207'], ['#FDF2F8', '#9D174D'],
+  ['#F0F9FF', '#0369A1'], ['#FFF7ED', '#C2410C'],
+];
+const avatarColor = name => AVATAR_COLORS[(name?.charCodeAt(0) || 0) % AVATAR_COLORS.length];
+
 const Tenants = () => {
-  const [tenants, setTenants] = useState([]);
-  const [houses, setHouses] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [modal, setModal] = useState(false);
-  const [form, setForm] = useState(emptyForm);
-  const [saving, setSaving] = useState(false);
+  const [tenants, setTenants]   = useState([]);
+  const [houses, setHouses]     = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [filter, setFilter]     = useState('active'); // active | past
+  const [modal, setModal]       = useState(false);
+  const [form, setForm]         = useState(emptyForm);
+  const [saving, setSaving]     = useState(false);
+  const [selected, setSelected] = useState(new Set());
 
   const fetchAll = async () => {
     try {
@@ -39,10 +56,20 @@ const Tenants = () => {
 
   const handleAdd = async (e) => {
     e.preventDefault();
+    if (!form.email && !form.phone) {
+      toast.error('Provide at least one contact: email or phone');
+      return;
+    }
     setSaving(true);
     try {
-      const payload = { ...form };
-      if (!payload.password) delete payload.password;
+      const payload = {
+        name: `${form.firstName} ${form.lastName}`.trim(),
+        email: form.email || undefined,
+        phone: form.phone || undefined,
+        houseId: form.houseId,
+        rentAmount: 0,
+        rentDueDate: 1,
+      };
       await axios.post(`${backendUrl}${API.tenants}`, payload);
       toast.success('Tenant added successfully');
       setModal(false);
@@ -66,153 +93,604 @@ const Tenants = () => {
     }
   };
 
-  const field = (key, val) => setForm((f) => ({ ...f, [key]: val }));
+  const field = (key, val) => setForm(f => ({ ...f, [key]: val }));
+
+  /* ── filter lists ── */
+  const active   = tenants.filter(t => t.isActive !== false);
+  const past     = tenants.filter(t => t.isActive === false);
+  const shown    = filter === 'active' ? active : filter === 'past' ? past : [];
+
+  /* ── segment tab config ── */
+  const TABS = [
+    { key: 'active',   label: 'Active',   count: active.length },
+    { key: 'past',     label: 'Past',     count: past.length   },
+    { key: 'archived', label: 'Archived', count: 0             },
+  ];
 
   return (
     <Layout>
-      <main className="flex-1 p-6">
-        <div className="flex items-center justify-between mb-6">
-          <p className="text-sm text-gray-500">{tenants.length} tenant{tenants.length !== 1 ? 's' : ''}</p>
-          <button onClick={() => setModal(true)} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
-            <Plus size={16} /> Add Tenant
-          </button>
+      <div style={{
+        flex: 1, overflowY: 'auto',
+        background: '#f4f6f9',
+        padding: '0',
+        fontFamily: FONT,
+        color: NAVY,
+      }}>
+
+        {/* ── Page tab bar ── */}
+        <div style={{
+          background: '#fff',
+          borderBottom: '1px solid #e4e9f0',
+          padding: '0 32px',
+        }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+            borderBottom: `3px solid ${NAVY}`,
+            padding: '15px 0 12px',
+            marginBottom: '-1px',
+          }}>
+            <span style={{
+              fontFamily: FONT, fontSize: 11, fontWeight: 700,
+              color: NAVY, letterSpacing: '0.12em', textTransform: 'uppercase',
+            }}>
+              Tenants ({tenants.length})
+            </span>
+          </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-          {loading ? (
-            <div className="p-10 flex justify-center">
-              <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : tenants.length === 0 ? (
-            <div className="p-10 text-center text-sm text-gray-400">No tenants yet.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-xs text-gray-400 uppercase tracking-wide border-b border-gray-100">
-                    <th className="text-left px-6 py-3 font-medium">Name</th>
-                    <th className="text-left px-6 py-3 font-medium">House</th>
-                    <th className="text-right px-6 py-3 font-medium">Rent (TZS)</th>
-                    <th className="text-right px-6 py-3 font-medium">Balance</th>
-                    <th className="text-center px-6 py-3 font-medium">Due Day</th>
-                    <th className="text-center px-6 py-3 font-medium">Status</th>
-                    <th className="text-right px-6 py-3 font-medium">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tenants.map((t) => (
-                    <tr key={t._id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-3.5">
-                        <p className="font-medium text-gray-900">{t.name}</p>
-                        <p className="text-xs text-gray-400">{t.email}</p>
-                      </td>
-                      <td className="px-6 py-3.5 text-gray-500">{t.house?.name || '—'}</td>
-                      <td className="px-6 py-3.5 text-right text-gray-900">{(t.rentAmount || 0).toLocaleString()}</td>
-                      <td className={`px-6 py-3.5 text-right font-medium ${(t.balance || 0) < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                        {(t.balance || 0).toLocaleString()}
-                      </td>
-                      <td className="px-6 py-3.5 text-center text-gray-500">{t.rentDueDate || '—'}</td>
-                      <td className="px-6 py-3.5 text-center">
-                        <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${t.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
-                          {t.isActive ? 'Active' : 'Suspended'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-3.5 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Link to={`/tenants/${t._id}`} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-                            <Eye size={14} />
-                          </Link>
-                          <button onClick={() => handleDelete(t._id, t.name)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        {/* ── Main content ── */}
+        <div style={{ padding: '26px 32px 48px' }}>
+          <div style={{ maxWidth: 900, margin: '0 auto' }}>
 
-        {/* Add Tenant Modal */}
-        {modal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between mb-5">
-                <h3 className="text-base font-semibold text-gray-900">Add Tenant</h3>
-                <button onClick={() => { setModal(false); setForm(emptyForm); }} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
-              </div>
-              <form onSubmit={handleAdd} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="col-span-2">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Full Name *</label>
-                    <input required value={form.name} onChange={(e) => field('name', e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Jane Doe" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Email *</label>
-                    <input required type="email" value={form.email} onChange={(e) => field('email', e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="jane@example.com" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Phone</label>
-                    <div className="flex">
-                      <span className="flex items-center px-3 border border-r-0 border-gray-200 rounded-l-lg bg-gray-50 text-xs text-gray-500 select-none">+255</span>
-                      <input
-                        type="tel"
-                        maxLength={9}
-                        value={(form.phone || '').replace(/^\+255/, '')}
-                        onChange={(e) => {
-                          const digits = e.target.value.replace(/\D/g, '').slice(0, 9);
-                          field('phone', digits ? `+255${digits}` : '');
-                        }}
-                        className="flex-1 border border-gray-200 rounded-r-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="712345678"
-                      />
-                    </div>
-                  </div>
-                  <div className="col-span-2">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">House *</label>
-                    <select required value={form.houseId} onChange={(e) => field('houseId', e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                      <option value="">Select house...</option>
-                      {houses.map((h) => (
-                        <option key={h._id} value={h._id}>{h.name} — {h.city}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Rent Amount (TZS) *</label>
-                    <input required type="number" min="0" value={form.rentAmount} onChange={(e) => field('rentAmount', e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="15000" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Rent Due Day (1–31) *</label>
-                    <input required type="number" min="1" max="31" value={form.rentDueDate} onChange={(e) => field('rentDueDate', e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="1" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Lease Start</label>
-                    <input type="date" value={form.leaseStart} onChange={(e) => field('leaseStart', e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Lease End</label>
-                    <input type="date" value={form.leaseEnd} onChange={(e) => field('leaseEnd', e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Password (optional — for tenant portal access)</label>
-                    <input type="password" value={form.password} onChange={(e) => field('password', e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Min 6 characters" />
-                  </div>
-                </div>
-                <div className="flex gap-3 pt-1">
-                  <button type="button" onClick={() => { setModal(false); setForm(emptyForm); }} className="flex-1 border border-gray-200 text-gray-600 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">Cancel</button>
-                  <button type="submit" disabled={saving} className="flex-1 bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-60 transition-colors">
-                    {saving ? 'Adding...' : 'Add Tenant'}
+          {/* ── Toolbar ── */}
+          <div style={{
+            display: 'flex', alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: 20, gap: 12, flexWrap: 'wrap',
+          }}>
+            {/* Title */}
+            <h2 style={{
+              margin: 0, fontFamily: FONT, fontSize: 19, fontWeight: 700, color: NAVY,
+              letterSpacing: '-0.01em',
+            }}>
+              {filter === 'active' ? 'Active' : filter === 'past' ? 'Past' : 'Archived'} Tenants
+              <span style={{ fontWeight: 400, color: '#8a9ab0', fontSize: 16, marginLeft: 6 }}>
+                ({shown.length})
+              </span>
+            </h2>
+
+            {/* Right controls */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {/* Segment pills */}
+              <div style={{
+                display: 'flex',
+                border: `1.5px solid #d1dce8`,
+                borderRadius: 100, overflow: 'hidden',
+                background: '#f4f7fb',
+                padding: 2,
+                gap: 1,
+              }}>
+                {TABS.map((tab) => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setFilter(tab.key)}
+                    style={{
+                      padding: '6px 16px',
+                      fontFamily: FONT, fontSize: 12, fontWeight: 600,
+                      background: filter === tab.key ? NAVY : 'transparent',
+                      color: filter === tab.key ? '#fff' : '#8a9ab0',
+                      border: 'none',
+                      borderRadius: 100,
+                      cursor: 'pointer',
+                      letterSpacing: '0.01em',
+                      boxShadow: filter === tab.key ? '0 1px 4px rgba(4,34,56,0.25)' : 'none',
+                      transition: 'all 0.15s',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {tab.label}
+                    {tab.count > 0 && (
+                      <span style={{
+                        marginLeft: 5, fontSize: 10, fontWeight: 700,
+                        background: filter === tab.key ? 'rgba(255,255,255,0.2)' : 'transparent',
+                        color: filter === tab.key ? '#fff' : '#b0bfcc',
+                        borderRadius: 10, padding: '1px 6px',
+                      }}>
+                        {tab.count}
+                      </span>
+                    )}
                   </button>
-                </div>
-              </form>
+                ))}
+              </div>
+
+              {/* Add New button */}
+              <button
+                onClick={() => setModal(true)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 7,
+                  background: NAVY, color: '#fff',
+                  border: 'none', borderRadius: 8,
+                  padding: '8px 18px',
+                  fontFamily: FONT, fontSize: 13, fontWeight: 700,
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 6px rgba(4,34,56,0.20)',
+                  letterSpacing: '0.02em',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  width: 16, height: 16, borderRadius: '50%',
+                  background: 'rgba(255,255,255,0.25)',
+                  fontSize: 14, fontWeight: 400, lineHeight: 1,
+                }}>+</span>
+                Add New
+              </button>
             </div>
           </div>
-        )}
-      </main>
+
+          {/* ── Content card ── */}
+          <div style={{
+            background: '#fff',
+            borderRadius: 12,
+            border: '1px solid #e4e9f0',
+            boxShadow: '0 2px 12px rgba(4,34,56,0.07), 0 1px 3px rgba(4,34,56,0.04)',
+            overflow: 'hidden',
+          }}>
+
+            {/* Loading */}
+            {loading && (
+              <div style={{ padding: 60, display: 'flex', justifyContent: 'center' }}>
+                <div style={{
+                  width: 32, height: 32, borderRadius: '50%',
+                  border: `3px solid ${BLUE}`, borderTopColor: 'transparent',
+                  animation: 'spin 0.8s linear infinite',
+                }}/>
+              </div>
+            )}
+
+            {/* Empty state */}
+            {!loading && shown.length === 0 && (
+              <div style={{
+                padding: '64px 24px 72px',
+                display: 'flex', flexDirection: 'column',
+                alignItems: 'center', textAlign: 'center',
+              }}>
+                {/* Icon */}
+                <div style={{ marginBottom: 22 }}>
+                  <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+                    <path d="M57.682 46.67a11.02 11.02 0 0 1 11.017 11.02c0 6.083-4.931 11.013-11.017 11.013s-11.017-4.93-11.017-11.013a11.02 11.02 0 0 1 11.017-11.02zM16.667 3.333v5l.027.3c.141.777.822 1.367 1.64 1.367H60v3.333H11.667c-.92 0-1.667.746-1.667 1.667v38.333c0 1.84-1.494 3.333-3.333 3.333l-.389-.022a3.33 3.33 0 0 1-2.944-3.311v-50h13.333z" fill="#7fe3ff"/>
+                    <path d="M57.682 43.337c7.927 0 14.35 6.426 14.35 14.353 0 3.36-1.155 6.451-3.09 8.896l10.57 10.569c.651.651.651 1.706 0 2.357s-1.706.651-2.357 0L66.586 68.943a14.29 14.29 0 0 1-8.903 3.094 14.35 14.35 0 0 1-14.35-14.347c0-7.928 6.423-14.353 14.35-14.353zm0 3.333a11.02 11.02 0 0 0-11.017 11.02c0 6.083 4.931 11.013 11.017 11.013s11.017-4.93 11.017-11.013a11.02 11.02 0 0 0-11.017-11.02zM18.333 0C19.254 0 20 .746 20 1.667v5h41.667c.818 0 1.499.59 1.64 1.367l.027.3v5h5c.818 0 1.499.59 1.64 1.367L70 15v16.667c0 .92-.746 1.667-1.667 1.667s-1.667-.746-1.667-1.667v-15H13.333v36.667c0 1.214-.325 2.353-.893 3.334h19.226c.92 0 1.667.746 1.667 1.667S32.587 60 31.667 60H6.714h-.047C2.981 60 0 57.016 0 53.333V1.667C0 .746.746 0 1.667 0h16.667zm-1.667 3.333H3.333v50a3.33 3.33 0 0 0 2.944 3.311l.389.022c1.84 0 3.333-1.494 3.333-3.333V15c0-.92.746-1.667 1.667-1.667H60V10H18.333c-.818 0-1.499-.59-1.64-1.367l-.027-.3v-5z" fill={NAVY}/>
+                  </svg>
+                </div>
+
+                <h3 style={{
+                  margin: '0 0 10px', fontFamily: FONT,
+                  fontSize: 17, fontWeight: 700, color: NAVY,
+                  letterSpacing: '-0.01em',
+                }}>
+                  {filter === 'active'
+                    ? "You don't have any active tenants"
+                    : filter === 'past'
+                      ? "No past tenants"
+                      : "No archived tenants"}
+                </h3>
+                <p style={{
+                  margin: '0 0 28px', fontFamily: FONT,
+                  fontSize: 13, color: '#69809a', lineHeight: 1.65,
+                  maxWidth: 380,
+                }}>
+                  {filter === 'active'
+                    ? "If you're not seeing a specific tenant here, try looking under past tenants, or you can always add a new tenant."
+                    : filter === 'past'
+                      ? "Suspended tenant accounts will appear here."
+                      : "Archived tenants will appear here."}
+                </p>
+
+                {filter === 'active' && (
+                  <>
+                    <button
+                      onClick={() => setModal(true)}
+                      style={{
+                        background: NAVY, color: '#fff',
+                        border: 'none', borderRadius: 100,
+                        padding: '12px 36px',
+                        fontFamily: FONT, fontSize: 12,
+                        fontWeight: 700, letterSpacing: '0.1em',
+                        textTransform: 'uppercase',
+                        cursor: 'pointer',
+                        boxShadow: '0 3px 10px rgba(4,34,56,0.22)',
+                        marginBottom: 16,
+                      }}
+                    >
+                      Add New Tenant
+                    </button>
+                    <button
+                      onClick={() => setFilter('past')}
+                      style={{
+                        background: 'none', border: 'none',
+                        fontFamily: FONT, fontSize: 12,
+                        fontWeight: 600, color: '#5b8db8',
+                        letterSpacing: '0.06em', textTransform: 'uppercase',
+                        cursor: 'pointer', padding: 0,
+                        textDecoration: 'none',
+                        opacity: 0.85,
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                      onMouseLeave={e => e.currentTarget.style.opacity = '0.85'}
+                    >
+                      Check Past Tenants
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Tenants table — TurboTenant layout */}
+            {!loading && shown.length > 0 && (() => {
+              const allSelected = shown.length > 0 && shown.every(t => selected.has(t._id));
+              const toggleAll = () => {
+                if (allSelected) setSelected(new Set());
+                else setSelected(new Set(shown.map(t => t._id)));
+              };
+              const toggleOne = (id) => {
+                const next = new Set(selected);
+                next.has(id) ? next.delete(id) : next.add(id);
+                setSelected(next);
+              };
+              const fmtInvited = (d) => {
+                if (!d) return null;
+                const dt = new Date(d);
+                const date = dt.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' });
+                const time = dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
+                  .replace(/^0/, '').toLowerCase().replace(' ', '');
+                return `Invited ${date} - ${time}`;
+              };
+              return (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: FONT, fontSize: 14 }}>
+                    <thead>
+                      <tr style={{ borderBottom: '2px solid #e4e9f0' }}>
+                        {/* SELECT ALL */}
+                        <th style={TH}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <input
+                              type="checkbox" checked={allSelected} onChange={toggleAll}
+                              style={{ width: 16, height: 16, accentColor: NAVY, cursor: 'pointer', flexShrink: 0 }}
+                            />
+                            <span>Select All ({shown.length})</span>
+                          </div>
+                        </th>
+                        <th style={TH}>Contact Info</th>
+                        <th style={TH}>Lease</th>
+                        <th style={TH}>Tenant Portal Access</th>
+                        <th style={{ ...TH, textAlign: 'right' }}></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {shown.map((t, idx) => {
+                        const invited = fmtInvited(t.createdAt);
+                        const isSelected = selected.has(t._id);
+                        const houseName = t.house ? `${t.house.name}${t.house.city ? ` — ${t.house.city}` : ''}` : null;
+                        return (
+                          <tr
+                            key={t._id}
+                            style={{
+                              borderBottom: idx < shown.length - 1 ? '1px solid #f0f3f8' : 'none',
+                              background: isSelected ? '#f0f6ff' : 'transparent',
+                              transition: 'background 0.1s',
+                            }}
+                            onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#f8fafc'; }}
+                            onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}
+                          >
+                            {/* Name + lease + invited */}
+                            <td style={{ padding: '16px 16px', verticalAlign: 'top' }}>
+                              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                                <input
+                                  type="checkbox" checked={isSelected}
+                                  onChange={() => toggleOne(t._id)}
+                                  style={{ width: 16, height: 16, accentColor: NAVY, cursor: 'pointer', flexShrink: 0, marginTop: 3 }}
+                                />
+                                <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: NAVY }}>
+                                  {t.name}
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Contact info */}
+                            <td style={{ padding: '16px 16px', verticalAlign: 'top' }}>
+                              {t.email && (
+                                <a href={`mailto:${t.email}`}
+                                  style={{ fontFamily: FONT, fontSize: 13, color: TEAL, textDecoration: 'none', display: 'block', marginBottom: 4 }}>
+                                  {t.email}
+                                </a>
+                              )}
+                              {t.phone && (
+                                <span style={{ fontFamily: FONT, fontSize: 13, color: '#6b7280' }}>
+                                  {t.phone}
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Lease */}
+                            <td style={{ padding: '16px 16px', verticalAlign: 'top' }}>
+                              {houseName ? (
+                                <Link
+                                  to={`/houses/${t.house._id}`}
+                                  style={{ fontFamily: FONT, fontSize: 13, color: TEAL, textDecoration: 'none', lineHeight: 1.4 }}>
+                                  {houseName}
+                                </Link>
+                              ) : (
+                                <span style={{ color: '#9ca3af', fontSize: 13 }}>—</span>
+                              )}
+                            </td>
+
+                            {/* Portal access */}
+                            <td style={{ padding: '16px 16px', verticalAlign: 'top' }}>
+                              <span style={{ fontFamily: FONT, fontSize: 13, color: '#6b7280' }}>
+                                {invited || '—'}
+                              </span>
+                            </td>
+
+                            {/* Actions */}
+                            <td style={{ padding: '16px 16px', textAlign: 'right', verticalAlign: 'top' }}>
+                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                <Link
+                                  to={`/tenants/${t._id}`} title="View"
+                                  style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 4, color: BLUE, textDecoration: 'none', background: '#f0f4f8', border: '1px solid #dde3ec' }}
+                                  onMouseEnter={e => e.currentTarget.style.background = '#e2eaf4'}
+                                  onMouseLeave={e => e.currentTarget.style.background = '#f0f4f8'}
+                                >
+                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                                  </svg>
+                                </Link>
+                                <button
+                                  onClick={() => handleDelete(t._id, t.name)} title="Remove"
+                                  style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 4, background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', cursor: 'pointer' }}
+                                  onMouseEnter={e => e.currentTarget.style.background = '#fee2e2'}
+                                  onMouseLeave={e => e.currentTarget.style.background = '#fef2f2'}
+                                >
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/>
+                                  </svg>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
+          </div>
+          </div>{/* /maxWidth wrapper */}
+        </div>
+      </div>
+
+      {/* ── Add Tenant Modal ── */}
+      {modal && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 50,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(4,34,56,0.5)', padding: '0 16px',
+          }}
+          onClick={e => { if (e.target === e.currentTarget) { setModal(false); setForm(emptyForm); } }}
+        >
+          <div style={{
+            background: '#fff',
+            border: '2px solid #e6e9f0',
+            borderRadius: 4,
+            width: '100%', maxWidth: 464,
+            maxHeight: '92vh', overflowY: 'auto',
+            padding: 32,
+            fontFamily: FONT, fontSize: 16, color: NAVY,
+            lineHeight: 1.42857,
+            boxSizing: 'border-box',
+            position: 'relative',
+            display: 'flex', flexDirection: 'column',
+          }}>
+
+            {/* Close button */}
+            <button
+              onClick={() => { setModal(false); setForm(emptyForm); }}
+              style={{
+                position: 'absolute', top: 14, right: 14,
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: '#acb9c8', padding: 4, lineHeight: 0,
+                display: 'flex', alignItems: 'center',
+              }}
+              onMouseEnter={e => e.currentTarget.style.color = '#6b7280'}
+              onMouseLeave={e => e.currentTarget.style.color = '#acb9c8'}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2.5"
+                strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+
+            {/* Title */}
+            <h2 style={{
+              margin: '0 0 20px', fontFamily: FONT,
+              fontSize: 20, fontWeight: 700, color: NAVY,
+              lineHeight: 1.3,
+            }}>
+              Add a new tenant
+            </h2>
+
+            <form onSubmit={handleAdd}>
+
+              {/* First Name + Last Name */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+                <div>
+                  <label style={mLabel}>First Name</label>
+                  <input
+                    required value={form.firstName}
+                    onChange={e => field('firstName', e.target.value)}
+                    style={mInput}
+                    onFocus={e => e.target.style.borderColor = '#4a90c4'}
+                    onBlur={e => e.target.style.borderColor = '#d1d5db'}
+                  />
+                </div>
+                <div>
+                  <label style={mLabel}>Last Name</label>
+                  <input
+                    value={form.lastName}
+                    onChange={e => field('lastName', e.target.value)}
+                    style={mInput}
+                    onFocus={e => e.target.style.borderColor = '#4a90c4'}
+                    onBlur={e => e.target.style.borderColor = '#d1d5db'}
+                  />
+                </div>
+              </div>
+
+              {/* Lease (House) */}
+              <div style={{ marginBottom: 16 }}>
+                <label style={mLabel}>Lease</label>
+                <div style={{ position: 'relative' }}>
+                  <select
+                    required value={form.houseId}
+                    onChange={e => field('houseId', e.target.value)}
+                    style={{
+                      ...mInput, appearance: 'none', WebkitAppearance: 'none',
+                      paddingRight: 36, cursor: 'pointer', background: '#fff',
+                      color: form.houseId ? NAVY : '#9ca3af',
+                    }}
+                  >
+                    <option value="" disabled>Select a lease</option>
+                    {houses.map(h => (
+                      <option key={h._id} value={h._id}>{h.name}{h.city ? ` — ${h.city}` : ''}</option>
+                    ))}
+                  </select>
+                  <svg width="10" height="6" viewBox="0 0 10 6" fill={NAVY}
+                    style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+                    <path d="M9.792 0H.208a.233.233 0 00-.181.076.113.113 0 00.003.15l4.792 5.702A.234.234 0 005 6c.073 0 .14-.027.178-.072L9.97.226a.113.113 0 00.003-.15A.233.233 0 009.792 0z" fillRule="evenodd"/>
+                  </svg>
+                </div>
+              </div>
+
+              {/* Contact info heading */}
+              <p style={{
+                margin: '8px 0 16px', fontFamily: FONT, fontSize: 14,
+                fontWeight: 700, color: NAVY, lineHeight: 1.42857,
+              }}>
+                Provide at least one form of contact information:
+              </p>
+
+              {/* Email */}
+              <div style={{ marginBottom: 16 }}>
+                <label style={mLabel}>Email</label>
+                <input
+                  type="email" value={form.email}
+                  onChange={e => field('email', e.target.value)}
+                  style={mInput}
+                  onFocus={e => e.target.style.borderColor = '#4a90c4'}
+                  onBlur={e => e.target.style.borderColor = '#d1d5db'}
+                />
+              </div>
+
+              {/* Phone */}
+              <div style={{ marginBottom: 20 }}>
+                <label style={mLabel}>Phone</label>
+                <input
+                  type="tel" value={form.phone}
+                  onChange={e => field('phone', e.target.value)}
+                  style={mInput}
+                  onFocus={e => e.target.style.borderColor = '#4a90c4'}
+                  onBlur={e => e.target.style.borderColor = '#d1d5db'}
+                />
+              </div>
+
+              {/* Portal invite checkbox */}
+              <div style={{ marginBottom: 24 }}>
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
+                  <div style={{ flexShrink: 0, marginTop: 1 }}>
+                    <input
+                      type="checkbox"
+                      checked={form.invitePortal}
+                      onChange={e => field('invitePortal', e.target.checked)}
+                      style={{ width: 18, height: 18, accentColor: NAVY, cursor: 'pointer' }}
+                    />
+                  </div>
+                  <span>
+                    <span style={{
+                      fontFamily: FONT, fontSize: 14, fontWeight: 700,
+                      color: NAVY, display: 'block', lineHeight: 1.42857,
+                    }}>
+                      Send invitation to tenant portal
+                    </span>
+                    <span style={{
+                      fontFamily: FONT, fontSize: 13, color: '#069ED9',
+                      display: 'block', marginTop: 1, lineHeight: 1.42857,
+                    }}>
+                      You can always invite them later.
+                    </span>
+                  </span>
+                </label>
+              </div>
+
+              {/* Submit */}
+              <div style={{ textAlign: 'center' }}>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  style={{
+                    padding: '13px 48px',
+                    background: saving ? '#8a9ab0' : NAVY,
+                    color: '#fff', border: 'none', borderRadius: 100,
+                    fontFamily: FONT, fontSize: 13, fontWeight: 700,
+                    letterSpacing: '0.1em', textTransform: 'uppercase',
+                    cursor: saving ? 'not-allowed' : 'pointer',
+                    boxShadow: saving ? 'none' : '0 2px 8px rgba(4,34,56,0.22)',
+                    minWidth: 200,
+                  }}
+                  onMouseEnter={e => { if (!saving) e.currentTarget.style.background = '#022a52'; }}
+                  onMouseLeave={e => { if (!saving) e.currentTarget.style.background = NAVY; }}
+                >
+                  {saving ? 'Adding…' : 'Add Tenant'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </Layout>
   );
+};
+
+/* ─── table header style ──────────────────────────────────────── */
+const TH = {
+  padding: '11px 16px',
+  fontFamily: '"Inter", sans-serif',
+  fontSize: 11, fontWeight: 700,
+  color: '#acb9c8', textTransform: 'uppercase',
+  letterSpacing: '0.09em', textAlign: 'left',
+  whiteSpace: 'nowrap', background: '#fff',
+};
+
+/* ─── modal input styles (TurboTenant pixel-perfect) ─────────── */
+const mLabel = {
+  display: 'block',
+  fontFamily: '"Inter", sans-serif',
+  fontSize: 13, fontWeight: 600,
+  color: '#042238', marginBottom: 5,
+  lineHeight: 1.42857,
+};
+
+const mInput = {
+  width: '100%', boxSizing: 'border-box',
+  padding: '8px 12px',
+  fontFamily: '"Inter", sans-serif',
+  fontSize: 14, color: '#042238',
+  lineHeight: 1.42857,
+  border: '1px solid #d1d5db', borderRadius: 4,
+  outline: 'none', background: '#fff',
+  transition: 'border-color 0.15s',
 };
 
 export default Tenants;

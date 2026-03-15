@@ -18,8 +18,12 @@ import AddProperty from './pages/landlord/AddProperty';
 import HouseDetail from './pages/landlord/HouseDetail';
 import Tenants from './pages/landlord/Tenants';
 import TenantDetail from './pages/landlord/TenantDetail';
-import Reports from './pages/landlord/Reports';
+import Payments from './pages/landlord/Payments';
+import RecordPayment from './pages/landlord/RecordPayment';
+import SetUpMonthlyCharge from './pages/landlord/SetUpMonthlyCharge';
+import SetUpOneTimeCharge from './pages/landlord/SetUpOneTimeCharge';
 import Maintenance from './pages/landlord/Maintenance';
+import MaintenanceDetail from './pages/landlord/MaintenanceDetail';
 import Organisation from './pages/landlord/Organisation';
 import AccountSettings from './pages/landlord/AccountSettings';
 
@@ -46,8 +50,12 @@ const App = () => (
         <Route path="/houses/:id" element={<ProtectedRoute roles={['landlord']}><HouseDetail /></ProtectedRoute>} />
         <Route path="/tenants" element={<ProtectedRoute roles={['landlord']}><Tenants /></ProtectedRoute>} />
         <Route path="/tenants/:id" element={<ProtectedRoute roles={['landlord']}><TenantDetail /></ProtectedRoute>} />
-        <Route path="/reports" element={<ProtectedRoute roles={['landlord']}><Reports /></ProtectedRoute>} />
+        <Route path="/payments" element={<ProtectedRoute roles={['landlord']}><Payments /></ProtectedRoute>} />
+        <Route path="/payments/record" element={<ProtectedRoute roles={['landlord']}><RecordPayment /></ProtectedRoute>} />
+        <Route path="/payments/charges/monthly" element={<ProtectedRoute roles={['landlord']}><SetUpMonthlyCharge /></ProtectedRoute>} />
+        <Route path="/payments/charges/one-time" element={<ProtectedRoute roles={['landlord']}><SetUpOneTimeCharge /></ProtectedRoute>} />
         <Route path="/maintenance" element={<ProtectedRoute roles={['landlord']}><Maintenance /></ProtectedRoute>} />
+        <Route path="/maintenance/:id" element={<ProtectedRoute roles={['landlord']}><MaintenanceDetail /></ProtectedRoute>} />
         <Route path="/organisation" element={<ProtectedRoute roles={['landlord']}><Organisation /></ProtectedRoute>} />
         <Route path="/account" element={<ProtectedRoute roles={['landlord']}><AccountSettings /></ProtectedRoute>} />
 

@@ -11,6 +11,7 @@ export const API = {
   },
   houses: '/api/landlord/houses',
   tenants: '/api/landlord/tenants',
+  maintenance: '/api/landlord/maintenance',
   tenant: {
     me: '/api/tenant/me',
     status: '/api/tenant/rent-status',
