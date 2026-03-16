@@ -305,39 +305,31 @@ const LandlordDashboard = () => {
           </div>
         ) : (
           <>
-            {/* ── Row 1: Payment analytics tiles ─────────────────── */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <PaymentTile
-                title="Rent Received"
-                amount={rentReceived}
-                icon={HouseIcon}
-                iconBg="bg-green-100"
-                iconColor="text-green-600"
-                sub={`${paidTenants.length} tenant${paidTenants.length !== 1 ? 's' : ''} paid this month`}
-              />
-              <PaymentTile
-                title="Upcoming Payments"
-                amount={upcomingAmount}
-                icon={Calendar}
-                iconBg="bg-blue-100"
-                iconColor="text-blue-600"
-                sub={`${upcomingTenants.length} payment${upcomingTenants.length !== 1 ? 's' : ''} due within 7 days`}
-              />
-              <PaymentTile
-                title="Rent Overdue"
-                amount={overdueAmount}
-                icon={AlarmClockIcon}
-                iconBg="bg-red-100"
-                iconColor="text-red-500"
-                sub={`${overdueTenants.length} tenant${overdueTenants.length !== 1 ? 's' : ''} overdue`}
-              />
-            </div>
+            {/* ── Two-column layout ───────────────────────────────── */}
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-start">
 
-            {/* ── Row 2: Main + Sidebar ───────────────────────────── */}
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-
-              {/* Left (3/5) */}
+              {/* ── Left column (3/5) ── */}
               <div className="lg:col-span-3 space-y-4">
+
+                {/* Rent Received + Upcoming Payments side by side */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <PaymentTile
+                    title="Rent Received"
+                    amount={rentReceived}
+                    icon={HouseIcon}
+                    iconBg="bg-green-100"
+                    iconColor="text-green-600"
+                    sub={`${paidTenants.length} tenant${paidTenants.length !== 1 ? 's' : ''} paid this month`}
+                  />
+                  <PaymentTile
+                    title="Upcoming Payments"
+                    amount={upcomingAmount}
+                    icon={Calendar}
+                    iconBg="bg-blue-100"
+                    iconColor="text-blue-600"
+                    sub={`${upcomingTenants.length} payment${upcomingTenants.length !== 1 ? 's' : ''} due within 7 days`}
+                  />
+                </div>
 
                 {/* Cashflow chart */}
                 <CashflowChart income={rentReceived} expenses={0} />
@@ -367,10 +359,18 @@ const LandlordDashboard = () => {
                 </div>
               </div>
 
-              {/* Right (2/5) */}
+              {/* ── Right column (2/5) ── */}
               <div className="lg:col-span-2 space-y-4">
 
-                {/* Mini Calendar */}
+                <PaymentTile
+                  title="Rent Overdue"
+                  amount={overdueAmount}
+                  icon={AlarmClockIcon}
+                  iconBg="bg-red-100"
+                  iconColor="text-red-500"
+                  sub={`${overdueTenants.length} tenant${overdueTenants.length !== 1 ? 's' : ''} overdue`}
+                />
+
                 <MiniCalendar />
 
                 {/* Reminders */}
@@ -407,19 +407,19 @@ const LandlordDashboard = () => {
                     </div>
                   )}
                 </div>
-              </div>
-            </div>
 
-            {/* ── Row 3: Documents ────────────────────────────────── */}
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-sm font-semibold text-gray-700">Documents</p>
-                <button className="text-xs text-blue-600 hover:underline">Upload</button>
-              </div>
-              <div className="flex flex-col items-center py-6 text-center">
-                <FileText size={32} className="text-gray-200 mb-2" />
-                <p className="text-sm text-gray-400">No documents uploaded yet.</p>
-                <p className="text-xs text-gray-300 mt-1">Lease agreements, inspection reports, and more.</p>
+                {/* Documents */}
+                <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="text-sm font-semibold text-gray-700">Documents</p>
+                    <button className="text-xs text-blue-600 hover:underline">Upload</button>
+                  </div>
+                  <div className="flex flex-col items-center py-6 text-center">
+                    <FileText size={32} className="text-gray-200 mb-2" />
+                    <p className="text-sm text-gray-400">No documents uploaded yet.</p>
+                    <p className="text-xs text-gray-300 mt-1">Lease agreements, inspection reports, and more.</p>
+                  </div>
+                </div>
               </div>
             </div>
           </>
