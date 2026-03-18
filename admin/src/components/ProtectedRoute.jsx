@@ -3,6 +3,8 @@ import { useAuth } from '../contexts/AuthContext';
 
 const dashboardByRole = { landlord: '/dashboard', superadmin: '/admin', tenant: '/portal' };
 
+const loginByRole = { tenant: '/tenant-login' };
+
 const ProtectedRoute = ({ roles, children }) => {
   const { isAuthenticated, role, loading } = useAuth();
 
@@ -14,7 +16,11 @@ const ProtectedRoute = ({ roles, children }) => {
     );
   }
 
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (!isAuthenticated) {
+    // Send tenant portal visitors to the tenant login page
+    const redirectLogin = (roles?.length === 1 && loginByRole[roles[0]]) ? loginByRole[roles[0]] : '/login';
+    return <Navigate to={redirectLogin} replace />;
+  }
   if (roles && !roles.includes(role)) return <Navigate to={dashboardByRole[role] || '/login'} replace />;
 
   return children;

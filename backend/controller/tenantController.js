@@ -1,5 +1,6 @@
 import User from "../models/User.js";
 import RentRecord from "../models/RentRecord.js";
+import MaintenanceRequest from "../models/MaintenanceRequest.js";
 
 export const getMyDetails = async (req, res) => {
   try {
@@ -57,6 +58,55 @@ export const getRentHistory = async (req, res) => {
       .limit(24);
 
     res.json({ success: true, data: records });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const getMyMaintenanceRequests = async (req, res) => {
+  try {
+    const tenant = await User.findById(req.user._id).select("house landlord");
+    if (!tenant?.house) return res.json({ success: true, data: [] });
+
+    const requests = await MaintenanceRequest.find({
+      house: tenant.house,
+      landlord: tenant.landlord,
+    })
+      .populate("house", "name address city")
+      .sort({ createdAt: -1 })
+      .limit(20);
+
+    res.json({ success: true, data: requests });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const createTenantMaintenanceRequest = async (req, res) => {
+  try {
+    const { category, title, description, preferredTime } = req.body;
+    if (!category || !title || !description) {
+      return res.status(400).json({ success: false, message: "category, title, and description are required" });
+    }
+
+    const tenant = await User.findById(req.user._id).select("house landlord");
+    if (!tenant?.house) {
+      return res.status(400).json({ success: false, message: "You are not assigned to a house" });
+    }
+
+    const request = await MaintenanceRequest.create({
+      landlord: tenant.landlord,
+      house: tenant.house,
+      tenant: req.user._id,
+      category: category.trim(),
+      title: title.trim(),
+      description: description.trim(),
+      preferredTime: preferredTime || "ANYTIME",
+      submittedBy: "tenant",
+      activityLog: [{ entryType: "created", addedBy: "tenant", timestamp: new Date() }],
+    });
+
+    res.status(201).json({ success: true, data: request });
   } catch (error) {
     res.status(500).json({ success: false, message: "Server error", error: error.message });
   }

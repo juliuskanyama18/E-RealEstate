@@ -11,7 +11,7 @@ export const protect = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     const user = await User.findById(decoded.id);
-    if (!user) {
+    if (!user || user.isDeleted) {
       return res.status(401).json({ success: false, message: "Account not found" });
     }
 

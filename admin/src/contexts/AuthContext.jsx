@@ -61,7 +61,7 @@ export const AuthProvider = ({ children }) => {
   const logout = () => clearSession();
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, isAuthenticated: !!token && !!user, role: user?.role || null, login, register, logout }}>
+    <AuthContext.Provider value={{ user, token, loading, isAuthenticated: !!token && !!user, role: user?.role || null, login, register, logout, applySession }}>
       {children}
     </AuthContext.Provider>
   );

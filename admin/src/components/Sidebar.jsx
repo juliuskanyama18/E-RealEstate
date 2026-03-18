@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import {
   LayoutDashboard, Building2, Users, Wrench,
-  ShieldCheck, Home, Landmark, CreditCard, LogOut,
+  ShieldCheck, Home, Landmark, CreditCard, LogOut, Settings, UserCog,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -31,7 +31,12 @@ const superadminSections = [
   {
     label: 'Platform',
     links: [
-      { to: '/admin/landlords', icon: Building2, label: 'Landlords' },
+      { to: '/admin/users',       icon: UserCog,        label: 'User Management' },
+      { to: '/admin/landlords',   icon: Building2,      label: 'Landlords' },
+      { to: '/admin/tenants',     icon: Users,          label: 'Tenants' },
+      { to: '/admin/maintenance', icon: Wrench,         label: 'Maintenance' },
+      { to: '/admin/payments',    icon: CreditCard,     label: 'Payments' },
+      { to: '/admin/settings',    icon: Settings,       label: 'Settings' },
     ],
   },
 ];

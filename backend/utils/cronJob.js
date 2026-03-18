@@ -6,45 +6,56 @@ import { getRentReminderTemplate } from "./emailTemplates.js";
 const sendRentReminders = async () => {
   try {
     const today = new Date();
-    const targetDate = new Date(today);
-    targetDate.setDate(today.getDate() + 3);
-    const targetDay = targetDate.getDate();
 
-    console.log(`[CronJob] Rent reminder check — targeting day ${targetDay} of month`);
+    console.log(`[CronJob] Rent reminder check — ${today.toDateString()}`);
 
+    // Fetch all active tenants with their house and landlord (including org settings)
     const tenants = await User.find({
       role: "tenant",
-      rentDueDate: targetDay,
       isActive: true,
+      email: { $exists: true, $ne: "" },
     })
       .populate("house", "name address city")
-      .populate("landlord", "isActive name");
+      .populate("landlord", "isActive name notifyDaysBefore notificationEmail");
 
-    const eligible = tenants.filter((t) => t.landlord?.isActive && t.email);
+    // For each tenant, check if rent is due in exactly `landlord.notifyDaysBefore` days
+    const eligible = tenants.filter((t) => {
+      if (!t.landlord?.isActive || !t.rentDueDate) return false;
+
+      const daysAhead = t.landlord.notifyDaysBefore ?? 3;
+      const targetDate = new Date(today);
+      targetDate.setDate(today.getDate() + daysAhead);
+      const targetDay = targetDate.getDate();
+
+      return t.rentDueDate === targetDay;
+    });
 
     if (eligible.length === 0) {
-      console.log("[CronJob] No eligible tenants with rent due in 3 days");
+      console.log("[CronJob] No tenants with rent due today + configured reminder days");
       return;
     }
 
     console.log(`[CronJob] Sending reminders to ${eligible.length} tenant(s)`);
 
     const results = await Promise.allSettled(
-      eligible.map((tenant) =>
-        sendEmail({
+      eligible.map((tenant) => {
+        const daysAhead = tenant.landlord.notifyDaysBefore ?? 3;
+        return sendEmail({
           from: process.env.EMAIL,
           to: tenant.email,
-          subject: "Rent Reminder – Due in 3 Days",
-          html: getRentReminderTemplate(tenant, tenant.house),
-        })
-      )
+          subject: `Rent Reminder – Due in ${daysAhead} Day${daysAhead !== 1 ? "s" : ""}`,
+          html: getRentReminderTemplate(tenant, tenant.house, daysAhead),
+        });
+      })
     );
 
     results.forEach((result, i) => {
       if (result.status === "fulfilled") {
         console.log(`[CronJob] ✓ Sent to ${eligible[i].email}`);
       } else {
-        console.error(`[CronJob] ✗ Failed for ${eligible[i].email}: ${result.reason?.message}`);
+        console.error(
+          `[CronJob] ✗ Failed for ${eligible[i].email}: ${result.reason?.message}`
+        );
       }
     });
   } catch (error) {
@@ -55,7 +66,7 @@ const sendRentReminders = async () => {
 export const startCronJob = () => {
   cron.schedule("0 9 * * *", sendRentReminders, {
     scheduled: true,
-    timezone: "Africa/Nairobi",
+    timezone: "Africa/Dar_es_Salaam",
   });
-  console.log("[CronJob] Rent reminder job scheduled — daily at 09:00 AM");
+  console.log("[CronJob] Rent reminder job scheduled — daily at 09:00 AM (Africa/Dar_es_Salaam)");
 };

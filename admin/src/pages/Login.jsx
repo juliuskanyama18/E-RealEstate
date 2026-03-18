@@ -4,10 +4,10 @@ import { Building2, CheckCircle2, Users, CreditCard } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
 
-const dashboardByRole = { landlord: '/dashboard', superadmin: '/admin', tenant: '/portal' };
+const dashboardByRole = { landlord: '/dashboard', superadmin: '/admin' };
 
 const Login = () => {
-  const { login, isAuthenticated, role } = useAuth();
+  const { login, logout, isAuthenticated, role } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
@@ -23,6 +23,11 @@ const Login = () => {
     try {
       const data = await login(form.email, form.password);
       if (data.success) {
+        if (data.data.user.role === 'tenant') {
+          logout();
+          toast.error('This login is for landlords only. Use the tenant portal login.');
+          return;
+        }
         toast.success('Logged in successfully');
         navigate(dashboardByRole[data.data.user.role] || '/dashboard', { replace: true });
       } else {
@@ -146,6 +151,10 @@ const Login = () => {
           <p className="text-center text-sm text-gray-500 mt-6">
             Don&apos;t have an account?{' '}
             <Link to="/register" className="text-blue-600 font-semibold hover:underline">Create one free</Link>
+          </p>
+          <p className="text-center text-sm text-gray-400 mt-2">
+            Are you a tenant?{' '}
+            <Link to="/tenant-login" className="text-blue-600 font-medium hover:underline">Tenant portal login</Link>
           </p>
         </div>
       </div>

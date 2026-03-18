@@ -9,7 +9,9 @@ import ErrorFallback from './components/ErrorFallback';
 // Public pages
 import Landing from './pages/Landing';
 import Login from './pages/Login';
+import TenantLogin from './pages/TenantLogin';
 import Register from './pages/Register';
+import SetPassword from './pages/SetPassword';
 
 // Landlord pages
 import LandlordDashboard from './pages/landlord/Dashboard';
@@ -30,6 +32,12 @@ import AccountSettings from './pages/landlord/AccountSettings';
 // Superadmin pages
 import SuperadminDashboard from './pages/superadmin/Dashboard';
 import Landlords from './pages/superadmin/Landlords';
+import LandlordDetail from './pages/superadmin/LandlordDetail';
+import AdminSettings from './pages/superadmin/Settings';
+import AdminTenants from './pages/superadmin/Tenants';
+import AdminMaintenance from './pages/superadmin/Maintenance';
+import AdminPayments from './pages/superadmin/Payments';
+import AdminUsers from './pages/superadmin/Users';
 
 // Tenant portal
 import TenantPortal from './pages/tenant/Dashboard';
@@ -41,7 +49,9 @@ const App = () => (
         {/* Public */}
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/tenant-login" element={<TenantLogin />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/set-password/:token" element={<SetPassword />} />
 
         {/* Landlord */}
         <Route path="/dashboard" element={<ProtectedRoute roles={['landlord']}><LandlordDashboard /></ProtectedRoute>} />
@@ -62,6 +72,12 @@ const App = () => (
         {/* Superadmin */}
         <Route path="/admin" element={<ProtectedRoute roles={['superadmin']}><SuperadminDashboard /></ProtectedRoute>} />
         <Route path="/admin/landlords" element={<ProtectedRoute roles={['superadmin']}><Landlords /></ProtectedRoute>} />
+        <Route path="/admin/landlords/:id" element={<ProtectedRoute roles={['superadmin']}><LandlordDetail /></ProtectedRoute>} />
+        <Route path="/admin/users"         element={<ProtectedRoute roles={['superadmin']}><AdminUsers /></ProtectedRoute>} />
+        <Route path="/admin/tenants"       element={<ProtectedRoute roles={['superadmin']}><AdminTenants /></ProtectedRoute>} />
+        <Route path="/admin/maintenance"   element={<ProtectedRoute roles={['superadmin']}><AdminMaintenance /></ProtectedRoute>} />
+        <Route path="/admin/payments"      element={<ProtectedRoute roles={['superadmin']}><AdminPayments /></ProtectedRoute>} />
+        <Route path="/admin/settings"      element={<ProtectedRoute roles={['superadmin']}><AdminSettings /></ProtectedRoute>} />
 
         {/* Tenant portal */}
         <Route path="/portal" element={<ProtectedRoute roles={['tenant']}><TenantPortal /></ProtectedRoute>} />

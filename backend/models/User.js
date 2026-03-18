@@ -63,6 +63,22 @@ const userSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    // Landlord — organisation / business settings
+    businessName: { type: String, trim: true },
+    address:      { type: String, trim: true },
+    city:         { type: String, trim: true },
+    // Payment configuration
+    defaultRentDueDate: { type: Number, min: 1, max: 31 },
+    gracePeriodDays:    { type: Number, default: 0, min: 0 },
+    lateFeeType:        { type: String, enum: ['flat', 'percentage'], default: 'flat' },
+    lateFeeAmount:      { type: Number, default: 0, min: 0 },
+    bankName:           { type: String, trim: true },
+    bankAccountNumber:  { type: String, trim: true },
+    bankAccountName:    { type: String, trim: true },
+    // Notification preferences
+    notifyDaysBefore:   { type: Number, default: 3, min: 0 },
+    notifyOverdue:      { type: Boolean, default: true },
+    notificationEmail:  { type: String, trim: true, lowercase: true },
     // Password reset
     resetToken: {
       type: String,
@@ -71,6 +87,21 @@ const userSchema = new mongoose.Schema(
     resetTokenExpire: {
       type: Date,
       select: false,
+    },
+    // Soft delete — data is preserved but account is hidden from all operations
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
+    // Activity tracking
+    lastLogin: {
+      type: Date,
+      default: null,
     },
   },
   { timestamps: true }

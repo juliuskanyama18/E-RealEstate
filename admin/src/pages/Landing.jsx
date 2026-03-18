@@ -108,8 +108,11 @@ const Landing = () => (
           <span className="text-base font-bold text-gray-900 hidden sm:block">Rental Management System</span>
         </div>
         <div className="flex items-center gap-3">
+          <Link to="/tenant-login" className="text-sm text-gray-600 hover:text-gray-900 font-medium transition-colors">
+            Tenant login
+          </Link>
           <Link to="/login" className="text-sm text-gray-600 hover:text-gray-900 font-medium transition-colors">
-            Log in
+            Landlord login
           </Link>
           <Link to="/register" className="text-sm bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-semibold transition-colors shadow-sm">
             Get started
@@ -137,7 +140,10 @@ const Landing = () => (
             Get started free
           </Link>
           <Link to="/login" className="border border-gray-200 hover:border-gray-400 text-gray-700 px-7 py-3.5 rounded-xl font-semibold text-sm transition-colors">
-            Sign in
+            Landlord sign in
+          </Link>
+          <Link to="/tenant-login" className="text-sm text-gray-500 hover:text-gray-700 font-medium transition-colors underline underline-offset-2">
+            Tenant portal
           </Link>
         </div>
 

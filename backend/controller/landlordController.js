@@ -1,13 +1,15 @@
 import bcrypt from "bcrypt";
+import crypto from "crypto";
 import validator from "validator";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
 import House from "../models/House.js";
 import User from "../models/User.js";
+import RentRecord from "../models/RentRecord.js";
 import MaintenanceRequest from "../models/MaintenanceRequest.js";
 import { sendEmail } from "../config/nodemailer.js";
-import { getTenantWelcomeTemplate } from "../utils/emailTemplates.js";
+import { getTenantWelcomeTemplate, getTenantInviteTemplate } from "../utils/emailTemplates.js";
 
 // ─── Multer setup for house photos ─────────────────────────────────────────
 const uploadDir = path.resolve("uploads/houses");
@@ -186,9 +188,9 @@ export const addTenant = async (req, res) => {
     const house = await House.findOne({ _id: houseId, landlord: req.user._id });
     if (!house) return res.status(404).json({ success: false, message: "House not found" });
 
-    const duplicate = await User.findOne({ landlord: req.user._id, email: email.toLowerCase(), role: "tenant" });
+    const duplicate = await User.findOne({ email: email.toLowerCase() });
     if (duplicate) {
-      return res.status(409).json({ success: false, message: "A tenant with this email already exists under your account" });
+      return res.status(409).json({ success: false, message: "This email address is already registered in the system" });
     }
 
     let hashedPw;
@@ -214,18 +216,43 @@ export const addTenant = async (req, res) => {
     await House.findByIdAndUpdate(houseId, { isOccupied: true });
 
     try {
-      await sendEmail({
-        from: process.env.EMAIL,
-        to: tenant.email,
-        subject: `Welcome to ${house.name}`,
-        html: getTenantWelcomeTemplate(tenant, house, !!password),
-      });
+      const { sendInvitation } = req.body;
+      if (sendInvitation && tenant.email) {
+        // Generate invite token (reuses resetToken field, 7-day expiry)
+        const rawToken = crypto.randomBytes(20).toString("hex");
+        const hashedToken = crypto.createHash("sha256").update(rawToken).digest("hex");
+        await User.findByIdAndUpdate(tenant._id, {
+          resetToken: hashedToken,
+          resetTokenExpire: Date.now() + 7 * 24 * 60 * 60 * 1000,
+        });
+        const setPasswordUrl = `${process.env.WEBSITE_URL}/set-password/${rawToken}`;
+        await sendEmail({
+          from: process.env.EMAIL,
+          to: tenant.email,
+          subject: `You've been invited to ${house.name} — Set your password`,
+          html: getTenantInviteTemplate(tenant, house, setPasswordUrl),
+        });
+      } else {
+        const notifyDaysBefore = req.user.notifyDaysBefore ?? 3;
+        await sendEmail({
+          from: process.env.EMAIL,
+          to: tenant.email,
+          subject: `Welcome to ${house.name}`,
+          html: getTenantWelcomeTemplate(tenant, house, !!password, notifyDaysBefore),
+        });
+      }
     } catch { /* non-fatal */ }
 
     const response = tenant.toObject();
     delete response.password;
     res.status(201).json({ success: true, message: "Tenant added successfully", data: response });
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({ success: false, message: "This email address is already registered in the system" });
+    }
+    if (error.name === "CastError") {
+      return res.status(400).json({ success: false, message: "Invalid house ID format" });
+    }
     res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 };
@@ -383,6 +410,7 @@ export const getMaintenanceRequests = async (req, res) => {
 
     const requests = await MaintenanceRequest.find(filter)
       .populate("house", "name address city")
+      .populate("tenant", "name")
       .sort({ createdAt: -1 });
 
     res.json({ success: true, data: requests });
@@ -489,13 +517,149 @@ export const toggleMaintenanceStar = async (req, res) => {
 export const updateMaintenanceProContact = async (req, res) => {
   try {
     const { proContacts } = req.body;
-    const request = await MaintenanceRequest.findOneAndUpdate(
-      { _id: req.params.id, landlord: req.user._id },
-      { proContacts: proContacts || [] },
-      { new: true, runValidators: true }
-    );
+    const request = await MaintenanceRequest.findById(req.params.id);
     if (!request) return res.status(404).json({ success: false, message: "Request not found" });
+    if (request.landlord.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: "Not authorized" });
+    }
+    request.proContacts = Array.isArray(proContacts) ? proContacts : [];
+    request.markModified('proContacts');
+    await request.save();
+    await MaintenanceRequest.updateOne({ _id: request._id }, { $unset: { proContact: 1 } });
     res.json({ success: true, data: request });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+// ─── Organisation settings ───────────────────────────────────────────────────
+const ORG_FIELDS =
+  "name email phone businessName address city defaultRentDueDate gracePeriodDays lateFeeType lateFeeAmount bankName bankAccountNumber bankAccountName notifyDaysBefore notifyOverdue notificationEmail";
+
+export const getOrgSettings = async (req, res) => {
+  try {
+    const landlord = await User.findById(req.user._id).select(ORG_FIELDS);
+    res.json({ success: true, data: landlord });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const updateOrgSettings = async (req, res) => {
+  try {
+    const allowed = [
+      "businessName", "address", "city", "phone",
+      "defaultRentDueDate", "gracePeriodDays", "lateFeeType", "lateFeeAmount",
+      "bankName", "bankAccountNumber", "bankAccountName",
+      "notifyDaysBefore", "notifyOverdue", "notificationEmail",
+    ];
+    const update = {};
+    allowed.forEach((key) => { if (req.body[key] !== undefined) update[key] = req.body[key]; });
+
+    const landlord = await User.findByIdAndUpdate(req.user._id, update, {
+      new: true, runValidators: true,
+    }).select(ORG_FIELDS);
+
+    res.json({ success: true, data: landlord });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+// ─── Record a payment ───────────────────────────────────────────────────────
+export const recordPayment = async (req, res) => {
+  try {
+    const { tenantId, amount, month, datePaid, paymentMethod, notes } = req.body;
+    if (!tenantId || amount === undefined || !month) {
+      return res.status(400).json({ success: false, message: "tenantId, amount, and month are required" });
+    }
+
+    const tenant = await User.findOne({ _id: tenantId, landlord: req.user._id, role: "tenant" });
+    if (!tenant) return res.status(404).json({ success: false, message: "Tenant not found" });
+
+    const paidAmt = Number(amount);
+    if (paidAmt <= 0) return res.status(400).json({ success: false, message: "Amount must be positive" });
+
+    // Build due date from month string (e.g. "2025-03") + tenant's rentDueDate day
+    const [yr, mo] = month.split("-").map(Number);
+    const dueDate = new Date(yr, mo - 1, tenant.rentDueDate || 1);
+
+    // Upsert RentRecord for this tenant + month
+    await RentRecord.findOneAndUpdate(
+      { tenant: tenant._id, month },
+      {
+        landlord: req.user._id,
+        house: tenant.house,
+        amount: paidAmt,
+        month,
+        dueDate,
+        paidDate: datePaid ? new Date(datePaid) : new Date(),
+        status: "paid",
+        notes: notes?.trim() || undefined,
+        ...(paymentMethod ? { paymentMethod } : {}),
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    // Adjust tenant balance: add amount paid (reduces debt if negative, adds credit if positive)
+    await User.findByIdAndUpdate(tenant._id, { $inc: { balance: paidAmt } });
+
+    res.json({ success: true, message: "Payment recorded successfully" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+// ─── Get all rent records for this landlord ──────────────────────────────────
+export const getPayments = async (req, res) => {
+  try {
+    const records = await RentRecord.find({ landlord: req.user._id })
+      .populate("tenant", "name email")
+      .populate("house", "name address")
+      .sort({ dueDate: -1 })
+      .limit(1000);
+    res.json({ success: true, data: records });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+// ─── Get monthly cashflow (income from paid RentRecords) for the year ────────
+export const getCashflow = async (req, res) => {
+  try {
+    const year = parseInt(req.query.year) || new Date().getFullYear();
+    const records = await RentRecord.aggregate([
+      {
+        $match: {
+          landlord: req.user._id,
+          status: "paid",
+          month: { $regex: `^${year}-` },
+        },
+      },
+      {
+        $group: {
+          _id: "$month",
+          total: { $sum: "$amount" },
+        },
+      },
+    ]);
+
+    const monthly = Array(12).fill(0);
+    records.forEach((r) => {
+      const idx = parseInt(r._id.split("-")[1]) - 1;
+      if (idx >= 0 && idx < 12) monthly[idx] = r.total;
+    });
+
+    // Count distinct tenants who paid in the current month
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const paidThisMonth = await RentRecord.countDocuments({
+      landlord: req.user._id,
+      status: "paid",
+      month: currentMonth,
+    });
+
+    res.json({ success: true, data: monthly, paidThisMonth });
   } catch (error) {
     res.status(500).json({ success: false, message: "Server error", error: error.message });
   }

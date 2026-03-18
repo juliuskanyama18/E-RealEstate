@@ -351,6 +351,8 @@ const Payments = () => {
   const [actionsOpen,      setActionsOpen]      = useState(false);
   const [createChargeOpen, setCreateChargeOpen] = useState(false);
   const [houses,           setHouses]           = useState([]);
+  const [records,          setRecords]          = useState([]);
+  const [loadingRecords,   setLoadingRecords]   = useState(true);
   const dropdownRef  = useRef(null);
   const filterBarRef = useRef(null);
 
@@ -432,6 +434,15 @@ const Payments = () => {
       .catch(() => {});
   }, []);
 
+  /* fetch rent records */
+  useEffect(() => {
+    setLoadingRecords(true);
+    axios.get(`${backendUrl}${API.payments}`)
+      .then(r => setRecords(r.data.data || []))
+      .catch(() => {})
+      .finally(() => setLoadingRecords(false));
+  }, []);
+
   /* close actions dropdown on outside click */
   useEffect(() => {
     const handler = e => {
@@ -486,6 +497,54 @@ const Payments = () => {
     !leaseSearch || h.name.toLowerCase().includes(leaseSearch.toLowerCase()) ||
     (h.address || '').toLowerCase().includes(leaseSearch.toLowerCase())
   );
+
+  /* ── Currency formatter ── */
+  const fmt = (n) => `TZS ${Number(n || 0).toLocaleString()}`;
+
+  /* ── Date keys ── */
+  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const lastMonthDate   = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const lastMonthKey    = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}`;
+  const currentYearKey  = String(now.getFullYear());
+  const lastYearKey     = String(now.getFullYear() - 1);
+
+  /* ── Overview stats (scoped to selected period) ── */
+  const periodRecords = records.filter(r => {
+    if (period === 'month') return r.month === currentMonthKey;
+    if (period === 'year')  return r.month?.startsWith(currentYearKey);
+    return true;
+  });
+  const overviewStats = {
+    paid:    periodRecords.filter(r => r.status === 'paid').reduce((s, r) => s + r.amount, 0),
+    unpaid:  periodRecords.filter(r => r.status === 'pending').reduce((s, r) => s + r.amount, 0),
+    pastDue: periodRecords.filter(r => r.status === 'overdue').reduce((s, r) => s + r.amount, 0),
+    charges: periodRecords.reduce((s, r) => s + r.amount, 0),
+  };
+  const statValues = {
+    pastDue: overviewStats.pastDue,
+    unpaid:  overviewStats.unpaid,
+    charges: overviewStats.charges,
+    paid:    overviewStats.paid,
+  };
+
+  /* ── Filtered charges for the Charges tab ── */
+  const filteredCharges = records.filter(r => {
+    const dr = chargeFilters.dateRange;
+    const inDate =
+      dr === 'CURRENT_MONTH' ? r.month === currentMonthKey :
+      dr === 'LAST_MONTH'    ? r.month === lastMonthKey    :
+      dr === 'YTD'           ? r.month?.startsWith(currentYearKey) :
+      dr === 'LAST_YEAR'     ? r.month?.startsWith(lastYearKey) : true;
+    const st = chargeFilters.status;
+    const inStatus =
+      st === 'PAID'     ? r.status === 'paid'    :
+      st === 'UNPAID'   ? r.status === 'pending' :
+      st === 'PAST_DUE' ? r.status === 'overdue' : true;
+    const inRental =
+      chargeFilters.rentals.length === 0 ||
+      chargeFilters.rentals.includes(r.house?._id);
+    return inDate && inStatus && inRental;
+  }).slice(0, chargesPerPage);
 
   return (
     <Layout>
@@ -649,7 +708,7 @@ const Payments = () => {
                           {card.label}
                         </div>
                         <div style={{ fontFamily: FONT, fontSize: 26, fontWeight: 700, color: '#fff', lineHeight: 1 }}>
-                          TZS 0
+                          {fmt(statValues[card.key])}
                         </div>
                       </div>
                       <ChevronRight size={18} color="#4da6d0" strokeWidth={2} />
@@ -1008,18 +1067,76 @@ const Payments = () => {
               {/* Divider */}
               <div style={{ borderTop: '1px solid #e4e9f0' }} />
 
-              {/* Empty state */}
-              <div style={{ padding: '60px 28px 52px', textAlign: 'center' }}>
-                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 18 }}>
-                  <NoChargesIcon />
+              {loadingRecords ? (
+                <div style={{ padding: '60px 28px', textAlign: 'center', color: '#8a9ab0', fontFamily: FONT, fontSize: 13 }}>
+                  Loading…
                 </div>
-                <h3 style={{ fontFamily: FONT, fontSize: 16, fontWeight: 700, color: NAVY, margin: '0 0 8px', lineHeight: 1.3 }}>
-                  No charges found
-                </h3>
-                <p style={{ fontFamily: FONT, fontSize: 13, color: TEAL, margin: 0 }}>
-                  Please adjust filters
-                </p>
-              </div>
+              ) : filteredCharges.length === 0 ? (
+                /* Empty state */
+                <div style={{ padding: '60px 28px 52px', textAlign: 'center' }}>
+                  <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 18 }}>
+                    <NoChargesIcon />
+                  </div>
+                  <h3 style={{ fontFamily: FONT, fontSize: 16, fontWeight: 700, color: NAVY, margin: '0 0 8px', lineHeight: 1.3 }}>
+                    No charges found
+                  </h3>
+                  <p style={{ fontFamily: FONT, fontSize: 13, color: TEAL, margin: 0 }}>
+                    Please adjust filters
+                  </p>
+                </div>
+              ) : (
+                /* Records table */
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: FONT, fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ background: '#f5f6f8', borderBottom: '1px solid #e4e9f0' }}>
+                        {['Tenant', 'Property', 'Month', 'Due Date', 'Paid Date', 'Amount', 'Status'].map(h => (
+                          <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 700, color: NAVY, fontSize: 12, letterSpacing: '0.04em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredCharges.map((r, i) => {
+                        const statusColor =
+                          r.status === 'paid'    ? { bg: '#ecfdf5', text: '#059669' } :
+                          r.status === 'overdue' ? { bg: '#fff1f2', text: '#e11d48' } :
+                                                   { bg: '#fffbeb', text: '#d97706' };
+                        const statusLabel =
+                          r.status === 'paid' ? 'Paid' : r.status === 'overdue' ? 'Overdue' : 'Pending';
+                        return (
+                          <tr key={r._id} style={{ borderBottom: '1px solid #e4e9f0', background: i % 2 === 0 ? '#fff' : '#fafbfc' }}>
+                            <td style={{ padding: '12px 16px', color: NAVY, fontWeight: 600 }}>
+                              {r.tenant?.name || '—'}
+                              {r.tenant?.email && <div style={{ fontSize: 11, color: '#8a9ab0', fontWeight: 400 }}>{r.tenant.email}</div>}
+                            </td>
+                            <td style={{ padding: '12px 16px', color: NAVY }}>
+                              {r.house?.name || '—'}
+                              {r.house?.address && <div style={{ fontSize: 11, color: '#8a9ab0' }}>{r.house.address}</div>}
+                            </td>
+                            <td style={{ padding: '12px 16px', color: NAVY }}>{r.month || '—'}</td>
+                            <td style={{ padding: '12px 16px', color: '#6b7280' }}>
+                              {r.dueDate ? new Date(r.dueDate).toLocaleDateString() : '—'}
+                            </td>
+                            <td style={{ padding: '12px 16px', color: '#6b7280' }}>
+                              {r.paidDate ? new Date(r.paidDate).toLocaleDateString() : '—'}
+                            </td>
+                            <td style={{ padding: '12px 16px', color: NAVY, fontWeight: 700 }}>
+                              {fmt(r.amount)}
+                            </td>
+                            <td style={{ padding: '12px 16px' }}>
+                              <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 100, fontSize: 11, fontWeight: 700, background: statusColor.bg, color: statusColor.text }}>
+                                {statusLabel}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
 
               {/* Pagination footer */}
               <div style={{ borderTop: '1px solid #e4e9f0', padding: '12px 24px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>

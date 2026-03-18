@@ -212,18 +212,17 @@ const RecordPayment = () => {
   const calendarRef  = useRef(null);
   const [houses,  setHouses]  = useState([]);
   const [tenants, setTenants] = useState([]);
-  const [calendarOpen,     setCalendarOpen]     = useState(false);
-  const [chargeModalOpen,  setChargeModalOpen]  = useState(false);
-  const [chargeCalOpen,    setChargeCalOpen]    = useState(false);
-  const chargeCalRef = useRef(null);
-  const [chargeForm, setChargeForm] = useState({ category: '', description: '', amount: '', dueDate: '' });
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const now = new Date();
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const [form, setForm] = useState({
     leaseId:       '',
     renterId:      '',
+    amount:        '',
+    month:         currentMonth,
     paymentMethod: '',
     datePaid:      '',
     paymentNote:   '',
-    sendReceipt:   'yes',
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -239,7 +238,6 @@ const RecordPayment = () => {
   useEffect(() => {
     const handler = e => {
       if (calendarRef.current && !calendarRef.current.contains(e.target)) setCalendarOpen(false);
-      if (chargeCalRef.current && !chargeCalRef.current.contains(e.target)) setChargeCalOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -252,27 +250,45 @@ const RecordPayment = () => {
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
+  const handleTenantChange = (tenantId) => {
+    set('renterId', tenantId);
+    const t = tenants.find(x => x._id === tenantId);
+    if (t?.rentAmount) set('amount', String(t.rentAmount));
+  };
+
+  /* Convert DD/MM/YYYY to YYYY-MM-DD for backend */
+  const parseDate = (ddmmyyyy) => {
+    const [dd, mm, yyyy] = ddmmyyyy.split('/');
+    return yyyy && mm && dd ? `${yyyy}-${mm}-${dd}` : ddmmyyyy;
+  };
+
   const handleSubmit = async e => {
     e.preventDefault();
-    if (!form.leaseId)      return toast.error('Select a lease');
-    if (!form.renterId)     return toast.error('Select a tenant');
-    if (!form.paymentMethod) return toast.error('Select a payment method');
-    if (!form.datePaid)     return toast.error('Enter date paid');
+    if (!form.renterId)                           return toast.error('Select a tenant');
+    if (!form.amount || Number(form.amount) <= 0) return toast.error('Enter a valid amount');
+    if (!form.month)                              return toast.error('Select a month');
+    if (!form.paymentMethod)                      return toast.error('Select a payment method');
+    if (!form.datePaid)                           return toast.error('Enter date paid');
     setSubmitting(true);
     try {
+      await axios.post(`${backendUrl}${API.payments}`, {
+        tenantId:      form.renterId,
+        amount:        Number(form.amount),
+        month:         form.month,
+        datePaid:      parseDate(form.datePaid),
+        paymentMethod: form.paymentMethod,
+        notes:         form.paymentNote,
+      });
       toast.success('Payment recorded successfully');
       navigate('/payments');
-    } catch {
-      toast.error('Failed to record payment');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to record payment');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const selectedLease  = houses.find(h => h._id === form.leaseId);
   const selectedTenant = tenants.find(t => t._id === form.renterId);
-  const now = new Date();
-  const monthLabel = now.toLocaleString('en-US', { month: 'long', year: 'numeric' });
 
   return (
     <Layout>
@@ -328,7 +344,7 @@ const RecordPayment = () => {
                     <option value="">— Select a lease —</option>
                     {houses.map(h => (
                       <option key={h._id} value={h._id}>
-                        {h.address ? `${h.address} - ${monthLabel}` : `${h.name} - ${monthLabel}`}
+                        {h.address ? `${h.address}` : `${h.name}`}
                       </option>
                     ))}
                   </select>
@@ -347,7 +363,7 @@ const RecordPayment = () => {
                     id="renterId"
                     style={selectStyle}
                     value={form.renterId}
-                    onChange={e => set('renterId', e.target.value)}
+                    onChange={e => handleTenantChange(e.target.value)}
                   >
                     <option value="">— Select a tenant —</option>
                     {filteredTenants.map(t => (
@@ -359,35 +375,45 @@ const RecordPayment = () => {
               </div>
               <a style={linkStyle}>Add Tenants</a>
 
-              {/* Charges section */}
-              <div style={{ marginTop: 20 }}>
-                <label style={label}>Select the charge(s) to record as paid:</label>
-                <div style={{
-                  border: '1px solid #e4e9f0', borderRadius: 4,
-                  padding: '24px 20px', textAlign: 'center',
-                  background: '#fafbfc',
-                }}>
-                  <h3 style={{ fontFamily: FONT, fontSize: 15, fontWeight: 700, color: NAVY, margin: '0 0 6px' }}>
-                    No Unpaid Charges
-                  </h3>
-                  <p style={{ fontFamily: FONT, fontSize: 13, color: '#8a9ab0', margin: '0 0 16px' }}>
-                    Add a new charge in order to record it as paid.
-                  </p>
-                  <button
-                    type="button"
-                    style={{
-                      fontFamily: FONT, fontSize: 13, fontWeight: 700,
-                      letterSpacing: '0.06em', textTransform: 'uppercase',
-                      color: '#fff', background: NAVY,
-                      border: 'none', borderRadius: 100,
-                      padding: '10px 24px', cursor: 'pointer', lineHeight: 1,
-                    }}
-                    onClick={() => setChargeModalOpen(true)}
-                    onMouseEnter={e => e.currentTarget.style.background = '#033A6D'}
-                    onMouseLeave={e => e.currentTarget.style.background = NAVY}
-                  >
-                    Add New Charge
-                  </button>
+              {/* Amount + Month row */}
+              <div style={{ marginTop: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                {/* Amount */}
+                <div>
+                  <label style={label} htmlFor="amount">
+                    Amount (TZS)
+                    {selectedTenant?.rentAmount ? (
+                      <span style={{ fontWeight: 400, color: '#8a9ab0', marginLeft: 6 }}>
+                        Rent: TZS {selectedTenant.rentAmount.toLocaleString()}
+                      </span>
+                    ) : null}
+                  </label>
+                  <div style={{ ...selectWrap }}>
+                    <div style={{ position: 'absolute', left: 10, pointerEvents: 'none', fontFamily: FONT, fontSize: 13, fontWeight: 600, color: '#8a9ab0' }}>
+                      TZS
+                    </div>
+                    <input
+                      id="amount"
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={form.amount}
+                      onChange={e => set('amount', e.target.value)}
+                      placeholder="0"
+                      style={{ fontFamily: FONT, fontSize: 14, color: NAVY, width: '100%', padding: '9px 12px 9px 46px', border: '1px solid #c8d0db', borderRadius: 4, background: '#fff', outline: 'none', lineHeight: 1.4 }}
+                    />
+                  </div>
+                </div>
+
+                {/* Month */}
+                <div>
+                  <label style={label} htmlFor="month">Month</label>
+                  <input
+                    id="month"
+                    type="month"
+                    value={form.month}
+                    onChange={e => set('month', e.target.value)}
+                    style={{ ...selectStyle, padding: '9px 12px' }}
+                  />
                 </div>
               </div>
 
@@ -483,30 +509,6 @@ const RecordPayment = () => {
                 />
               </div>
 
-              {/* Send receipt */}
-              <div style={{ marginTop: 20 }}>
-                <label style={{ ...label, marginBottom: 10 }}>Send tenant a receipt?</label>
-                <div style={{ display: 'flex', gap: 24 }}>
-                  {[{ val: 'yes', lbl: 'Yes' }, { val: 'no', lbl: 'No' }].map(opt => (
-                    <label
-                      key={opt.val}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 7,
-                        cursor: 'pointer', fontFamily: FONT, fontSize: 14, color: NAVY,
-                      }}
-                    >
-                      <input
-                        type="radio" name="sendReceipt" value={opt.val}
-                        checked={form.sendReceipt === opt.val}
-                        onChange={() => set('sendReceipt', opt.val)}
-                        style={{ accentColor: TEAL, width: 16, height: 16, cursor: 'pointer' }}
-                      />
-                      {opt.lbl}
-                    </label>
-                  ))}
-                </div>
-              </div>
-
               {/* Divider */}
               <hr style={{ border: 'none', borderTop: '1px solid #e4e9f0', margin: '24px 0' }} />
 
@@ -522,7 +524,9 @@ const RecordPayment = () => {
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
                   <div style={{ fontFamily: FONT, fontSize: 13, color: '#8a9ab0', marginBottom: 2 }}>Total</div>
-                  <div style={{ fontFamily: FONT, fontSize: 18, fontWeight: 700, color: NAVY }}>TZS 0.00</div>
+                  <div style={{ fontFamily: FONT, fontSize: 18, fontWeight: 700, color: NAVY }}>
+                    TZS {Number(form.amount || 0).toLocaleString()}
+                  </div>
                 </div>
               </div>
 
@@ -550,167 +554,6 @@ const RecordPayment = () => {
           </div>
         </div>
       </div>
-
-      {/* ── Add New Charge Modal ─────────────────────────────── */}
-      {chargeModalOpen && (
-        <div
-          style={{
-            position: 'fixed', inset: 0, zIndex: 1000,
-            background: 'rgba(4,34,56,0.45)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: '24px 16px',
-          }}
-          onMouseDown={e => { if (e.target === e.currentTarget) setChargeModalOpen(false); }}
-        >
-          <div style={{
-            background: '#fff', border: '2px solid #e6e9f0', borderRadius: 4,
-            maxWidth: 464, width: '100%', padding: 32, position: 'relative',
-            fontFamily: FONT, color: NAVY,
-          }}>
-            <h2 style={{ fontFamily: FONT, fontSize: 20, fontWeight: 700, color: NAVY, margin: '0 0 8px', lineHeight: 1.25 }}>
-              Add New Charge
-            </h2>
-            <p style={{ fontFamily: FONT, fontSize: 13, color: NAVY, margin: '0 0 22px', lineHeight: 1.55 }}>
-              Your tenants will see this charge in their account, but they will not be notified since it will be marked as paid.
-            </p>
-
-            <form onSubmit={e => { e.preventDefault(); setChargeModalOpen(false); }} noValidate>
-
-              {/* Category */}
-              <div style={{ marginBottom: 16 }}>
-                <label style={label} htmlFor="charge_category">Category</label>
-                <div style={selectWrap}>
-                  <select
-                    id="charge_category"
-                    value={chargeForm.category}
-                    onChange={e => setChargeForm(f => ({ ...f, category: e.target.value }))}
-                    style={{
-                      ...selectStyle,
-                      borderColor: !chargeForm.category ? '#e55' : '#c8d0db',
-                    }}
-                  >
-                    <option value=""></option>
-                    <option value="RENT">Rent</option>
-                    <option value="LATE_FEE">Late fee</option>
-                    <option value="SECURITY_DEPOSIT">Security deposit</option>
-                    <option value="UTILITY_CHARGE">Utility charge</option>
-                    <option value="DEPOSIT">Deposit</option>
-                    <option value="OTHER">Other</option>
-                  </select>
-                  {chevronSvg}
-                </div>
-              </div>
-
-              {/* Description */}
-              <div style={{ marginBottom: 16 }}>
-                <label style={label} htmlFor="charge_desc">
-                  Description{' '}
-                  <span style={{ fontWeight: 400, color: '#8a9ab0' }}>(Optional)</span>
-                </label>
-                <input
-                  id="charge_desc"
-                  type="text"
-                  maxLength={36}
-                  value={chargeForm.description}
-                  onChange={e => setChargeForm(f => ({ ...f, description: e.target.value }))}
-                  style={{ fontFamily: FONT, fontSize: 14, color: NAVY, width: '100%', padding: '9px 12px', border: '1px solid #c8d0db', borderRadius: 4, background: '#fff', outline: 'none', lineHeight: 1.4, boxSizing: 'border-box' }}
-                />
-                <div style={{ fontFamily: FONT, fontSize: 12, color: '#8a9ab0', marginTop: 4 }}>
-                  {chargeForm.description.length} / 36 characters used
-                </div>
-              </div>
-
-              {/* Amount + Due date row */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
-                {/* Amount */}
-                <div>
-                  <label style={label} htmlFor="charge_amount">Amount</label>
-                  <div style={{ ...selectWrap }}>
-                    <div style={{ position: 'absolute', left: 10, pointerEvents: 'none', fontFamily: FONT, fontSize: 13, fontWeight: 600, color: '#8a9ab0' }}>
-                      TZS
-                    </div>
-                    <input
-                      id="charge_amount"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max="99999999"
-                      value={chargeForm.amount}
-                      onChange={e => setChargeForm(f => ({ ...f, amount: e.target.value }))}
-                      style={{ fontFamily: FONT, fontSize: 14, color: NAVY, width: '100%', padding: '9px 12px 9px 44px', border: '1px solid #c8d0db', borderRadius: 4, background: '#fff', outline: 'none', lineHeight: 1.4 }}
-                    />
-                  </div>
-                </div>
-
-                {/* Due date */}
-                <div>
-                  <label style={label} htmlFor="charge_due">Due date</label>
-                  <div style={{ position: 'relative' }} ref={chargeCalRef}>
-                    <button
-                      type="button"
-                      onClick={() => setChargeCalOpen(o => !o)}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 8,
-                        fontFamily: FONT, fontSize: 14,
-                        color: chargeForm.dueDate ? NAVY : '#aab4be',
-                        width: '100%', padding: '9px 12px',
-                        border: `1px solid ${chargeCalOpen ? TEAL : '#c8d0db'}`,
-                        borderRadius: 4, background: '#fff', cursor: 'pointer',
-                        outline: 'none', lineHeight: 1.4, textAlign: 'left',
-                        boxShadow: chargeCalOpen ? `0 0 0 2px ${TEAL}22` : 'none',
-                      }}
-                    >
-                      <Calendar size={14} color="#8a9ab0" style={{ flexShrink: 0 }} />
-                      {chargeForm.dueDate || 'DD/MM/YYYY'}
-                    </button>
-                    {chargeCalOpen && (
-                      <CalendarPicker
-                        value={chargeForm.dueDate}
-                        onChange={v => { setChargeForm(f => ({ ...f, dueDate: v })); setChargeCalOpen(false); }}
-                        onClose={() => setChargeCalOpen(false)}
-                      />
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Buttons */}
-              <div style={{ display: 'flex', gap: 12 }}>
-                <button
-                  type="button"
-                  onClick={() => setChargeModalOpen(false)}
-                  style={{
-                    flex: 1, fontFamily: FONT, fontSize: 13, fontWeight: 700,
-                    letterSpacing: '0.06em', textTransform: 'uppercase',
-                    color: NAVY, background: '#fff',
-                    border: `2px solid ${NAVY}`, borderRadius: 100,
-                    padding: '11px', cursor: 'pointer', lineHeight: 1,
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#f0f3f8'}
-                  onMouseLeave={e => e.currentTarget.style.background = '#fff'}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  style={{
-                    flex: 1, fontFamily: FONT, fontSize: 13, fontWeight: 700,
-                    letterSpacing: '0.06em', textTransform: 'uppercase',
-                    color: '#fff', background: NAVY,
-                    border: `2px solid ${NAVY}`, borderRadius: 100,
-                    padding: '11px', cursor: 'pointer', lineHeight: 1,
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#033A6D'}
-                  onMouseLeave={e => e.currentTarget.style.background = NAVY}
-                >
-                  Add Charge
-                </button>
-              </div>
-
-            </form>
-          </div>
-        </div>
-      )}
 
     </Layout>
   );

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import toast from 'react-hot-toast';
 import Layout from '../../components/Layout';
 import { backendUrl, API } from '../../config/constants';
 
@@ -103,10 +104,12 @@ const MaintenanceDetail = () => {
   const [noteSaving, setNoteSaving] = useState(false);
 
   // Assigned Technicians state
-  const [pros, setPros]             = useState([]);
-  const [proAddOpen, setProAddOpen] = useState(false);
-  const [proDraft, setProDraft]     = useState(EMPTY_PRO);
-  const [proSaving, setProSaving]   = useState(false);
+  const [pros, setPros]               = useState([]);
+  const [proAddOpen, setProAddOpen]   = useState(false);
+  const [proDraft, setProDraft]       = useState(EMPTY_PRO);
+  const [proSaving, setProSaving]     = useState(false);
+  const [proEditIdx, setProEditIdx]   = useState(null);
+  const [proEditDraft, setProEditDraft] = useState(EMPTY_PRO);
 
   useEffect(() => {
     axios
@@ -118,8 +121,6 @@ const MaintenanceDetail = () => {
         setStarred(!!data.starred);
         if (data.proContacts?.length > 0) {
           setPros(data.proContacts);
-        } else if (data.proContact?.name) {
-          setPros([data.proContact]);
         }
       })
       .catch(() => navigate('/maintenance'))
@@ -127,25 +128,48 @@ const MaintenanceDetail = () => {
   }, [id, navigate]);
 
   const addPro = async () => {
+    if (!proDraft.name.trim()) return;
     setProSaving(true);
-    const updated = [...pros, proDraft];
+    const updated = [...pros, { ...proDraft }];
     try {
-      await axios.put(`${backendUrl}${API.maintenance}/${id}/pro`, { proContacts: updated });
-    } catch { /* non-fatal */ }
-    setPros(updated);
-    setProAddOpen(false);
-    setProDraft(EMPTY_PRO);
-    setProSaving(false);
+      const res = await axios.put(`${backendUrl}${API.maintenance}/${id}/pro`, { proContacts: updated });
+      setPros(res.data.data.proContacts || updated);
+      setProAddOpen(false);
+      setProDraft(EMPTY_PRO);
+    } catch {
+      toast.error('Failed to save technician. Please try again.');
+    } finally {
+      setProSaving(false);
+    }
   };
 
   const deletePro = async (index) => {
     setProSaving(true);
     const updated = pros.filter((_, i) => i !== index);
     try {
-      await axios.put(`${backendUrl}${API.maintenance}/${id}/pro`, { proContacts: updated });
-    } catch { /* non-fatal */ }
-    setPros(updated);
-    setProSaving(false);
+      const res = await axios.put(`${backendUrl}${API.maintenance}/${id}/pro`, { proContacts: updated });
+      setPros(res.data.data.proContacts || updated);
+    } catch {
+      toast.error('Failed to delete technician. Please try again.');
+    } finally {
+      setProSaving(false);
+    }
+  };
+
+  const savePro = async (index) => {
+    if (!proEditDraft.name.trim()) return;
+    setProSaving(true);
+    const updated = pros.map((p, i) => i === index ? { ...proEditDraft } : p);
+    try {
+      const res = await axios.put(`${backendUrl}${API.maintenance}/${id}/pro`, { proContacts: updated });
+      setPros(res.data.data.proContacts || updated);
+      setProEditIdx(null);
+      setProEditDraft(EMPTY_PRO);
+    } catch {
+      toast.error('Failed to update technician. Please try again.');
+    } finally {
+      setProSaving(false);
+    }
   };
 
   const openDetailEdit = () => {
@@ -801,93 +825,212 @@ const MaintenanceDetail = () => {
               {pros.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: proAddOpen ? 12 : 0 }}>
                   {pros.map((p, idx) => (
-                    <div key={idx} style={{
-                      background: '#f8fafc', border: '1px solid #e8edf4',
-                      borderRadius: 8, padding: '10px 10px 10px 12px',
-                      display: 'flex', gap: 10, alignItems: 'flex-start',
-                    }}>
-                      {/* Avatar */}
-                      <div style={{
-                        width: 32, height: 32, borderRadius: '50%',
-                        background: '#e8f0f7', border: '1.5px solid #c3d7f0',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        flexShrink: 0, marginTop: 1,
-                      }}>
-                        <svg width="15" height="15" viewBox="0 0 20 20" fill="#ACB9C8">
-                          <path d={PERSON_PATH}/>
-                        </svg>
-                      </div>
-
-                      {/* Info */}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ margin: '0 0 1px', fontFamily: FONT, fontSize: 13, fontWeight: 700, color: NAVY }}>
-                          {p.name}
-                        </p>
-                        <p style={{ margin: 0, fontFamily: FONT, fontSize: 11, color: '#8a9ab0' }}>
-                          {request.category || 'Specialist'}
-                        </p>
-                        {(p.phone || p.email || p.notes) && (
-                          <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 3 }}>
-                            {p.phone && (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
-                                  stroke="#8a9ab0" strokeWidth="2"
-                                  strokeLinecap="round" strokeLinejoin="round">
-                                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13 19.79 19.79 0 0 1 1.62 4.34 2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.16 6.16l.91-.91a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 17z"/>
-                                </svg>
-                                <span style={{ fontFamily: FONT, fontSize: 12, color: '#374151' }}>{p.phone}</span>
-                              </div>
-                            )}
-                            {p.email && (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
-                                  stroke="#8a9ab0" strokeWidth="2"
-                                  strokeLinecap="round" strokeLinejoin="round">
-                                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-                                  <polyline points="22,6 12,13 2,6"/>
-                                </svg>
-                                <span style={{ fontFamily: FONT, fontSize: 12, color: '#374151' }}>{p.email}</span>
-                              </div>
-                            )}
-                            {p.notes && (
-                              <p style={{
-                                margin: '2px 0 0', fontFamily: FONT,
-                                fontSize: 11, color: '#6b7c93',
-                                lineHeight: 1.4, fontStyle: 'italic',
+                    <div key={idx}>
+                      {/* ── Inline edit form ── */}
+                      {proEditIdx === idx ? (
+                        <div style={{
+                          background: '#f0f6ff', border: '1.5px solid #bfdbfe',
+                          borderRadius: 8, padding: 14,
+                          display: 'flex', flexDirection: 'column', gap: 10,
+                        }}>
+                          <p style={{
+                            margin: '0 0 2px', fontFamily: FONT,
+                            fontSize: 12, fontWeight: 700, color: NAVY, letterSpacing: '0.03em',
+                          }}>
+                            Edit Technician
+                          </p>
+                          {[
+                            { key: 'name',  label: 'Name *',  placeholder: 'e.g. John Smith',         type: 'text'  },
+                            { key: 'phone', label: 'Phone',   placeholder: 'e.g. +1 555 123 4567',    type: 'tel'   },
+                            { key: 'email', label: 'Email',   placeholder: 'e.g. john@repairs.com',   type: 'email' },
+                            { key: 'notes', label: 'Notes',   placeholder: 'e.g. available weekdays', type: 'text', multi: true },
+                          ].map(field => (
+                            <div key={field.key}>
+                              <label style={{
+                                display: 'block', fontFamily: FONT,
+                                fontSize: 10, fontWeight: 700,
+                                color: '#6b7c93', letterSpacing: '0.06em',
+                                textTransform: 'uppercase', marginBottom: 3,
                               }}>
-                                {p.notes}
-                              </p>
+                                {field.label}
+                              </label>
+                              {field.multi ? (
+                                <textarea
+                                  rows={2}
+                                  value={proEditDraft[field.key]}
+                                  onChange={e => setProEditDraft(d => ({ ...d, [field.key]: e.target.value }))}
+                                  placeholder={field.placeholder}
+                                  style={{
+                                    width: '100%', boxSizing: 'border-box',
+                                    padding: '6px 9px', fontFamily: FONT,
+                                    fontSize: 12, color: NAVY,
+                                    border: '1px solid #bfdbfe', borderRadius: 6,
+                                    outline: 'none', resize: 'none',
+                                    background: '#fff', lineHeight: 1.5,
+                                  }}
+                                />
+                              ) : (
+                                <input
+                                  type={field.type}
+                                  value={proEditDraft[field.key]}
+                                  onChange={e => setProEditDraft(d => ({ ...d, [field.key]: e.target.value }))}
+                                  placeholder={field.placeholder}
+                                  style={{
+                                    width: '100%', boxSizing: 'border-box',
+                                    padding: '6px 9px', fontFamily: FONT,
+                                    fontSize: 12, color: NAVY,
+                                    border: '1px solid #bfdbfe', borderRadius: 6,
+                                    outline: 'none', background: '#fff',
+                                  }}
+                                />
+                              )}
+                            </div>
+                          ))}
+                          <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
+                            <button
+                              onClick={() => savePro(idx)}
+                              disabled={proSaving || !proEditDraft.name.trim()}
+                              style={{
+                                flex: 1, padding: '7px 0',
+                                background: proSaving || !proEditDraft.name.trim() ? '#8a9ab0' : '#1d4ed8',
+                                color: '#fff', border: 'none', borderRadius: 6,
+                                fontFamily: FONT, fontSize: 11, fontWeight: 700,
+                                cursor: proSaving || !proEditDraft.name.trim() ? 'not-allowed' : 'pointer',
+                                letterSpacing: '0.04em',
+                              }}
+                            >
+                              {proSaving ? 'Saving…' : 'Save Changes'}
+                            </button>
+                            <button
+                              onClick={() => { setProEditIdx(null); setProEditDraft(EMPTY_PRO); }}
+                              disabled={proSaving}
+                              style={{
+                                flex: 1, padding: '7px 0',
+                                background: 'transparent', color: '#6b7c93',
+                                border: '1px solid #dde3ec', borderRadius: 6,
+                                fontFamily: FONT, fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                              }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        /* ── View card ── */
+                        <div style={{
+                          background: '#f8fafc', border: '1px solid #e8edf4',
+                          borderRadius: 8, padding: '10px 10px 10px 12px',
+                          display: 'flex', gap: 10, alignItems: 'flex-start',
+                        }}>
+                          {/* Avatar */}
+                          <div style={{
+                            width: 32, height: 32, borderRadius: '50%',
+                            background: '#e8f0f7', border: '1.5px solid #c3d7f0',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            flexShrink: 0, marginTop: 1,
+                          }}>
+                            <svg width="15" height="15" viewBox="0 0 20 20" fill="#ACB9C8">
+                              <path d={PERSON_PATH}/>
+                            </svg>
+                          </div>
+
+                          {/* Info */}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ margin: '0 0 1px', fontFamily: FONT, fontSize: 13, fontWeight: 700, color: NAVY }}>
+                              {p.name}
+                            </p>
+                            <p style={{ margin: 0, fontFamily: FONT, fontSize: 11, color: '#8a9ab0' }}>
+                              {request.category || 'Specialist'}
+                            </p>
+                            {(p.phone || p.email || p.notes) && (
+                              <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                {p.phone && (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                                      stroke="#8a9ab0" strokeWidth="2"
+                                      strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13 19.79 19.79 0 0 1 1.62 4.34 2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.16 6.16l.91-.91a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 17z"/>
+                                    </svg>
+                                    <span style={{ fontFamily: FONT, fontSize: 12, color: '#374151' }}>{p.phone}</span>
+                                  </div>
+                                )}
+                                {p.email && (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                                      stroke="#8a9ab0" strokeWidth="2"
+                                      strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                                      <polyline points="22,6 12,13 2,6"/>
+                                    </svg>
+                                    <span style={{ fontFamily: FONT, fontSize: 12, color: '#374151' }}>{p.email}</span>
+                                  </div>
+                                )}
+                                {p.notes && (
+                                  <p style={{
+                                    margin: '2px 0 0', fontFamily: FONT,
+                                    fontSize: 11, color: '#6b7c93',
+                                    lineHeight: 1.4, fontStyle: 'italic',
+                                  }}>
+                                    {p.notes}
+                                  </p>
+                                )}
+                              </div>
                             )}
                           </div>
-                        )}
-                      </div>
 
-                      {/* Delete button */}
-                      <button
-                        onClick={() => deletePro(idx)}
-                        disabled={proSaving}
-                        title="Remove technician"
-                        style={{
-                          background: 'none', border: 'none',
-                          cursor: proSaving ? 'not-allowed' : 'pointer',
-                          padding: '3px 4px', borderRadius: 4,
-                          color: '#dc2626', flexShrink: 0,
-                          opacity: proSaving ? 0.4 : 0.7,
-                          display: 'flex', alignItems: 'center',
-                          transition: 'opacity 0.15s',
-                        }}
-                        onMouseEnter={e => { if (!proSaving) e.currentTarget.style.opacity = '1'; }}
-                        onMouseLeave={e => { if (!proSaving) e.currentTarget.style.opacity = '0.7'; }}
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                          stroke="currentColor" strokeWidth="2"
-                          strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="3 6 5 6 21 6"/>
-                          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                          <path d="M10 11v6M14 11v6"/>
-                          <path d="M9 6V4h6v2"/>
-                        </svg>
-                      </button>
+                          {/* Action buttons: Edit + Delete */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
+                            {/* Edit button */}
+                            <button
+                              onClick={() => { setProEditIdx(idx); setProEditDraft({ ...p }); }}
+                              disabled={proSaving}
+                              title="Edit technician"
+                              style={{
+                                background: 'none', border: 'none',
+                                cursor: proSaving ? 'not-allowed' : 'pointer',
+                                padding: '3px 4px', borderRadius: 4,
+                                color: '#1d4ed8', opacity: proSaving ? 0.4 : 0.7,
+                                display: 'flex', alignItems: 'center',
+                                transition: 'opacity 0.15s',
+                              }}
+                              onMouseEnter={e => { if (!proSaving) e.currentTarget.style.opacity = '1'; }}
+                              onMouseLeave={e => { if (!proSaving) e.currentTarget.style.opacity = '0.7'; }}
+                            >
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" strokeWidth="2"
+                                strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                              </svg>
+                            </button>
+                            {/* Delete button */}
+                            <button
+                              onClick={() => deletePro(idx)}
+                              disabled={proSaving}
+                              title="Remove technician"
+                              style={{
+                                background: 'none', border: 'none',
+                                cursor: proSaving ? 'not-allowed' : 'pointer',
+                                padding: '3px 4px', borderRadius: 4,
+                                color: '#dc2626', opacity: proSaving ? 0.4 : 0.7,
+                                display: 'flex', alignItems: 'center',
+                                transition: 'opacity 0.15s',
+                              }}
+                              onMouseEnter={e => { if (!proSaving) e.currentTarget.style.opacity = '1'; }}
+                              onMouseLeave={e => { if (!proSaving) e.currentTarget.style.opacity = '0.7'; }}
+                            >
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" strokeWidth="2"
+                                strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="3 6 5 6 21 6"/>
+                                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                                <path d="M10 11v6M14 11v6"/>
+                                <path d="M9 6V4h6v2"/>
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

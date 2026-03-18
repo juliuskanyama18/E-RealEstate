@@ -13,6 +13,8 @@ import {
   updateTenant,
   updateTenantBalance,
   removeTenant,
+  recordPayment,
+  getPayments,
   createMaintenanceRequest,
   getMaintenanceRequests,
   getMaintenanceRequest,
@@ -22,12 +24,19 @@ import {
   toggleMaintenanceStar,
   updateMaintenanceProContact,
   uploadMaintenancePhotos,
+  getCashflow,
+  getOrgSettings,
+  updateOrgSettings,
 } from "../controller/landlordController.js";
 import { protect, requireActive, requireRole } from "../middleware/auth.js";
 
 const router = express.Router();
 
 router.use(protect, requireActive, requireRole("landlord"));
+
+router.get("/cashflow", getCashflow);
+router.get("/org", getOrgSettings);
+router.put("/org", updateOrgSettings);
 
 router.post("/houses", createHouse);
 router.get("/houses", getHouses);
@@ -36,6 +45,9 @@ router.put("/houses/:id", updateHouse);
 router.put("/houses/:id/photo", updateHousePhoto);
 router.delete("/houses/:id", deleteHouse);
 router.get("/houses/:id/tenants", getHouseTenants);
+
+router.get("/payments",  getPayments);
+router.post("/payments", recordPayment);
 
 router.post("/tenants", addTenant);
 router.get("/tenants", getTenants);

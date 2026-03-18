@@ -69,6 +69,7 @@ const Tenants = () => {
         houseId: form.houseId,
         rentAmount: 0,
         rentDueDate: 1,
+        sendInvitation: form.invitePortal,
       };
       await axios.post(`${backendUrl}${API.tenants}`, payload);
       toast.success('Tenant added successfully');

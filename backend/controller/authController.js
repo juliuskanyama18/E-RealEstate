@@ -83,9 +83,18 @@ export const login = async (req, res) => {
       return res.status(401).json({ success: false, message: "Invalid email or password" });
     }
 
+    // Block soft-deleted accounts — treat as non-existent (no information leak)
+    if (user.isDeleted) {
+      return res.status(401).json({ success: false, message: "Invalid email or password" });
+    }
+
     if (!user.isActive) {
       return res.status(403).json({ success: false, message: "Account suspended. Contact the platform administrator." });
     }
+
+    // Record login timestamp without triggering full validation
+    user.lastLogin = new Date();
+    await user.save({ validateBeforeSave: false });
 
     const token = signToken(user._id, user.role);
 
@@ -175,4 +184,42 @@ export const resetPassword = async (req, res) => {
 
 export const getMe = async (req, res) => {
   res.json({ success: true, data: req.user });
+};
+
+export const setPassword = async (req, res) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+
+    if (!password || password.length < 6) {
+      return res.status(400).json({ success: false, message: "Password must be at least 6 characters" });
+    }
+
+    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+    const user = await User.findOne({
+      resetToken: hashedToken,
+      resetTokenExpire: { $gt: Date.now() },
+    }).select("+resetToken +resetTokenExpire");
+
+    if (!user) {
+      return res.status(400).json({ success: false, message: "Invalid or expired invitation link" });
+    }
+
+    user.password = await bcrypt.hash(password, 12);
+    user.resetToken = undefined;
+    user.resetTokenExpire = undefined;
+    await user.save();
+
+    const authToken = signToken(user._id, user.role);
+    res.json({
+      success: true,
+      message: "Password set successfully",
+      data: {
+        token: authToken,
+        user: { _id: user._id, name: user.name, email: user.email, role: user.role },
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
 };
