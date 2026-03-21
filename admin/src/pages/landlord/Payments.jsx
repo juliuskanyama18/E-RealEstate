@@ -722,6 +722,7 @@ const Payments = () => {
                 background: '#fff', border: '1px solid #e4e9f0', borderRadius: 6,
                 padding: '24px 28px', boxShadow: '0 1px 4px rgba(4,34,56,0.06)',
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24,
+                flexWrap: 'wrap',
               }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
                   <div style={{ width: 40, height: 40, borderRadius: 6, background: '#eef6fb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
