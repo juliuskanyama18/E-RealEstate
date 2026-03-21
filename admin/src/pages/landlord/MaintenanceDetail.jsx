@@ -50,6 +50,7 @@ const pageStyle = {
   padding: '20px 28px 40px',
   fontFamily: FONT,
   color: NAVY,
+  boxSizing: 'border-box',
 };
 const cardStyle = {
   background: '#fff',
@@ -433,7 +434,7 @@ const MaintenanceDetail = () => {
         </div>
 
         {/* ── ③ Two-column body ──────────────────────────────────── */}
-        <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+        <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', flexWrap: 'wrap' }}>
 
           {/* ════ LEFT: Details card ══════════════════════════════ */}
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -779,7 +780,7 @@ const MaintenanceDetail = () => {
           </div>
 
           {/* ════ RIGHT: stacked cards ════════════════════════════ */}
-          <div style={{ width: 296, flexShrink: 0 }}>
+          <div style={{ width: 296, maxWidth: '100%', flexShrink: 0, boxSizing: 'border-box' }}>
 
             {/* ── Available Technicians card ───────────────────────── */}
             <div style={cardStyle}>

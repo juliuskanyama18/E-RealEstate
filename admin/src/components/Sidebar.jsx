@@ -85,9 +85,9 @@ const Sidebar = ({ isOpen = true }) => {
 
   return (
     <>
-      {/* Flex spacer */}
+      {/* Flex spacer — only on desktop so sidebar doesn't push content on mobile */}
       <div
-        className={`flex-shrink-0 transition-all duration-300 ${isOpen ? 'w-64' : 'w-0'}`}
+        className={`flex-shrink-0 transition-all duration-300 hidden md:block ${isOpen ? 'w-64' : 'w-0'}`}
         aria-hidden="true"
       />
 

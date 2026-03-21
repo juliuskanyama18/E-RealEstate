@@ -271,7 +271,7 @@ const SetUpMonthlyCharge = () => {
         <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 16px' }}>
           <div style={{
             background: '#fff', border: '1px solid #e6e9f0',
-            borderRadius: 4, padding: 32,
+            borderRadius: 4, padding: 32, boxSizing: 'border-box',
           }}>
             <form onSubmit={handleSubmit}>
 
@@ -322,7 +322,7 @@ const SetUpMonthlyCharge = () => {
               </div>
 
               {/* Amount + Due Date row */}
-              <div style={{ display: 'flex', gap: 16, marginBottom: 18 }}>
+              <div style={{ display: 'flex', gap: 16, marginBottom: 18, flexWrap: 'wrap' }}>
 
                 {/* Amount */}
                 <div style={{ flex: 1 }}>
@@ -407,7 +407,7 @@ const SetUpMonthlyCharge = () => {
 
               {/* First Month + optional Last Month */}
               <div style={{ marginBottom: 18 }}>
-                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
 
                   {/* First Month */}
                   <div style={{ flex: 1 }}>

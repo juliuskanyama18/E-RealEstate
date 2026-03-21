@@ -134,7 +134,7 @@ const CreateRequestModal = ({ house, onClose }) => {
           background: '#fff',
           border: '2px solid #e6e9f0',
           borderRadius: 4,
-          minWidth: 544,
+          minWidth: 0,
           maxWidth: 600,
           width: '100%',
           padding: 32,
@@ -553,17 +553,19 @@ const DocumentsTab = ({ houseId, backendUrl }) => {
   return (
     <div style={{ width: '100%', padding: '24px 20px', boxSizing: 'border-box' }}>
       {/* Tabs */}
-      <div style={{ display: 'flex', borderBottom: '2px solid #e5e7eb', marginBottom: 0 }}>
+      <div style={{ overflowX: 'auto' }}>
+      <div style={{ display: 'flex', borderBottom: '2px solid #e5e7eb', marginBottom: 0, minWidth: 'max-content' }}>
         {[{ key: 'property', label: 'Property documents' }, { key: 'lease', label: 'Lease documents' }].map(t => (
           <button key={t.key} onClick={() => setDocTab(t.key)}
             style={{ padding: '10px 20px', fontSize: 14, fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', color: docTab === t.key ? '#042238' : '#6b7280', borderBottom: docTab === t.key ? '2px solid #042238' : '2px solid transparent', marginBottom: -2 }}
           >{t.label}</button>
         ))}
       </div>
+      </div>
 
       {/* Toolbar */}
-      <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderTop: 'none', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{ position: 'relative', flex: '0 0 260px' }}>
+      <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderTop: 'none', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ position: 'relative', flex: '1 1 200px', minWidth: 0 }}>
           <input type="text" placeholder="Search" value={search} onChange={e => setSearch(e.target.value)}
             style={{ width: '100%', padding: '6px 30px 6px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
           <svg width="16" height="16" viewBox="0 0 24 24" fill="#9ca3af" style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
@@ -580,8 +582,8 @@ const DocumentsTab = ({ houseId, backendUrl }) => {
       </div>
 
       {/* Table */}
-      <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderTop: 'none', borderRadius: '0 0 8px 8px', overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+      <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderTop: 'none', borderRadius: '0 0 8px 8px', overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 480 }}>
           <thead>
             <tr style={{ borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
               <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#042238', letterSpacing: '0.06em' }}>FILE NAME</th>
@@ -1682,8 +1684,8 @@ const HouseDetail = () => {
                 </button>
               </div>
             ) : (
-              <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: '"Inter", sans-serif' }}>
+              <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflowX: 'auto', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: '"Inter", sans-serif', minWidth: 500 }}>
                   <thead>
                     <tr style={{ background: '#f9fafb', borderBottom: '2px solid #e5e7eb' }}>
                       {['Date Added', 'Title', 'Last Activity', 'Status', ''].map(col => (

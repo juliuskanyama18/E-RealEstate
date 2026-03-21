@@ -318,6 +318,7 @@ const RecordPayment = () => {
             background: '#fff', border: '1px solid #e4e9f0', borderRadius: 6,
             padding: '32px 36px 36px',
             boxShadow: '0 1px 6px rgba(4,34,56,0.07)',
+            boxSizing: 'border-box',
           }}>
             <form onSubmit={handleSubmit} noValidate>
 
@@ -376,7 +377,7 @@ const RecordPayment = () => {
               <a style={linkStyle}>Add Tenants</a>
 
               {/* Amount + Month row */}
-              <div style={{ marginTop: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div style={{ marginTop: 20, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16 }}>
                 {/* Amount */}
                 <div>
                   <label style={label} htmlFor="amount">
@@ -420,7 +421,7 @@ const RecordPayment = () => {
               {/* Payment method */}
               <div style={{ marginTop: 24 }}>
                 <label style={{ ...label, marginBottom: 12 }}>How did they pay?</label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(90px, 1fr))', gap: 10 }}>
                   {PAYMENT_METHODS.map(({ key, label: lbl, Icon }) => {
                     const chosen = form.paymentMethod === key;
                     return (

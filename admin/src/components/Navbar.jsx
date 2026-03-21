@@ -97,7 +97,7 @@ const CalendarPanel = ({ onClose }) => {
       <div className="fixed inset-0 z-40" onClick={onClose} />
 
       {/* Panel */}
-      <div className="fixed top-0 right-0 h-screen w-[480px] bg-white shadow-2xl z-50 flex flex-col">
+      <div className="fixed top-0 right-0 h-screen w-full sm:w-[480px] bg-white shadow-2xl z-50 flex flex-col">
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 flex-shrink-0">
@@ -318,7 +318,7 @@ const RemindersPanel = ({ onClose }) => {
   return (
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} />
-      <div className="fixed top-0 right-0 h-screen w-[480px] bg-white shadow-2xl z-50 flex flex-col">
+      <div className="fixed top-0 right-0 h-screen w-full sm:w-[480px] bg-white shadow-2xl z-50 flex flex-col">
 
         {/* Header */}
         <div className="px-5 pt-3.5 pb-3 flex-shrink-0">
@@ -454,7 +454,7 @@ const Navbar = ({ onMenuClick }) => {
           <div className="relative" ref={dropdownRef}>
             <button onClick={() => setProfileOpen(o => !o)} className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-gray-100 transition-colors" aria-label="user profile menu">
               <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 select-none">{initials}</div>
-              <span className="text-sm font-medium text-gray-700 max-w-[120px] truncate">{user?.name}</span>
+              <span className="hidden sm:block text-sm font-medium text-gray-700 max-w-[120px] truncate">{user?.name}</span>
               <ChevronDown size={16} className="text-gray-500 flex-shrink-0" />
             </button>
 

@@ -137,7 +137,7 @@ const PaymentDetail = () => {
       <div style={{
         flex: 1, overflowY: 'auto',
         background: '#f4f6f9', padding: '20px 28px 40px',
-        fontFamily: FONT, color: NAVY,
+        fontFamily: FONT, color: NAVY, boxSizing: 'border-box',
       }}>
         <div style={{ maxWidth: 700, margin: '0 auto' }}>
 

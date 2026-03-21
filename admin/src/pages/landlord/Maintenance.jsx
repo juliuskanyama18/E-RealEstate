@@ -83,7 +83,7 @@ const CreateModal = ({ houses, onClose, onCreated }) => {
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
-        style={{ background: '#fff', border: '2px solid #e6e9f0', borderRadius: 4, minWidth: 544, maxWidth: 600, width: '100%', padding: 32, boxSizing: 'border-box', maxHeight: '90vh', overflowY: 'auto', fontFamily: '"Inter", sans-serif', fontSize: 14, color: '#042238' }}
+        style={{ background: '#fff', border: '2px solid #e6e9f0', borderRadius: 4, minWidth: 0, maxWidth: 600, width: '100%', padding: 32, boxSizing: 'border-box', maxHeight: '90vh', overflowY: 'auto', fontFamily: '"Inter", sans-serif', fontSize: 14, color: '#042238' }}
         onClick={e => e.stopPropagation()}
       >
 
@@ -301,7 +301,7 @@ const Maintenance = () => {
         <div style={{ maxWidth: 900, margin: '0 auto' }}>
 
         {/* ── Page header ────────────────────────────────────── */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: '#042238', margin: 0 }}>Maintenance</h1>
           <button
             onClick={() => setModal(true)}
@@ -416,8 +416,8 @@ const Maintenance = () => {
             </p>
           </div>
         ) : (
-          <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: '"Inter", sans-serif' }}>
+          <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflowX: 'auto', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: '"Inter", sans-serif', minWidth: 600 }}>
               <thead>
                 <tr style={{ background: '#f9fafb', borderBottom: '2px solid #e5e7eb' }}>
                   {['Date Added', 'Title', 'Rental', 'Last Activity', 'Status', ''].map(col => (

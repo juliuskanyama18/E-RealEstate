@@ -286,7 +286,7 @@ export default function CreateLease() {
   return (
     <Layout>
       <div style={{ fontFamily: FONT, minHeight: '100vh', background: '#f9fafb' }}>
-        <div style={{ maxWidth: 700, margin: '0 auto', padding: '28px 20px 60px' }}>
+        <div style={{ maxWidth: 700, margin: '0 auto', padding: '28px 20px 60px', boxSizing: 'border-box' }}>
 
           {/* Breadcrumb */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#6b7280', marginBottom: 20, flexWrap: 'wrap' }}>

@@ -339,7 +339,8 @@ const Houses = () => {
         ) : (
           <>
             {/* ── Tabs ──────────────────────────────────────── */}
-            <div className="flex gap-0 border-b border-gray-200 mb-4">
+            <div style={{ overflowX: 'auto' }}>
+            <div className="flex gap-0 border-b border-gray-200 mb-4" style={{ minWidth: 'max-content' }}>
               {TABS.map(tab => {
                 const count = tabCounts[tab] ?? 0;
                 const hasCount = tab !== 'All' && tab !== 'Multi-Unit';
@@ -362,6 +363,7 @@ const Houses = () => {
                   </button>
                 );
               })}
+            </div>
             </div>
 
             {/* ── Search ────────────────────────────────────── */}
@@ -403,11 +405,11 @@ const Houses = () => {
                 const rentDue = lease?.rentAmount ?? h.rentAmount;
 
                 return (
-                  <div key={h._id} onClick={() => navigate(`/houses/${h._id}`)} className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer" style={{ height: 96 }}>
-                    <div className="flex" style={{ height: 96 }}>
+                  <div key={h._id} onClick={() => navigate(`/houses/${h._id}`)} className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer" style={{ minHeight: 96 }}>
+                    <div className="flex" style={{ minHeight: 96, overflowX: 'auto' }}>
 
                       {/* Photo / Icon area */}
-                      <div className="relative flex-shrink-0 w-[96px] rounded-l-xl bg-[#f5f7fa] overflow-hidden group" style={{ height: 96 }}>
+                      <div className="relative flex-shrink-0 w-[96px] rounded-l-xl bg-[#f5f7fa] overflow-hidden group" style={{ minHeight: 96 }}>
                         {h.photo ? (
                           <img src={`${backendUrl}${h.photo}`} alt={h.name || h.address} className="w-full h-full object-cover" />
                         ) : (

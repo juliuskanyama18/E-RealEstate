@@ -629,7 +629,7 @@ const Payments = () => {
             </div>
 
             {/* Tab bar */}
-            <div style={{ display: 'flex' }}>
+            <div style={{ display: 'flex', overflowX: 'auto' }}>
               {[{ key: 'overview', label: 'Overview' }, { key: 'charges', label: 'Charges' }].map(t => (
                 <button
                   key={t.key}
@@ -655,7 +655,7 @@ const Payments = () => {
         </div>
 
         {/* ── Body ── */}
-        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '28px 24px' }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '28px 24px', boxSizing: 'border-box' }}>
 
           {/* ── OVERVIEW tab ── */}
           {tab === 'overview' && (
@@ -666,7 +666,7 @@ const Payments = () => {
                 padding: '24px 28px', marginBottom: 20,
                 boxShadow: '0 1px 4px rgba(4,34,56,0.06)',
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
                   <h2 style={{ fontFamily: FONT, fontSize: 18, fontWeight: 700, color: NAVY, margin: 0 }}>
                     {periodLabel}
                   </h2>
@@ -690,7 +690,7 @@ const Payments = () => {
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
                   {statCards.map(card => (
                     <div
                       key={card.key}

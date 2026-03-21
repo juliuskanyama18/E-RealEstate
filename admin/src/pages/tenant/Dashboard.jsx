@@ -138,8 +138,8 @@ const PaymentsTab = ({ history }) => {
       <h2 style={{ fontFamily: FONT, fontSize: 17, fontWeight: 700, color: NAVY, margin: '0 0 20px' }}>
         Charges &amp; Payments
       </h2>
-      <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e4e9f0', overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: FONT, fontSize: 13 }}>
+      <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e4e9f0', overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: FONT, fontSize: 13, minWidth: 480 }}>
           <thead>
             <tr style={{ borderBottom: '1px solid #e4e9f0' }}>
               {[
@@ -302,7 +302,7 @@ const TenantDashboard = () => {
 
         {/* ── Page header ──────────────────────────────────────── */}
         <div style={{ background: '#fff', borderBottom: '1px solid #e4e9f0' }}>
-          <div style={{ maxWidth: 1060, margin: '0 auto', padding: '20px 28px 0' }}>
+          <div style={{ maxWidth: 1060, margin: '0 auto', padding: '20px 28px 0', boxSizing: 'border-box' }}>
             <p style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, color: '#8a9ab0', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 3px' }}>
               Dashboard
             </p>
@@ -315,7 +315,7 @@ const TenantDashboard = () => {
             </p>
 
             {/* Tab bar */}
-            <div style={{ display: 'flex', marginTop: 16 }}>
+            <div style={{ display: 'flex', marginTop: 16, overflowX: 'auto' }}>
               {TABS.map(({ id, label }) => (
                 <button
                   key={id}
@@ -345,11 +345,11 @@ const TenantDashboard = () => {
         </div>
 
         {/* ── Main content ─────────────────────────────────────── */}
-        <div style={{ maxWidth: 1060, margin: '0 auto', padding: '32px 28px' }}>
+        <div style={{ maxWidth: 1060, margin: '0 auto', padding: '32px 28px', boxSizing: 'border-box' }}>
 
           {/* ── OVERVIEW ────────────────────────────────────────── */}
           {tab === 'overview' && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 28, alignItems: 'start' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 28, alignItems: 'start' }}>
 
               {/* Left column */}
               <div>
@@ -501,7 +501,7 @@ const TenantDashboard = () => {
               </div>
             ) : (
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
                   <h2 style={{ fontFamily: FONT, fontSize: 17, fontWeight: 700, color: NAVY, margin: 0 }}>
                     Maintenance Requests
                   </h2>
