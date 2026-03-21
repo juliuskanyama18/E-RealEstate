@@ -466,7 +466,7 @@ const Organisation = () => {
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap ${
+                className={`px-2 sm:px-4 py-2.5 text-xs sm:text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap ${
                   activeTab === tab
                     ? 'border-[#042238] text-[#042238]'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
