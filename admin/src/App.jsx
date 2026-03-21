@@ -18,9 +18,11 @@ import LandlordDashboard from './pages/landlord/Dashboard';
 import Houses from './pages/landlord/Houses';
 import AddProperty from './pages/landlord/AddProperty';
 import HouseDetail from './pages/landlord/HouseDetail';
+import CreateLease from './pages/landlord/CreateLease';
 import Tenants from './pages/landlord/Tenants';
 import TenantDetail from './pages/landlord/TenantDetail';
 import Payments from './pages/landlord/Payments';
+import PaymentDetail from './pages/landlord/PaymentDetail';
 import RecordPayment from './pages/landlord/RecordPayment';
 import SetUpMonthlyCharge from './pages/landlord/SetUpMonthlyCharge';
 import SetUpOneTimeCharge from './pages/landlord/SetUpOneTimeCharge';
@@ -58,10 +60,12 @@ const App = () => (
         <Route path="/houses" element={<ProtectedRoute roles={['landlord']}><Houses /></ProtectedRoute>} />
         <Route path="/houses/new" element={<ProtectedRoute roles={['landlord']}><AddProperty /></ProtectedRoute>} />
         <Route path="/houses/:id" element={<ProtectedRoute roles={['landlord']}><HouseDetail /></ProtectedRoute>} />
+        <Route path="/houses/:id/create-lease" element={<ProtectedRoute roles={['landlord']}><CreateLease /></ProtectedRoute>} />
         <Route path="/tenants" element={<ProtectedRoute roles={['landlord']}><Tenants /></ProtectedRoute>} />
         <Route path="/tenants/:id" element={<ProtectedRoute roles={['landlord']}><TenantDetail /></ProtectedRoute>} />
         <Route path="/payments" element={<ProtectedRoute roles={['landlord']}><Payments /></ProtectedRoute>} />
         <Route path="/payments/record" element={<ProtectedRoute roles={['landlord']}><RecordPayment /></ProtectedRoute>} />
+        <Route path="/payments/:id" element={<ProtectedRoute roles={['landlord']}><PaymentDetail /></ProtectedRoute>} />
         <Route path="/payments/charges/monthly" element={<ProtectedRoute roles={['landlord']}><SetUpMonthlyCharge /></ProtectedRoute>} />
         <Route path="/payments/charges/one-time" element={<ProtectedRoute roles={['landlord']}><SetUpOneTimeCharge /></ProtectedRoute>} />
         <Route path="/maintenance" element={<ProtectedRoute roles={['landlord']}><Maintenance /></ProtectedRoute>} />

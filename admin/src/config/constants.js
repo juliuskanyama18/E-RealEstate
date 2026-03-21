@@ -6,6 +6,8 @@ export const API = {
   me: '/api/auth/me',
   forgotPassword: '/api/auth/forgot-password',
   setPassword: '/api/auth/set-password',
+  updateProfile: '/api/auth/profile',
+  changePassword: '/api/auth/password',
   admin: {
     stats:       '/api/admin/stats',
     landlords:   '/api/admin/landlords',
@@ -18,6 +20,7 @@ export const API = {
   tenants: '/api/landlord/tenants',
   maintenance: '/api/landlord/maintenance',
   payments: '/api/landlord/payments',
+  charges: '/api/landlord/charges',
   cashflow: '/api/landlord/cashflow',
   org: '/api/landlord/org',
   tenant: {
@@ -25,6 +28,7 @@ export const API = {
     status: '/api/tenant/rent-status',
     history: '/api/tenant/rent-history',
     maintenance: '/api/tenant/maintenance',
+    documents: '/api/tenant/documents',
   },
 };
 

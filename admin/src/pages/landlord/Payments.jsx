@@ -1106,7 +1106,13 @@ const Payments = () => {
                         const statusLabel =
                           r.status === 'paid' ? 'Paid' : r.status === 'overdue' ? 'Overdue' : 'Pending';
                         return (
-                          <tr key={r._id} style={{ borderBottom: '1px solid #e4e9f0', background: i % 2 === 0 ? '#fff' : '#fafbfc' }}>
+                          <tr
+                            key={r._id}
+                            onClick={() => navigate(`/payments/${r._id}`)}
+                            style={{ borderBottom: '1px solid #e4e9f0', background: i % 2 === 0 ? '#fff' : '#fafbfc', cursor: 'pointer', transition: 'background 0.1s' }}
+                            onMouseEnter={e => e.currentTarget.style.background = '#f0f4f8'}
+                            onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? '#fff' : '#fafbfc'}
+                          >
                             <td style={{ padding: '12px 16px', color: NAVY, fontWeight: 600 }}>
                               {r.tenant?.name || '—'}
                               {r.tenant?.email && <div style={{ fontSize: 11, color: '#8a9ab0', fontWeight: 400 }}>{r.tenant.email}</div>}

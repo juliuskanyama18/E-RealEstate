@@ -94,6 +94,7 @@ const MaintenanceDetail = () => {
   const [detailEdit, setDetailEdit]   = useState(false);
   const [detailDraft, setDetailDraft] = useState(null);
   const [detailSaving, setDetailSaving] = useState(false);
+  const [deleting, setDeleting]       = useState(false);
 
   // Activity info tooltip
   const [infoTooltip, setInfoTooltip] = useState(false);
@@ -201,6 +202,20 @@ const MaintenanceDetail = () => {
       setDetailEdit(false);
     } catch { /* silent */ }
     finally { setDetailSaving(false); }
+  };
+
+  const deleteRequest = async () => {
+    if (!window.confirm('Delete this maintenance request? This cannot be undone.')) return;
+    setDeleting(true);
+    try {
+      await axios.delete(`${backendUrl}${API.maintenance}/${id}`);
+      toast.success('Maintenance request deleted');
+      navigate('/maintenance');
+    } catch {
+      toast.error('Failed to delete. Please try again.');
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const addNote = async () => {
@@ -667,6 +682,32 @@ const MaintenanceDetail = () => {
                       }}
                     >
                       Cancel
+                    </button>
+                  </div>
+
+                  {/* Delete */}
+                  <div style={{ borderTop: '1px solid #f0f2f5', paddingTop: 14, marginTop: 4 }}>
+                    <button
+                      onClick={deleteRequest}
+                      disabled={deleting || detailSaving}
+                      style={{
+                        width: '100%', padding: '9px 0',
+                        background: 'transparent',
+                        color: deleting ? '#fca5a5' : '#ef4444',
+                        border: '1px solid #fca5a5',
+                        borderRadius: 6,
+                        fontFamily: FONT, fontSize: 13, fontWeight: 700,
+                        cursor: deleting || detailSaving ? 'not-allowed' : 'pointer',
+                        letterSpacing: '0.04em',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                      }}
+                      onMouseEnter={e => { if (!deleting && !detailSaving) { e.currentTarget.style.background = '#fef2f2'; } }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+                      </svg>
+                      {deleting ? 'Deleting…' : 'Delete Request'}
                     </button>
                   </div>
                 </div>

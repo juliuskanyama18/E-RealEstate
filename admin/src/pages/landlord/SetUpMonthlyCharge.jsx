@@ -1,7 +1,10 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import axios from 'axios';
+import toast from 'react-hot-toast';
 import Layout from '../../components/Layout';
 import { ArrowLeft, Info } from 'lucide-react';
+import { backendUrl, API } from '../../config/constants';
 
 const NAVY = '#042238';
 const TEAL = '#069ED9';
@@ -176,7 +179,20 @@ const SetUpMonthlyCharge = () => {
     setDueDate(formatted);
   };
 
-  const [errors, setErrors] = useState({});
+  const [tenantId,    setTenantId]    = useState('');
+  const [submitting,  setSubmitting]  = useState(false);
+  const [errors,      setErrors]      = useState({});
+
+  // Fetch the tenant for this house when leaseId (house._id) is available
+  useEffect(() => {
+    if (!leaseId) return;
+    axios.get(`${backendUrl}${API.houses}/${leaseId}/tenants`)
+      .then(res => {
+        const tenants = res.data.data || [];
+        if (tenants.length > 0) setTenantId(tenants[0]._id);
+      })
+      .catch(() => {});
+  }, [leaseId]);
 
   const validate = () => {
     const e = {};
@@ -186,10 +202,44 @@ const SetUpMonthlyCharge = () => {
     return Object.keys(e).length === 0;
   };
 
-  const handleSubmit = e => {
+  const handleSubmit = async e => {
     e.preventDefault();
     if (!validate()) return;
-    // TODO: POST to backend
+    if (!tenantId) { toast.error('No tenant found for this property'); return; }
+
+    // Build list of months from firstMonth/Year to lastMonth/Year (max 24 months)
+    const months = [];
+    const endM = untilEnd ? firstMonth + 23 : lastMonth + (lastYear - firstYear) * 12;
+    const startTotal = firstMonth + firstYear * 12;
+    const endTotal   = Math.min(startTotal + (untilEnd ? 23 : endM - firstMonth + (lastYear - firstYear) * 12), startTotal + 23);
+    for (let t = startTotal; t <= Math.min(endTotal, startTotal + 23); t++) {
+      const y = Math.floor(t / 12);
+      const m = t % 12;
+      months.push({ year: y, month: m });
+    }
+
+    const [dd, mm, yyyy] = (dueDate || '').split('/');
+
+    setSubmitting(true);
+    try {
+      await Promise.all(months.map(({ year, month }) => {
+        const monthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
+        const dueDateISO = `${year}-${String(month + 1).padStart(2, '0')}-${String(dd || '01').padStart(2, '0')}`;
+        return axios.post(`${backendUrl}${API.charges}`, {
+          tenantId,
+          amount: parseFloat(amount),
+          month: monthStr,
+          dueDate: dueDateISO,
+          notes: description || '',
+        });
+      }));
+      toast.success(`${months.length} charge${months.length > 1 ? 's' : ''} created`);
+      navigate('/payments');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to create charges');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -478,17 +528,18 @@ const SetUpMonthlyCharge = () => {
               <div style={{ textAlign: 'center' }}>
                 <button
                   type="submit"
+                  disabled={submitting}
                   style={{
                     fontFamily: FONT, fontSize: 13, fontWeight: 700,
                     letterSpacing: '0.08em', textTransform: 'uppercase',
-                    color: '#fff', background: NAVY,
+                    color: '#fff', background: submitting ? '#6b7280' : NAVY,
                     border: 'none', borderRadius: 100,
-                    padding: '12px 48px', cursor: 'pointer', lineHeight: 1,
+                    padding: '12px 48px', cursor: submitting ? 'not-allowed' : 'pointer', lineHeight: 1,
                   }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#033A6D'}
-                  onMouseLeave={e => e.currentTarget.style.background = NAVY}
+                  onMouseEnter={e => { if (!submitting) e.currentTarget.style.background = '#033A6D'; }}
+                  onMouseLeave={e => { if (!submitting) e.currentTarget.style.background = NAVY; }}
                 >
-                  Create Charge
+                  {submitting ? 'Creating…' : 'Create Charge'}
                 </button>
               </div>
 

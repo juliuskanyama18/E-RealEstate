@@ -8,12 +8,31 @@ import House from "../models/House.js";
 import User from "../models/User.js";
 import RentRecord from "../models/RentRecord.js";
 import MaintenanceRequest from "../models/MaintenanceRequest.js";
+import Lease from "../models/Lease.js";
+import Document from "../models/Document.js";
+import Reminder from "../models/Reminder.js";
 import { sendEmail } from "../config/nodemailer.js";
 import { getTenantWelcomeTemplate, getTenantInviteTemplate } from "../utils/emailTemplates.js";
 
 // ─── Multer setup for house photos ─────────────────────────────────────────
 const uploadDir = path.resolve("uploads/houses");
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+// ─── Multer setup for documents ─────────────────────────────────────────────
+const docUploadDir = path.resolve("uploads/documents");
+if (!fs.existsSync(docUploadDir)) fs.mkdirSync(docUploadDir, { recursive: true });
+
+const docStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, docUploadDir),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `${Date.now()}-${Math.round(Math.random() * 1e6)}${ext}`);
+  },
+});
+export const uploadDocumentFile = multer({
+  storage: docStorage,
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20 MB
+}).single("file");
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadDir),
@@ -51,6 +70,7 @@ export const createHouse = async (req, res) => {
       bedrooms: bedrooms ? Number(bedrooms) : 1,
       bathrooms: bathrooms ? Number(bathrooms) : 1,
       description: description?.trim(),
+      photo: req.file ? `/uploads/houses/${req.file.filename}` : undefined,
     });
 
     res.status(201).json({ success: true, message: "House created", data: house });
@@ -62,7 +82,61 @@ export const createHouse = async (req, res) => {
 export const getHouses = async (req, res) => {
   try {
     const houses = await House.find({ landlord: req.user._id }).sort({ createdAt: -1 });
-    res.json({ success: true, data: houses });
+
+    // Attach lease + tenant info to each house
+    const leases = await Lease.find({ landlord: req.user._id })
+      .populate("tenant", "name email")
+      .lean();
+    const leaseByHouse = {};
+    for (const l of leases) {
+      const hid = l.house?.toString();
+      if (hid) leaseByHouse[hid] = l;
+    }
+
+    // Check which houses had rent paid this month
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const paidRecords = await RentRecord.find({
+      landlord: req.user._id,
+      month: currentMonth,
+      status: "paid",
+    }).select("house");
+    const paidHouseIds = new Set(paidRecords.map(r => r.house?.toString()).filter(Boolean));
+
+    const enriched = houses.map(h => {
+      const hObj = h.toObject();
+      const lease = leaseByHouse[h._id.toString()];
+      if (lease) {
+        hObj.lease = {
+          paymentDay: lease.paymentDay,
+          rentAmount: lease.rentAmount,
+          frequency: lease.frequency,
+          endDate: lease.endDate,
+          status: lease.status,
+          tenant: lease.tenant || null,
+        };
+      }
+      // Compute rent status for tab filtering
+      if (hObj.isOccupied && hObj.lease?.paymentDay) {
+        const isPaid = paidHouseIds.has(h._id.toString());
+        if (isPaid) {
+          hObj.rentStatus = null; // paid this month — not overdue or due soon
+        } else {
+          const currentDay = now.getDate();
+          const paymentDay = hObj.lease.paymentDay;
+          if (currentDay > paymentDay) {
+            hObj.rentStatus = "overdue";
+          } else if (paymentDay - currentDay <= 5) {
+            hObj.rentStatus = "due_soon";
+          } else {
+            hObj.rentStatus = null;
+          }
+        }
+      }
+      return hObj;
+    });
+
+    res.json({ success: true, data: enriched });
   } catch (error) {
     res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
@@ -532,6 +606,19 @@ export const updateMaintenanceProContact = async (req, res) => {
   }
 };
 
+export const deleteMaintenanceRequest = async (req, res) => {
+  try {
+    const request = await MaintenanceRequest.findOneAndDelete({
+      _id: req.params.id,
+      landlord: req.user._id,
+    });
+    if (!request) return res.status(404).json({ success: false, message: "Request not found" });
+    res.json({ success: true, message: "Maintenance request deleted" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
 // ─── Organisation settings ───────────────────────────────────────────────────
 const ORG_FIELDS =
   "name email phone businessName address city defaultRentDueDate gracePeriodDays lateFeeType lateFeeAmount bankName bankAccountNumber bankAccountName notifyDaysBefore notifyOverdue notificationEmail";
@@ -624,6 +711,82 @@ export const getPayments = async (req, res) => {
   }
 };
 
+// ─── Get single payment record ───────────────────────────────────────────────
+export const getPayment = async (req, res) => {
+  try {
+    const record = await RentRecord.findOne({ _id: req.params.id, landlord: req.user._id })
+      .populate("tenant", "name email phone rentAmount")
+      .populate("house", "name address city");
+    if (!record) return res.status(404).json({ success: false, message: "Record not found" });
+    res.json({ success: true, data: record });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+// ─── Update a payment record ──────────────────────────────────────────────────
+export const updatePayment = async (req, res) => {
+  try {
+    const { amount, status, notes, paidDate, dueDate } = req.body;
+    const record = await RentRecord.findOne({ _id: req.params.id, landlord: req.user._id });
+    if (!record) return res.status(404).json({ success: false, message: "Record not found" });
+
+    // If amount changed and record was/is paid, adjust tenant balance
+    const oldAmount = record.amount;
+    const oldStatus = record.status;
+    const newAmount = amount !== undefined ? Number(amount) : oldAmount;
+    const newStatus = status || oldStatus;
+
+    // Balance adjustment logic:
+    // "paid" status means tenant's debt is reduced → balance is positive contribution
+    // If old was paid and new is not paid → reverse the credit (subtract oldAmount from balance)
+    // If old was not paid and new is paid → add credit (add newAmount to balance)
+    // If both paid → adjust the difference (newAmount - oldAmount)
+    if (record.tenant) {
+      let balanceDelta = 0;
+      if (oldStatus === "paid" && newStatus !== "paid") {
+        balanceDelta = -oldAmount;
+      } else if (oldStatus !== "paid" && newStatus === "paid") {
+        balanceDelta = newAmount;
+      } else if (oldStatus === "paid" && newStatus === "paid") {
+        balanceDelta = newAmount - oldAmount;
+      }
+      if (balanceDelta !== 0) {
+        await User.findByIdAndUpdate(record.tenant, { $inc: { balance: balanceDelta } });
+      }
+    }
+
+    if (amount !== undefined)  record.amount  = newAmount;
+    if (status)                record.status  = newStatus;
+    if (notes !== undefined)   record.notes   = notes?.trim() || undefined;
+    if (paidDate !== undefined) record.paidDate = paidDate ? new Date(paidDate) : undefined;
+    if (dueDate !== undefined)  record.dueDate  = dueDate  ? new Date(dueDate)  : record.dueDate;
+
+    await record.save();
+    const updated = await RentRecord.findById(record._id)
+      .populate("tenant", "name email phone rentAmount")
+      .populate("house", "name address city");
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+// ─── Delete a payment record ──────────────────────────────────────────────────
+export const deletePayment = async (req, res) => {
+  try {
+    const record = await RentRecord.findOneAndDelete({ _id: req.params.id, landlord: req.user._id });
+    if (!record) return res.status(404).json({ success: false, message: "Record not found" });
+    // Reverse balance contribution if it was a paid record
+    if (record.status === "paid" && record.tenant) {
+      await User.findByIdAndUpdate(record.tenant, { $inc: { balance: -record.amount } });
+    }
+    res.json({ success: true, message: "Payment record deleted" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
 // ─── Get monthly cashflow (income from paid RentRecords) for the year ────────
 export const getCashflow = async (req, res) => {
   try {
@@ -660,6 +823,355 @@ export const getCashflow = async (req, res) => {
     });
 
     res.json({ success: true, data: monthly, paidThisMonth });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+// ─── Leases ──────────────────────────────────────────────────────────────────
+
+export const createLease = async (req, res) => {
+  try {
+    const { startDate, endDate, rentAmount, frequency, paymentDay,
+            deposit, chargeLateFees, lateFees,
+            leaseExpiryReminder, leaseExpiryReminderDays,
+            rentReminder, overdueReminder, furnishing, notes } = req.body;
+
+    if (!startDate || rentAmount === undefined || !frequency || !paymentDay) {
+      return res.status(400).json({ success: false, message: "startDate, rentAmount, frequency, and paymentDay are required" });
+    }
+
+    const house = await House.findOne({ _id: req.params.id, landlord: req.user._id });
+    if (!house) return res.status(404).json({ success: false, message: "House not found" });
+
+    // Terminate any existing active lease for this house
+    await Lease.updateMany(
+      { house: req.params.id, landlord: req.user._id, status: "active" },
+      { status: "terminated" }
+    );
+
+    const lease = await Lease.create({
+      house: req.params.id,
+      landlord: req.user._id,
+      startDate: new Date(startDate),
+      endDate: endDate ? new Date(endDate) : undefined,
+      rentAmount: Number(rentAmount),
+      frequency,
+      paymentDay: Number(paymentDay),
+      deposit: deposit ? Number(deposit) : undefined,
+      chargeLateFees: !!chargeLateFees,
+      lateFees: chargeLateFees ? (lateFees || []) : [],
+      leaseExpiryReminder: leaseExpiryReminder !== false,
+      leaseExpiryReminderDays: Number(leaseExpiryReminderDays) || 60,
+      rentReminder: rentReminder !== false,
+      overdueReminder: overdueReminder !== false,
+      furnishing: furnishing || "Unfurnished",
+      notes: notes || "",
+    });
+
+    res.status(201).json({ success: true, message: "Lease created", data: lease });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const getHouseLease = async (req, res) => {
+  try {
+    const house = await House.findOne({ _id: req.params.id, landlord: req.user._id });
+    if (!house) return res.status(404).json({ success: false, message: "House not found" });
+
+    const lease = await Lease.findOne({ house: req.params.id, landlord: req.user._id, status: "active" })
+      .populate("tenant", "name email phone");
+
+    res.json({ success: true, data: lease || null });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const updateLease = async (req, res) => {
+  try {
+    const lease = await Lease.findOneAndUpdate(
+      { _id: req.params.leaseId, landlord: req.user._id },
+      req.body,
+      { new: true, runValidators: true }
+    ).populate("tenant", "name email phone");
+    if (!lease) return res.status(404).json({ success: false, message: "Lease not found" });
+    res.json({ success: true, data: lease });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const linkTenantToLease = async (req, res) => {
+  try {
+    const { tenantId } = req.body;
+
+    const lease = await Lease.findOne({ _id: req.params.leaseId, landlord: req.user._id });
+    if (!lease) return res.status(404).json({ success: false, message: "Lease not found" });
+
+    // Unlink when tenantId is null/empty
+    if (!tenantId) {
+      lease.tenant = undefined;
+      await lease.save();
+      const stillOccupied = await User.exists({ house: lease.house, landlord: req.user._id, role: "tenant" });
+      if (!stillOccupied) await House.findByIdAndUpdate(lease.house, { isOccupied: false });
+      return res.json({ success: true, message: "Tenant unlinked from lease", data: lease });
+    }
+
+    const tenant = await User.findOne({ _id: tenantId, landlord: req.user._id, role: "tenant" });
+    if (!tenant) return res.status(404).json({ success: false, message: "Tenant not found" });
+
+    lease.tenant = tenantId;
+    await lease.save();
+    await House.findByIdAndUpdate(lease.house, { isOccupied: true });
+    await lease.populate("tenant", "name email phone");
+    res.json({ success: true, message: "Tenant linked to lease", data: lease });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const inviteTenant = async (req, res) => {
+  try {
+    const tenant = await User.findOne({ _id: req.params.id, landlord: req.user._id, role: "tenant" });
+    if (!tenant) return res.status(404).json({ success: false, message: "Tenant not found" });
+
+    const house = await House.findById(tenant.house);
+    const rawToken = crypto.randomBytes(20).toString("hex");
+    const hashedToken = crypto.createHash("sha256").update(rawToken).digest("hex");
+    await User.findByIdAndUpdate(tenant._id, {
+      resetToken: hashedToken,
+      resetTokenExpire: Date.now() + 7 * 24 * 60 * 60 * 1000,
+    });
+    const setPasswordUrl = `${process.env.WEBSITE_URL}/set-password/${rawToken}`;
+    await sendEmail({
+      from: process.env.EMAIL,
+      to: tenant.email,
+      subject: `You've been invited to ${house?.name || "your property"} — Set your password`,
+      html: getTenantInviteTemplate(tenant, house, setPasswordUrl),
+    });
+    res.json({ success: true, message: "Invite sent" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const createAndLinkTenant = async (req, res) => {
+  try {
+    const { firstName, lastName, email, phone, mobile, dateOfBirth, notes: tenantNotes } = req.body;
+
+    const name = `${firstName || ""} ${lastName || ""}`.trim();
+    if (!name) return res.status(400).json({ success: false, message: "First name is required" });
+    if (!email) return res.status(400).json({ success: false, message: "Email is required" });
+    if (!validator.isEmail(email)) return res.status(400).json({ success: false, message: "Invalid email address" });
+
+    const lease = await Lease.findOne({ _id: req.params.leaseId, landlord: req.user._id });
+    if (!lease) return res.status(404).json({ success: false, message: "Lease not found" });
+
+    const exists = await User.findOne({ email: email.toLowerCase() });
+    if (exists) return res.status(409).json({ success: false, message: "This email is already registered" });
+
+    const house = await House.findById(lease.house);
+
+    const tenant = await User.create({
+      name,
+      email: email.toLowerCase().trim(),
+      password: await bcrypt.hash(crypto.randomUUID?.() || Math.random().toString(36), 12),
+      role: "tenant",
+      landlord: req.user._id,
+      house: lease.house,
+      phone: (phone || mobile)?.trim(),
+      rentAmount: lease.rentAmount,
+      rentDueDate: lease.paymentDay === 31 ? 1 : lease.paymentDay,
+      leaseStart: lease.startDate,
+      leaseEnd: lease.endDate,
+    });
+
+    lease.tenant = tenant._id;
+    await lease.save();
+    await House.findByIdAndUpdate(lease.house, { isOccupied: true });
+
+    // Send invite email (non-fatal) — only when caller requests it
+    if (req.body.sendInvite !== false) {
+      try {
+        const rawToken = crypto.randomBytes(20).toString("hex");
+        const hashedToken = crypto.createHash("sha256").update(rawToken).digest("hex");
+        await User.findByIdAndUpdate(tenant._id, {
+          resetToken: hashedToken,
+          resetTokenExpire: Date.now() + 7 * 24 * 60 * 60 * 1000,
+        });
+        const setPasswordUrl = `${process.env.WEBSITE_URL}/set-password/${rawToken}`;
+        await sendEmail({
+          from: process.env.EMAIL,
+          to: tenant.email,
+          subject: `You've been invited to ${house?.name || "your property"} — Set your password`,
+          html: getTenantInviteTemplate(tenant, house, setPasswordUrl),
+        });
+      } catch { /* non-fatal */ }
+    }
+
+    await lease.populate("tenant", "name email phone");
+    const response = tenant.toObject();
+    delete response.password;
+    res.status(201).json({ success: true, message: "Tenant created and linked", data: { lease, tenant: response } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+// ─── Document controllers ────────────────────────────────────────────────────
+
+export const getDocuments = async (req, res) => {
+  try {
+    const { type } = req.query; // 'property' | 'lease'
+    const filter = { house: req.params.id, landlord: req.user._id };
+    if (type === "property" || type === "lease") filter.type = type;
+    const docs = await Document.find(filter).sort({ createdAt: -1 });
+    res.json({ success: true, data: docs });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const createDocument = async (req, res) => {
+  try {
+    const house = await House.findOne({ _id: req.params.id, landlord: req.user._id });
+    if (!house) return res.status(404).json({ success: false, message: "House not found" });
+
+    if (!req.file) return res.status(400).json({ success: false, message: "No file uploaded" });
+
+    const doc = await Document.create({
+      house: req.params.id,
+      landlord: req.user._id,
+      type: req.body.type === "lease" ? "lease" : "property",
+      fileName: req.file.filename,
+      originalName: req.file.originalname,
+      description: req.body.description?.trim() || "",
+      filePath: `/uploads/documents/${req.file.filename}`,
+      fileSize: req.file.size,
+      mimeType: req.file.mimetype,
+    });
+    res.status(201).json({ success: true, data: doc });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const deleteDocument = async (req, res) => {
+  try {
+    const doc = await Document.findOneAndDelete({ _id: req.params.docId, landlord: req.user._id });
+    if (!doc) return res.status(404).json({ success: false, message: "Document not found" });
+    // Remove physical file
+    const fullPath = path.resolve(`.${doc.filePath}`);
+    if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
+    res.json({ success: true, message: "Document deleted" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+// ─── Reminders ─────────────────────────────────────────────────────────────
+
+export const getReminders = async (req, res) => {
+  try {
+    const house = await House.findOne({ _id: req.params.id, landlord: req.user._id });
+    if (!house) return res.status(404).json({ success: false, message: "House not found" });
+
+    const now = new Date();
+    // Auto-mark overdue
+    await Reminder.updateMany(
+      { house: req.params.id, landlord: req.user._id, status: "upcoming", dateTime: { $lt: now } },
+      { status: "overdue" }
+    );
+
+    const reminders = await Reminder.find({ house: req.params.id, landlord: req.user._id }).sort({ dateTime: 1 });
+    res.json({ success: true, data: reminders });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const createReminder = async (req, res) => {
+  try {
+    const house = await House.findOne({ _id: req.params.id, landlord: req.user._id });
+    if (!house) return res.status(404).json({ success: false, message: "House not found" });
+
+    const { dateTime, category, notes } = req.body;
+    if (!dateTime) return res.status(400).json({ success: false, message: "dateTime is required" });
+
+    const status = new Date(dateTime) < new Date() ? "overdue" : "upcoming";
+    const reminder = await Reminder.create({
+      house: req.params.id,
+      landlord: req.user._id,
+      dateTime,
+      category: category || "Other",
+      notes,
+      status,
+    });
+    res.status(201).json({ success: true, data: reminder });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const updateReminder = async (req, res) => {
+  try {
+    const reminder = await Reminder.findOneAndUpdate(
+      { _id: req.params.reminderId, landlord: req.user._id },
+      req.body,
+      { new: true, runValidators: true }
+    );
+    if (!reminder) return res.status(404).json({ success: false, message: "Reminder not found" });
+    res.json({ success: true, data: reminder });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const deleteReminder = async (req, res) => {
+  try {
+    const reminder = await Reminder.findOneAndDelete({ _id: req.params.reminderId, landlord: req.user._id });
+    if (!reminder) return res.status(404).json({ success: false, message: "Reminder not found" });
+    res.json({ success: true, message: "Reminder deleted" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+// ─── Create a charge (pending RentRecord) ────────────────────────────────────
+export const createCharge = async (req, res) => {
+  try {
+    const { tenantId, amount, month, dueDate, notes, category } = req.body;
+    if (!tenantId || amount === undefined || !month || !dueDate) {
+      return res.status(400).json({ success: false, message: "tenantId, amount, month, and dueDate are required" });
+    }
+
+    const tenant = await User.findOne({ _id: tenantId, landlord: req.user._id, role: "tenant" });
+    if (!tenant) return res.status(404).json({ success: false, message: "Tenant not found" });
+
+    const chargeAmt = Number(amount);
+    if (chargeAmt <= 0) return res.status(400).json({ success: false, message: "Amount must be positive" });
+
+    // Create pending RentRecord (charge not yet paid)
+    const record = await RentRecord.findOneAndUpdate(
+      { tenant: tenant._id, month },
+      {
+        landlord: req.user._id,
+        house: tenant.house,
+        amount: chargeAmt,
+        month,
+        dueDate: new Date(dueDate),
+        status: "pending",
+        notes: notes?.trim() || undefined,
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    // Decrement tenant balance (they now owe more)
+    await User.findByIdAndUpdate(tenant._id, { $inc: { balance: -chargeAmt } });
+
+    res.status(201).json({ success: true, message: "Charge created", data: record });
   } catch (error) {
     res.status(500).json({ success: false, message: "Server error", error: error.message });
   }

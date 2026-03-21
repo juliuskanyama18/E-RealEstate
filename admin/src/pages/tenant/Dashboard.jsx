@@ -219,6 +219,7 @@ const TenantDashboard = () => {
   const [rentStatus,   setRentStatus]   = useState(null);
   const [history,      setHistory]      = useState([]);
   const [maintenance,  setMaintenance]  = useState([]);
+  const [documents,    setDocuments]    = useState([]);
   const [loading,      setLoading]      = useState(true);
   const [tab,          setTab]          = useState('overview');
   const [maintModal,   setMaintModal]   = useState(false);
@@ -237,10 +238,12 @@ const TenantDashboard = () => {
       axios.get(`${backendUrl}${API.tenant.status}`),
       axios.get(`${backendUrl}${API.tenant.history}`),
       axios.get(`${backendUrl}${API.tenant.maintenance}`),
-    ]).then(([statusRes, histRes, maintRes]) => {
+      axios.get(`${backendUrl}${API.tenant.documents}`),
+    ]).then(([statusRes, histRes, maintRes, docsRes]) => {
       if (statusRes.status === 'fulfilled') setRentStatus(statusRes.value.data.data);
       if (histRes.status   === 'fulfilled') setHistory(histRes.value.data.data || []);
       if (maintRes.status  === 'fulfilled') setMaintenance(maintRes.value.data.data || []);
+      if (docsRes.status   === 'fulfilled') setDocuments(docsRes.value.data.data || []);
     }).finally(() => setLoading(false));
   }, []);
 
@@ -566,14 +569,53 @@ const TenantDashboard = () => {
 
           {/* ── DOCUMENTS TAB ────────────────────────────────────── */}
           {tab === 'documents' && (
-            <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e4e9f0', padding: '28px 32px' }}>
-              <h3 style={{ fontFamily: FONT, fontSize: 18, fontWeight: 700, color: NAVY, margin: '0 0 10px' }}>
-                Documents
-              </h3>
-              <p style={{ fontFamily: FONT, fontSize: 14, color: '#5a7a90', margin: 0, lineHeight: 1.6 }}>
-                Your landlord has not shared any documents with you yet.
-              </p>
-            </div>
+            documents.length === 0 ? (
+              <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e4e9f0', padding: '48px 32px', textAlign: 'center' }}>
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: '0 auto 16px', display: 'block' }}>
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                </svg>
+                <h3 style={{ fontFamily: FONT, fontSize: 17, fontWeight: 700, color: NAVY, margin: '0 0 8px' }}>No Documents Yet</h3>
+                <p style={{ fontFamily: FONT, fontSize: 14, color: '#8a9ab0', margin: 0 }}>Your landlord has not shared any documents with you yet.</p>
+              </div>
+            ) : (
+              <div>
+                <h2 style={{ fontFamily: FONT, fontSize: 17, fontWeight: 700, color: NAVY, margin: '0 0 20px' }}>Documents</h2>
+                <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e4e9f0', overflow: 'hidden' }}>
+                  {documents.map((doc, idx) => (
+                    <div key={doc._id} style={{
+                      display: 'flex', alignItems: 'center', gap: 14, padding: '14px 20px',
+                      borderBottom: idx < documents.length - 1 ? '1px solid #f0f2f5' : 'none',
+                    }}>
+                      <div style={{ width: 36, height: 36, borderRadius: 6, background: '#f0f4f8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={NAVY} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                        </svg>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontFamily: FONT, fontSize: 14, fontWeight: 600, color: NAVY, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {doc.originalName || doc.fileName}
+                        </p>
+                        <p style={{ fontFamily: FONT, fontSize: 12, color: '#8a9ab0', margin: '2px 0 0' }}>
+                          {doc.type === 'lease' ? 'Lease Document' : 'Property Document'}
+                          {doc.description ? ` · ${doc.description}` : ''}
+                          {' · '}{new Date(doc.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        </p>
+                      </div>
+                      <a
+                        href={`${backendUrl}${doc.filePath}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: NAVY, textDecoration: 'none', padding: '6px 14px', border: `1.5px solid ${NAVY}`, borderRadius: 6, flexShrink: 0 }}
+                        onMouseEnter={e => { e.currentTarget.style.background = NAVY; e.currentTarget.style.color = '#fff'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = NAVY; }}
+                      >
+                        View
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
           )}
 
         </div>

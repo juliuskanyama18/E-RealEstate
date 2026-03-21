@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import axios from 'axios';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Search, Pencil, Trash2, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Layout from '../../components/Layout';
@@ -140,6 +140,7 @@ const EmptyIllustration = () => (
 
 /* ── component ────────────────────────────────────────────── */
 const Houses = () => {
+  const navigate = useNavigate();
   const [houses, setHouses]       = useState([]);
   const [tenantMap, setTenantMap] = useState({});
   const [loading, setLoading]     = useState(true);
@@ -383,87 +384,96 @@ const Houses = () => {
                   No properties match your search.
                 </div>
               ) : pageRows.map(h => {
-                const tenant = tenantMap[h._id];
-                const beds = h.bedrooms != null ? h.bedrooms : null;
-                const baths = h.bathrooms != null ? h.bathrooms : null;
                 const typeSvg = TYPE_SVG[h.propertyType] || TYPE_SVG.SINGLE_FAMILY;
                 const locationLine = [h.city, h.region, h.zipCode].filter(Boolean).join(', ');
+                const lease = h.lease;
+                const tenantName = lease?.tenant?.name || tenantMap[h._id] || null;
+                const status = getRentStatus(h);
+                const statusClass = STATUS_CHIP[status] || STATUS_CHIP['VACANT'];
+
+                // Compute next due date from lease paymentDay
+                let dueDateStr = '—';
+                if (lease?.paymentDay) {
+                  const now = new Date();
+                  let due = new Date(now.getFullYear(), now.getMonth(), lease.paymentDay);
+                  if (due < now) due = new Date(now.getFullYear(), now.getMonth() + 1, lease.paymentDay);
+                  dueDateStr = due.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase();
+                }
+
+                const rentDue = lease?.rentAmount ?? h.rentAmount;
+
                 return (
-                  <div key={h._id} className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow" style={{ height: 168 }}>
-                    <div className="flex" style={{ height: 168 }}>
+                  <div key={h._id} onClick={() => navigate(`/houses/${h._id}`)} className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer" style={{ height: 96 }}>
+                    <div className="flex" style={{ height: 96 }}>
 
                       {/* Photo / Icon area */}
-                      <div className="relative flex-shrink-0 w-[168px] rounded-l-xl bg-[#f5f7fa] overflow-hidden group" style={{ height: 168 }}>
+                      <div className="relative flex-shrink-0 w-[96px] rounded-l-xl bg-[#f5f7fa] overflow-hidden group" style={{ height: 96 }}>
                         {h.photo ? (
-                          <img
-                            src={`${backendUrl}${h.photo}`}
-                            alt={h.name || h.address}
-                            className="w-full h-full object-cover"
-                            style={{ transform: 'rotate(0deg)' }}
-                          />
+                          <img src={`${backendUrl}${h.photo}`} alt={h.name || h.address} className="w-full h-full object-cover" />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center opacity-50">{typeSvg}</div>
+                          <div className="w-full h-full flex items-center justify-center opacity-40" style={{ transform: 'scale(0.6)' }}>{typeSvg}</div>
                         )}
-                        {/* Corner edit button */}
                         <button
-                          onClick={() => openPhotoModal(h)}
-                          className="absolute bottom-2 right-2 w-8 h-8 flex items-center justify-center bg-white/90 rounded-lg shadow-sm opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white"
+                          onClick={e => { e.stopPropagation(); openPhotoModal(h); }}
+                          className="absolute bottom-1.5 right-1.5 w-7 h-7 flex items-center justify-center bg-white/90 rounded-lg shadow-sm opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white"
                         >
-                          <Pencil size={14} className="text-[#033A6D]" />
+                          <Pencil size={12} className="text-[#033A6D]" />
                         </button>
                       </div>
 
-                      {/* Content — matches Avail b9qcR: pl-6, full height flex-col justify-between */}
-                      <div className="flex-1 min-w-0 flex flex-col justify-between" style={{ paddingLeft: 24, paddingRight: 16, paddingTop: 20, paddingBottom: 20 }}>
+                      {/* Content */}
+                      <div className="flex-1 min-w-0 flex items-center" style={{ padding: '0 16px 0 20px', gap: 0 }}>
 
-                        {/* Top row — QlfSY bmNOA */}
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <h3 style={{ fontSize: 14, fontWeight: 600, color: '#042238', lineHeight: '1.3', display: 'flex', alignItems: 'center', gap: 6 }}>
-                              <Link to={`/houses/${h._id}`} className="hover:text-blue-600 transition-colors">
-                                {h.nickname || h.address || h.name}
-                              </Link>
-                              <button onClick={() => openEdit(h)} className="flex-shrink-0" style={{ color: '#033A6D', fontSize: 20, lineHeight: 1 }}>
-                                <Pencil size={14} color="#033A6D" />
-                              </button>
-                            </h3>
-                            {locationLine && (
-                              <p style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>{locationLine}</p>
-                            )}
-                          </div>
-                          <button
-                            onClick={() => handleDelete(h._id)}
-                            className="flex-shrink-0 p-1 text-gray-300 hover:text-red-500 transition-colors"
-                          >
-                            <Trash2 size={14} />
-                          </button>
+                        {/* ADDRESS */}
+                        <div style={{ flex: '0 0 220px', minWidth: 0, paddingRight: 16 }}>
+                          <h3 style={{ fontSize: 13, fontWeight: 700, color: '#042238', lineHeight: 1.3, display: 'flex', alignItems: 'center', gap: 5 }}>
+                            <Link to={`/houses/${h._id}`} className="hover:text-blue-600 transition-colors truncate">
+                              {h.nickname || h.address || h.name}
+                            </Link>
+                            <button onClick={e => { e.stopPropagation(); openEdit(h); }} className="flex-shrink-0">
+                              <Pencil size={11} color="#9CA3AF" />
+                            </button>
+                          </h3>
+                          {locationLine && <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 2 }}>{locationLine}</p>}
                         </div>
 
-                        {/* Bottom row — QlfSY -ws6e */}
-                        <div style={{ display: 'flex', gap: 32 }}>
-                          <div>
-                            <p style={{ fontSize: 11, color: '#9CA3AF', marginBottom: 2 }}>Beds/baths</p>
-                            <p style={{ fontSize: 14, fontWeight: 500, color: '#042238' }}>
-                              {beds != null ? beds : '—'} | {baths != null ? baths : '—'}
-                            </p>
-                          </div>
-                          <div>
-                            <p style={{ fontSize: 11, color: '#9CA3AF', marginBottom: 2 }}>Lease</p>
-                            {tenant ? (
-                              <Link to={`/houses/${h._id}`} style={{ fontSize: 14, color: '#2563EB', fontWeight: 500, lineHeight: '1.3' }} className="hover:underline">
-                                {tenant}
-                              </Link>
-                            ) : (
-                              <p style={{ fontSize: 14, color: '#D1D5DB' }}>—</p>
-                            )}
-                          </div>
-                          <div>
-                            <p style={{ fontSize: 11, color: '#9CA3AF', marginBottom: 2 }}>Rent</p>
-                            <p style={{ fontSize: 14, fontWeight: 500, color: '#042238' }}>
-                              {h.rentAmount ? `TZS ${Number(h.rentAmount).toLocaleString()}` : '—'}
-                            </p>
-                          </div>
+                        {/* TENANT */}
+                        <div style={{ flex: '0 0 160px', minWidth: 0, paddingRight: 16 }}>
+                          <p style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', letterSpacing: '0.06em', marginBottom: 3 }}>TENANT</p>
+                          <p style={{ fontSize: 13, color: tenantName ? '#042238' : '#D1D5DB', fontWeight: tenantName ? 500 : 400 }}>
+                            {tenantName || '—'}
+                          </p>
                         </div>
+
+                        {/* DUE DATE */}
+                        <div style={{ flex: '0 0 130px', minWidth: 0, paddingRight: 16 }}>
+                          <p style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', letterSpacing: '0.06em', marginBottom: 3 }}>DUE DATE</p>
+                          <p style={{ fontSize: 13, color: dueDateStr === '—' ? '#D1D5DB' : '#042238', fontWeight: 500 }}>{dueDateStr}</p>
+                        </div>
+
+                        {/* RENT DUE */}
+                        <div style={{ flex: '0 0 120px', minWidth: 0, paddingRight: 16 }}>
+                          <p style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', letterSpacing: '0.06em', marginBottom: 3 }}>RENT DUE</p>
+                          <p style={{ fontSize: 13, fontWeight: 600, color: rentDue ? '#042238' : '#D1D5DB' }}>
+                            {rentDue ? `TZS ${Number(rentDue).toLocaleString()}` : '—'}
+                          </p>
+                        </div>
+
+                        {/* STATUS */}
+                        <div style={{ flex: '0 0 110px', minWidth: 0, paddingRight: 8 }}>
+                          <p style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', letterSpacing: '0.06em', marginBottom: 5 }}>STATUS</p>
+                          <span className={`inline-flex items-center text-xs font-bold px-2.5 py-0.5 rounded-full ${statusClass}`} style={{ letterSpacing: '0.04em' }}>
+                            {status}
+                          </span>
+                        </div>
+
+                        {/* Delete */}
+                        <button
+                          onClick={e => { e.stopPropagation(); handleDelete(h._id); }}
+                          className="flex-shrink-0 p-1 text-gray-300 hover:text-red-500 transition-colors ml-auto"
+                        >
+                          <Trash2 size={14} />
+                        </button>
 
                       </div>
                     </div>

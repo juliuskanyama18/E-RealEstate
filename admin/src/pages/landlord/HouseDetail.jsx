@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { ArrowLeft, Settings, Users, Home, DollarSign, FileText, ChevronRight } from 'lucide-react';
@@ -46,7 +46,7 @@ const TYPE_SVG = {
   ),
 };
 
-const TABS = ['Overview', 'Tenants', 'Maintenance', 'Documents', 'Leases', 'Expenses'];
+const TABS = ['Overview', 'Tenants', 'Maintenance', 'Documents', 'Reminders'];
 
 const CATEGORIES = [
   'Appliances', 'Cabinets/Countertops', 'Doors/Windows', 'Electrical',
@@ -487,27 +487,520 @@ const CreateRequestModal = ({ house, onClose }) => {
 /* Dot-pattern SVG path shared by both payment items */
 const DOT_PATH = "M1.609 0c.206 0 .417.068.627.138.208.069.386.209.523.347.14.139.28.313.352.52.067.21.105.417.105.624 0 .21-.038.417-.105.591a1.394 1.394 0 0 1-.352.518c-.137.174-.315.28-.523.349a1.51 1.51 0 0 1-1.223 0 1.058 1.058 0 0 1-.524-.35 1.082 1.082 0 0 1-.351-.517A1.17 1.17 0 0 1 0 1.63c0-.207.036-.414.138-.624C.21.798.315.624.489.485.77.175 1.19 0 1.61 0m5.897 125.96a1.64 1.64 0 0 0-1.144.488 1.6 1.6 0 0 0 0 2.258 1.627 1.627 0 0 0 2.288 0 1.57 1.57 0 0 0-.034-2.258h.034a1.633 1.633 0 0 0-1.144-.488Zm83.407-1.732a1.668 1.668 0 0 0-1.52 1.81c.069.907.867 1.595 1.77 1.525.943-.075 1.63-.871 1.56-1.776-.075-.908-.801-1.56-1.666-1.56h-.144Zm-13.39.027a1.709 1.709 0 0 0-1.506 1.83c.108.897.896 1.578 1.792 1.472.934-.072 1.614-.863 1.508-1.793a1.644 1.644 0 0 0-1.651-1.509h-.143Zm-14.298-.046c-.073 0-.144 0-.217.04-.9.07-1.583.9-1.477 1.834.106.9.938 1.55 1.838 1.48a1.658 1.658 0 0 0 1.475-1.839 1.643 1.643 0 0 0-1.619-1.515Zm-14.187.037a1.72 1.72 0 0 0-1.437 1.903h.04c.103.897.966 1.542 1.863 1.4.896-.109 1.54-.972 1.396-1.869a1.66 1.66 0 0 0-1.649-1.434h-.213Zm-13.214.015c-.111 0-.216.035-.325.035-.907.177-1.486 1.032-1.304 1.922a1.679 1.679 0 0 0 1.953 1.32c.905-.181 1.522-1.036 1.34-1.961a1.694 1.694 0 0 0-1.664-1.316Zm82.467-.024a1.606 1.606 0 0 0-1.553 1.735h-.037c.075.939.867 1.662 1.772 1.591a1.716 1.716 0 0 0 1.59-1.773 1.662 1.662 0 0 0-1.662-1.553h-.11Zm-96.351-.015c-.18 0-.362.036-.54.073-.871.29-1.34 1.266-1.052 2.136a1.662 1.662 0 0 0 2.1 1.052c.87-.254 1.34-1.234 1.05-2.102a1.663 1.663 0 0 0-1.558-1.159Zm82.96-1.034c-.931.07-1.612.86-1.541 1.758.035.933.825 1.616 1.759 1.545.929-.037 1.613-.862 1.54-1.76-.07-.862-.79-1.543-1.65-1.543h-.108Zm27.363-.034a1.703 1.703 0 0 0-1.584 1.76c.071.935.828 1.618 1.764 1.58.902-.07 1.623-.824 1.552-1.759a1.636 1.636 0 0 0-1.657-1.58h-.075ZM8.095 83.08c-.788 0-1.508.573-1.65 1.4-.108.935.501 1.76 1.432 1.902a1.68 1.68 0 0 0 1.866-1.4c.143-.93-.5-1.757-1.395-1.902h-.253ZM1.61 13.936c.206 0 .417.034.627.105.208.069.386.208.523.348.318.315.457.734.457 1.154 0 .21-.038.42-.105.631-.073.174-.212.35-.352.522-.137.141-.315.244-.523.351-.384.14-.84.14-1.223 0-.21-.107-.384-.21-.524-.351a1.56 1.56 0 0 1-.351-.522 1.421 1.421 0 0 1-.138-.63c0-.454.176-.84.49-1.155.28-.313.699-.453 1.119-.453m0 13.4c.206 0 .417.038.627.107.208.104.386.211.523.351.14.174.28.349.352.525.067.21.105.42.105.63 0 .422-.14.842-.457 1.156-.556.596-1.676.596-2.27 0A1.65 1.65 0 0 1 0 28.95c0-.211.036-.42.138-.63.072-.177.177-.352.351-.526.281-.28.7-.458 1.12-.458m0 13.936c.206 0 .417.034.627.105.208.103.386.209.523.348.318.316.457.734.457 1.155 0 .21-.038.42-.105.631-.073.174-.212.348-.352.524-.137.141-.315.243-.523.35a1.862 1.862 0 0 1-1.223 0c-.21-.107-.384-.209-.524-.35a1.606 1.606 0 0 1-.351-.524A1.423 1.423 0 0 1 0 42.88c0-.42.176-.84.49-1.155.139-.14.313-.245.523-.348a1.62 1.62 0 0 1 .596-.105m0 13.4c.206 0 .417.036.627.105.208.103.386.21.523.348.318.315.457.736.457 1.154 0 .209-.038.42-.105.631a1.78 1.78 0 0 1-.352.522c-.137.141-.315.244-.523.351-.384.14-.84.14-1.223 0-.21-.107-.384-.21-.524-.351-.174-.14-.279-.348-.353-.522-.1-.21-.136-.422-.136-.63 0-.42.176-.84.49-1.155.28-.277.699-.453 1.119-.453m0 13.936c.206 0 .417.036.627.138.208.069.386.173.523.347.318.277.457.694.457 1.112 0 .206-.038.415-.105.622a1.41 1.41 0 0 1-.352.521 1.362 1.362 0 0 1-.523.345 1.494 1.494 0 0 1-1.223 0 1.362 1.362 0 0 1-.524-.345 1.11 1.11 0 0 1-.353-.521A1.409 1.409 0 0 1 0 70.205c0-.418.176-.835.49-1.112.28-.312.699-.485 1.119-.485m0 13.803c.206 0 .417.034.627.138.208.069.386.173.523.347.14.139.28.313.352.52.067.172.105.38.105.59 0 .242-.038.417-.105.625-.073.207-.212.38-.352.52-.137.14-.315.276-.523.347a1.51 1.51 0 0 1-1.223 0 1.366 1.366 0 0 1-.524-.347 1.124 1.124 0 0 1-.353-.52c-.1-.176-.136-.383-.136-.626 0-.208.036-.417.136-.59.074-.206.18-.38.353-.519.281-.312.7-.485 1.12-.485m0 13.936c.206 0 .417.07.627.138.208.07.386.21.523.349.318.31.457.693.457 1.142 0 .21-.038.417-.105.589a1.4 1.4 0 0 1-.352.519 1.37 1.37 0 0 1-.523.348 1.496 1.496 0 0 1-1.223 0 1.37 1.37 0 0 1-.524-.348 1.104 1.104 0 0 1-.353-.52A1.176 1.176 0 0 1 0 97.574c0-.449.176-.832.49-1.142.28-.31.699-.487 1.119-.487m0 13.936c.206 0 .417.038.627.107.208.07.386.21.523.35.14.139.28.315.352.526.067.174.105.385.105.63 0 .21-.038.422-.105.596-.073.211-.212.386-.352.527-.137.14-.315.28-.523.35a1.495 1.495 0 0 1-1.223 0 1.361 1.361 0 0 1-.524-.35 1.132 1.132 0 0 1-.353-.527 1.21 1.21 0 0 1-.136-.595c0-.457.176-.842.49-1.158.28-.316.699-.456 1.119-.456m0 13.936c.206 0 .417.068.627.138.208.069.386.209.523.347.318.311.457.694.457 1.144 0 .21-.038.417-.105.59a1.402 1.402 0 0 1-.352.519 1.058 1.058 0 0 1-.523.349 1.51 1.51 0 0 1-1.223 0 1.058 1.058 0 0 1-.524-.35 1.105 1.105 0 0 1-.353-.519c-.1-.172-.136-.379-.136-.59 0-.449.176-.832.49-1.143.28-.31.699-.485 1.119-.485m7.518 7.504c.21 0 .416.036.59.107.208.102.38.207.519.346.174.175.276.348.346.523.104.21.138.416.138.626 0 .207-.034.418-.138.626-.07.209-.172.382-.346.52a1.59 1.59 0 0 1-1.73.349 1.344 1.344 0 0 1-.521-.348 1.636 1.636 0 0 1-.481-1.147c0-.417.17-.835.48-1.15a1.69 1.69 0 0 1 1.143-.452";
 
+/* ── Documents Tab ───────────────────────────────────────────────────────── */
+const DocumentsTab = ({ houseId, backendUrl }) => {
+  const [docTab, setDocTab]           = useState('property');
+  const [docs, setDocs]               = useState([]);
+  const [loading, setLoading]         = useState(true);
+  const [search, setSearch]           = useState('');
+  const [uploadOpen, setUploadOpen]   = useState(false);
+  const [dragOver, setDragOver]       = useState(false);
+  const [uploading, setUploading]     = useState(false);
+  const [pickedFile, setPickedFile]   = useState(null);
+  const [description, setDescription] = useState('');
+  const fileInputRef = useRef(null);
+
+  const fetchDocs = async (type) => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('rental_token');
+      const res = await axios.get(`${backendUrl}/api/landlord/houses/${houseId}/documents?type=${type}`, { headers: { Authorization: `Bearer ${token}` } });
+      setDocs(res.data.data || []);
+    } catch { setDocs([]); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { fetchDocs(docTab); }, [docTab, houseId]);
+
+  const openUpload = () => { setPickedFile(null); setDescription(''); setUploadOpen(true); };
+  const closeUpload = () => { setUploadOpen(false); setPickedFile(null); setDescription(''); };
+
+  const handleDrop = (e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) setPickedFile(f); };
+  const handleFileInput = (e) => { const f = e.target.files[0]; if (f) setPickedFile(f); };
+
+  const handleSave = async () => {
+    if (!pickedFile) { toast.error('Please select a file'); return; }
+    setUploading(true);
+    try {
+      const token = localStorage.getItem('rental_token');
+      const fd = new FormData();
+      fd.append('file', pickedFile);
+      fd.append('description', description);
+      fd.append('type', docTab);
+      await axios.post(`${backendUrl}/api/landlord/houses/${houseId}/documents`, fd, {
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
+      });
+      toast.success('Document uploaded');
+      closeUpload();
+      fetchDocs(docTab);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Upload failed');
+    } finally { setUploading(false); }
+  };
+
+  const handleDelete = async (docId) => {
+    if (!window.confirm('Delete this document?')) return;
+    try {
+      const token = localStorage.getItem('rental_token');
+      await axios.delete(`${backendUrl}/api/landlord/documents/${docId}`, { headers: { Authorization: `Bearer ${token}` } });
+      setDocs(prev => prev.filter(d => d._id !== docId));
+      toast.success('Deleted');
+    } catch { toast.error('Failed to delete'); }
+  };
+
+  const filtered = docs.filter(d => (d.originalName || d.fileName || '').toLowerCase().includes(search.toLowerCase()));
+
+  return (
+    <div style={{ width: '100%', padding: '24px 20px', boxSizing: 'border-box' }}>
+      {/* Tabs */}
+      <div style={{ display: 'flex', borderBottom: '2px solid #e5e7eb', marginBottom: 0 }}>
+        {[{ key: 'property', label: 'Property documents' }, { key: 'lease', label: 'Lease documents' }].map(t => (
+          <button key={t.key} onClick={() => setDocTab(t.key)}
+            style={{ padding: '10px 20px', fontSize: 14, fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', color: docTab === t.key ? '#042238' : '#6b7280', borderBottom: docTab === t.key ? '2px solid #042238' : '2px solid transparent', marginBottom: -2 }}
+          >{t.label}</button>
+        ))}
+      </div>
+
+      {/* Toolbar */}
+      <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderTop: 'none', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ position: 'relative', flex: '0 0 260px' }}>
+          <input type="text" placeholder="Search" value={search} onChange={e => setSearch(e.target.value)}
+            style={{ width: '100%', padding: '6px 30px 6px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="#9ca3af" style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+            <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+          </svg>
+        </div>
+        <div style={{ flex: 1 }} />
+        <button onClick={openUpload}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#e3eaf2', color: '#042238', border: 'none', borderRadius: 6, padding: '6px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg>
+          New
+        </button>
+      </div>
+
+      {/* Table */}
+      <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderTop: 'none', borderRadius: '0 0 8px 8px', overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <thead>
+            <tr style={{ borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
+              <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#042238', letterSpacing: '0.06em' }}>FILE NAME</th>
+              <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#042238', letterSpacing: '0.06em' }}>DESCRIPTION</th>
+              <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#042238', letterSpacing: '0.06em' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>DATE UPLOADED
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z"/></svg>
+                </span>
+              </th>
+              <th style={{ padding: '10px 16px', width: 80 }} />
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={4} style={{ padding: 48, textAlign: 'center', color: '#9ca3af' }}>Loading…</td></tr>
+            ) : filtered.length === 0 ? (
+              <tr>
+                <td colSpan={4} style={{ padding: '60px 24px', textAlign: 'center' }}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="#d1d5db" style={{ display: 'block', margin: '0 auto 8px' }}>
+                    <path d="M4 10.5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5m0-6c-.83 0-1.5.67-1.5 1.5S3.17 7.5 4 7.5 5.5 6.83 5.5 6 4.83 4.5 4 4.5m0 12c-.83 0-1.5.68-1.5 1.5s.68 1.5 1.5 1.5 1.5-.68 1.5-1.5-.67-1.5-1.5-1.5M7 19h14v-2H7zm0-6h14v-2H7zm0-8v2h14V5z"/>
+                  </svg>
+                  <span style={{ color: '#9ca3af', fontSize: 13 }}>No data to show</span>
+                </td>
+              </tr>
+            ) : filtered.map(doc => (
+              <tr key={doc._id} style={{ borderBottom: '1px solid #f3f4f6' }}
+                onMouseEnter={e => e.currentTarget.style.background = '#fafafa'}
+                onMouseLeave={e => e.currentTarget.style.background = ''}
+              >
+                <td style={{ padding: '12px 16px' }}>
+                  <a href={`${backendUrl}${doc.filePath}`} target="_blank" rel="noreferrer"
+                    style={{ color: '#042238', fontWeight: 600, textDecoration: 'none', fontSize: 13 }}>
+                    {doc.originalName || doc.fileName}
+                  </a>
+                </td>
+                <td style={{ padding: '12px 16px', color: '#6b7280' }}>{doc.description || '—'}</td>
+                <td style={{ padding: '12px 16px', color: '#6b7280', whiteSpace: 'nowrap' }}>
+                  {new Date(doc.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </td>
+                <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                  <button onClick={() => handleDelete(doc._id)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: 4, display: 'inline-flex', alignItems: 'center' }}
+                    title="Delete"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6zM8 9h8v10H8zm7.5-5-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Upload Document Modal */}
+      {uploadOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#fff', borderRadius: 10, width: 520, maxWidth: '92vw', boxShadow: '0 8px 32px rgba(0,0,0,0.18)', overflow: 'hidden' }}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 16px' }}>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#042238' }}>Upload document</h2>
+              <button onClick={closeUpload} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#9ca3af', display: 'flex', alignItems: 'center' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+              </button>
+            </div>
+
+            <div style={{ padding: '0 24px 24px' }}>
+              {/* Drop zone */}
+              {!pickedFile ? (
+                <div
+                  onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={handleDrop}
+                  style={{ border: `2px dashed ${dragOver ? '#042238' : '#9aafbc'}`, borderRadius: 8, padding: '36px 24px', textAlign: 'center', background: dragOver ? '#eef2f6' : '#f8faff', marginBottom: 16, cursor: 'pointer' }}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <div style={{ width: 48, height: 56, background: '#d6e3ec', borderRadius: 6, margin: '0 auto 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#042238"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                  </div>
+                  <p style={{ margin: '0 0 4px', fontWeight: 700, fontSize: 14, color: '#374151' }}>Drag your file here</p>
+                  <p style={{ margin: '0 0 12px', color: '#9ca3af', fontSize: 13 }}>────────── OR ──────────</p>
+                  <button type="button" onClick={e => { e.stopPropagation(); fileInputRef.current?.click(); }}
+                    style={{ border: '1px solid #042238', background: '#fff', color: '#042238', borderRadius: 6, padding: '6px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                    Browse files
+                  </button>
+                  <input ref={fileInputRef} type="file" hidden onChange={handleFileInput}
+                    accept=".pdf,.xls,.xlsx,.doc,.docx,.ppt,.pptx,.csv,.png,.jpg,.jpeg,.eml,.txt" />
+                </div>
+              ) : (
+                <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, background: '#f9fafb' }}>
+                  <svg width="28" height="32" viewBox="0 0 24 24" fill="#6b7280"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+                  <span style={{ flex: 1, fontSize: 13, color: '#374151', wordBreak: 'break-all' }}>{pickedFile.name}</span>
+                  <button onClick={() => setPickedFile(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: '#9ca3af', display: 'flex', alignItems: 'center' }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2m4.3 14.3c-.39.39-1.02.39-1.41 0L12 13.41 9.11 16.3c-.39.39-1.02.39-1.41 0a.996.996 0 0 1 0-1.41L10.59 12 7.7 9.11a.996.996 0 0 1 0-1.41c.39-.39 1.02-.39 1.41 0L12 10.59l2.89-2.89c.39-.39 1.02-.39 1.41 0s.39 1.02 0 1.41L13.41 12l2.89 2.89c.38.38.38 1.02 0 1.41"/></svg>
+                  </button>
+                </div>
+              )}
+              <p style={{ margin: '0 0 16px', fontSize: 12, color: '#9ca3af' }}>Supported documents: pdf, xls(x), doc(x), ppt(x), csv, png, jpg, eml, etc</p>
+
+              {/* Description */}
+              <div>
+                <label style={{ display: 'block', fontWeight: 700, fontSize: 14, color: '#374151', marginBottom: 6 }}>Description</label>
+                <textarea value={description} onChange={e => setDescription(e.target.value)} rows={4} maxLength={256}
+                  style={{ width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, outline: 'none', resize: 'vertical', boxSizing: 'border-box', background: '#f9fafb' }} />
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '12px 24px 20px', borderTop: '1px solid #f3f4f6' }}>
+              <button disabled={uploading} onClick={handleSave}
+                style={{ padding: '8px 28px', background: '#042238', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 600, cursor: uploading ? 'not-allowed' : 'pointer' }}
+              >{uploading ? 'Uploading…' : 'Save'}</button>
+              <button onClick={closeUpload}
+                style={{ padding: '8px 20px', background: 'none', border: 'none', color: '#042238', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
+              >Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ── Reminders Section ───────────────────────────────────────────────────── */
+const REMINDER_CATEGORIES = ['Rent'];
+
+const RemindersSection = ({ houseId, houseName }) => {
+  const [reminders, setReminders]         = useState([]);
+  const [loading, setLoading]             = useState(true);
+  const [reminderTab, setReminderTab]     = useState('Reminders');
+  const [filterOpen, setFilterOpen]       = useState(false);
+  const [filterPos, setFilterPos]         = useState({ top: 0, left: 0 });
+  const [statusFilters, setStatusFilters] = useState({ complete: true, upcoming: true, overdue: true });
+  const [addOpen, setAddOpen]             = useState(false);
+  const [saving, setSaving]               = useState(false);
+  const [form, setForm]                   = useState({ dateTime: '', category: 'Rent', notes: '' });
+
+  const fetchReminders = async () => {
+    try {
+      setLoading(true);
+      const { data } = await axios.get(`/api/landlord/houses/${houseId}/reminders`);
+      setReminders(data.data || []);
+    } catch { /* silent */ } finally { setLoading(false); }
+  };
+
+  useEffect(() => { fetchReminders(); }, [houseId]);
+
+  const filtered = reminders.filter(r => statusFilters[r.status]);
+
+  const toggleFilter = (key) => setStatusFilters(p => ({ ...p, [key]: !p[key] }));
+  const allSelected = Object.values(statusFilters).every(Boolean);
+  const toggleAll = () => {
+    const next = !allSelected;
+    setStatusFilters({ complete: next, upcoming: next, overdue: next });
+  };
+
+  const handleSave = async () => {
+    if (!form.dateTime) return toast.error('Date & Time is required');
+    try {
+      setSaving(true);
+      await axios.post(`/api/landlord/houses/${houseId}/reminders`, form);
+      toast.success('Reminder added');
+      setAddOpen(false);
+      setForm({ dateTime: '', category: 'Rent', notes: '' });
+      fetchReminders();
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Failed to save');
+    } finally { setSaving(false); }
+  };
+
+  const handleMarkComplete = async (r) => {
+    try {
+      await axios.put(`/api/landlord/reminders/${r._id}`, { status: 'complete' });
+      fetchReminders();
+    } catch { toast.error('Failed to update'); }
+  };
+
+  const handleDelete = async (r) => {
+    try {
+      await axios.delete(`/api/landlord/reminders/${r._id}`);
+      fetchReminders();
+    } catch { toast.error('Failed to delete'); }
+  };
+
+  const STATUS_CHIP = {
+    upcoming: { bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE', label: 'Upcoming' },
+    overdue:  { bg: '#FEF2F2', color: '#DC2626', border: '#FECACA', label: 'Overdue' },
+    complete: { bg: '#F0FDF4', color: '#166534', border: '#BBF7D0', label: 'Complete' },
+  };
+
+  return (
+    <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', overflow: 'visible' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: '1px solid #f3f4f6', flexWrap: 'wrap', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 0, border: '1px solid #e5e7eb', borderRadius: 6, overflow: 'hidden' }}>
+          {['Reminders', 'Recurring reminders'].map(t => (
+            <button key={t} onClick={() => setReminderTab(t)} style={{ padding: '6px 14px', fontSize: 12, fontWeight: reminderTab === t ? 700 : 400, background: reminderTab === t ? '#042238' : '#fff', color: reminderTab === t ? '#fff' : '#6b7280', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>{t}</button>
+          ))}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* Filter button */}
+          <button
+            onClick={e => {
+              const r = e.currentTarget.getBoundingClientRect();
+              setFilterPos({ top: r.bottom + 4, left: r.left });
+              setFilterOpen(v => !v);
+            }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 6, padding: '6px 12px', fontSize: 12, fontWeight: 500, color: '#374151', cursor: 'pointer' }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M4.25 5.66a.5.5 0 0 1 .5-.5h14.5a.5.5 0 0 1 .35.86L13.5 12v6.5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1-.5-.5V12L4.25 6.52a.5.5 0 0 1-.1-.3l.1-.56Z"/></svg>
+            Filter
+          </button>
+          {/* + New */}
+          <button
+            onClick={() => setAddOpen(true)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#042238', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg>
+            New
+          </button>
+        </div>
+      </div>
+
+      {/* Body */}
+      <div style={{ padding: '16px 20px', minHeight: 100 }}>
+        {loading ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
+            <div className="w-7 h-7 border-[3px] border-[#042238] border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : filtered.length === 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 0', gap: 10 }}>
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="#d1d5db">
+              <path d="M3 13h2v-2H3zm0 4h2v-2H3zm0-8h2V7H3zm4 4h14v-2H7zm0 4h14v-2H7zM7 7v2h14V7z"/>
+            </svg>
+            <span style={{ fontSize: 13, color: '#9ca3af', fontWeight: 500 }}>No reminders</span>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+            {filtered.map((r, i) => {
+              const chip = STATUS_CHIP[r.status] || STATUS_CHIP.upcoming;
+              const dt = new Date(r.dateTime);
+              const dateStr = dt.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+              const timeStr = dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+              return (
+                <div key={r._id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 4px', borderBottom: i < filtered.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
+                  <div style={{ flexShrink: 0 }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="#9ca3af"><path d="M20 3h-1V1h-2v2H7V1H5v2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 18H4V8h16v13z"/></svg>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#042238' }}>{r.category}</div>
+                    <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>{dateStr} · {timeStr}{r.notes ? ` · ${r.notes}` : ''}</div>
+                  </div>
+                  <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: chip.bg, color: chip.color, border: `1px solid ${chip.border}` }}>{chip.label}</span>
+                  {r.status !== 'complete' && (
+                    <button onClick={() => handleMarkComplete(r)} title="Mark complete" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 2, flexShrink: 0, display: 'inline-flex' }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                    </button>
+                  )}
+                  <button onClick={() => handleDelete(r)} title="Delete" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 2, flexShrink: 0, display: 'inline-flex' }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6zM19 4h-3.5l-1-1h-5l-1 1H5v2h14z"/></svg>
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Filter dropdown (fixed) */}
+      {filterOpen && (
+        <>
+          <div onClick={() => setFilterOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 490 }} />
+          <div style={{ position: 'fixed', top: filterPos.top, left: filterPos.left, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 500, minWidth: 180, padding: '6px 0' }}>
+            <div style={{ padding: '8px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #f3f4f6', marginBottom: 4 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#042238' }}>Status</span>
+              <button onClick={toggleAll} style={{ background: 'none', border: 'none', fontSize: 11, color: '#042238', cursor: 'pointer', fontWeight: 600 }}>
+                {allSelected ? 'Deselect all' : 'Select all'}
+              </button>
+            </div>
+            {[['complete','Complete'],['upcoming','Upcoming'],['overdue','Overdue']].map(([key, label]) => (
+              <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: '#374151' }}>
+                <input type="checkbox" checked={statusFilters[key]} onChange={() => toggleFilter(key)} style={{ accentColor: '#042238' }} />
+                {label}
+              </label>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Add Reminder Modal */}
+      {addOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: '#fff', borderRadius: 12, width: '100%', maxWidth: 480, boxShadow: '0 20px 60px rgba(0,0,0,0.18)', fontFamily: '"Inter",sans-serif', overflow: 'hidden' }}>
+            {/* Modal header */}
+            <div style={{ padding: '18px 24px', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontWeight: 700, fontSize: 16, color: '#042238' }}>Add reminder</span>
+              <button onClick={() => setAddOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: 'inline-flex' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+              </button>
+            </div>
+            {/* Modal body */}
+            <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* Property (readonly) */}
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 5 }}>Property</label>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid #e5e7eb', borderRadius: 6, padding: '9px 12px', background: '#f9fafb', cursor: 'default' }}>
+                  <span style={{ fontSize: 13, color: '#042238', fontWeight: 500 }}>{houseName}</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="#9ca3af"><path d="M10 6 8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+                </div>
+              </div>
+              {/* Date&Time + Category side by side */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 5 }}>Date &amp; Time</label>
+                  <input
+                    type="datetime-local"
+                    value={form.dateTime}
+                    onChange={e => setForm(p => ({ ...p, dateTime: e.target.value }))}
+                    lang="en-GB"
+                    style={{ width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 5 }}>Category</label>
+                  <select
+                    value={form.category}
+                    onChange={e => setForm(p => ({ ...p, category: e.target.value }))}
+                    style={{ width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, outline: 'none', boxSizing: 'border-box', background: '#fff' }}
+                  >
+                    {REMINDER_CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                  </select>
+                </div>
+              </div>
+              {/* Notes */}
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 5 }}>Notes</label>
+                <textarea
+                  value={form.notes}
+                  onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
+                  rows={3}
+                  placeholder="Add any notes here..."
+                  style={{ width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, outline: 'none', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                />
+              </div>
+              {/* Recurring (PRO) */}
+              <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: '12px 14px' }}>
+                <div style={{ marginBottom: 10 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: '#042238' }}>Is this a recurring reminder?</span>
+                </div>
+                <div style={{ display: 'flex', gap: 20 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#374151', cursor: 'pointer' }}>
+                    <input type="radio" name="recurring" value="yes" style={{ accentColor: '#042238' }} />
+                    Yes
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#374151', cursor: 'pointer' }}>
+                    <input type="radio" name="recurring" value="no" defaultChecked style={{ accentColor: '#042238' }} />
+                    No
+                  </label>
+                </div>
+              </div>
+            </div>
+            {/* Modal footer */}
+            <div style={{ padding: '14px 24px', borderTop: '1px solid #f3f4f6', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button onClick={() => setAddOpen(false)} style={{ padding: '8px 20px', background: 'none', border: '1px solid #e5e7eb', borderRadius: 6, color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
+              <button onClick={handleSave} disabled={saving} style={{ padding: '8px 22px', background: '#042238', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+                {saving ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const HouseDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [house, setHouse]     = useState(null);
   const [tenants, setTenants] = useState([]);
+  const [lease, setLease]     = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab]         = useState('Overview');
   const [paymentView, setPaymentView]     = useState('Month');
+  const [payExpTab, setPayExpTab]         = useState('Payments');
   const [showCreateRequest, setShowCreateRequest] = useState(false);
   const [maintenanceRequests, setMaintenanceRequests] = useState([]);
   const [loadingMaintenance, setLoadingMaintenance] = useState(false);
 
+  /* ── Edit lease dropdown ── */
+  const [editLeaseDropdown, setEditLeaseDropdown] = useState(false);
+
+  /* ── Link tenant modal state ── */
+  const [linkModalOpen, setLinkModalOpen]   = useState(false);
+  const [linkView, setLinkView]             = useState('select'); // 'select' | 'new'
+  const [allTenants, setAllTenants]         = useState([]);
+  const [loadingTenants, setLoadingTenants] = useState(false);
+  const [selectedTenantId, setSelectedTenantId] = useState(null);
+  const [savingLink, setSavingLink]         = useState(false);
+  const [newTenant, setNewTenant] = useState({
+    firstName: '', lastName: '', email: '', phone: '', notes: '',
+  });
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [pendingTenantData, setPendingTenantData] = useState(null);
+  const [tenantMenuOpenId, setTenantMenuOpenId] = useState(null);
+  const [tenantMenuPos, setTenantMenuPos] = useState({ top: 0, left: 0 });
+  const [tenantMenuItems, setTenantMenuItems] = useState([]);
+  const [invitingExistingTenant, setInvitingExistingTenant] = useState(null);
+
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        const [houseRes, tenantsRes] = await Promise.all([
+        const [houseRes, tenantsRes, leaseRes] = await Promise.all([
           axios.get(`${backendUrl}${API.houses}/${id}`),
           axios.get(`${backendUrl}${API.houses}/${id}/tenants`),
+          axios.get(`${backendUrl}/api/landlord/houses/${id}/lease`).catch(() => ({ data: { data: null } })),
         ]);
         setHouse(houseRes.data.data);
         setTenants(tenantsRes.data.data || []);
+        setLease(leaseRes.data.data || null);
       } catch {
         toast.error('Failed to load house details');
       } finally {
@@ -516,6 +1009,131 @@ const HouseDetail = () => {
     };
     fetchAll();
   }, [id]);
+
+  /* ── Due date helpers ── */
+  const getNextDueDate = (paymentDay) => {
+    const now = new Date();
+    let yr = now.getFullYear(), mo = now.getMonth();
+    const day = paymentDay === 31 ? new Date(yr, mo + 1, 0).getDate() : paymentDay;
+    let due = new Date(yr, mo, day);
+    if (due < now) {
+      const nm = mo + 1 > 11 ? 0 : mo + 1;
+      const ny = mo + 1 > 11 ? yr + 1 : yr;
+      const d2 = paymentDay === 31 ? new Date(ny, nm + 1, 0).getDate() : paymentDay;
+      due = new Date(ny, nm, d2);
+    }
+    return due;
+  };
+  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const fmtDueDate = (d) => `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+
+  const nextDueDate = lease ? getNextDueDate(lease.paymentDay) : null;
+  const isOverdue   = nextDueDate ? new Date() > nextDueDate : false;
+
+  /* ── Open link modal and fetch all tenants ── */
+  const openLinkModal = async () => {
+    setLinkModalOpen(true);
+    setLinkView('select');
+    setSelectedTenantId(null);
+    setNewTenant({ tenantType: 'Person', firstName: '', lastName: '', email: '', phone: '', notes: '' });
+    setLoadingTenants(true);
+    try {
+      const token = localStorage.getItem('rental_token');
+      const res = await axios.get(`${backendUrl}/api/landlord/tenants`, { headers: { Authorization: `Bearer ${token}` } });
+      setAllTenants(res.data.data || []);
+    } catch { setAllTenants([]); }
+    finally { setLoadingTenants(false); }
+  };
+
+  const closeLinkModal = () => { setLinkModalOpen(false); setSelectedTenantId(null); };
+
+  const handleSaveLinked = async () => {
+    if (!lease) return;
+    setSavingLink(true);
+    try {
+      const token = localStorage.getItem('rental_token');
+      const res = await axios.put(`${backendUrl}/api/landlord/leases/${lease._id}/tenant`,
+        { tenantId: selectedTenantId }, { headers: { Authorization: `Bearer ${token}` } });
+      setLease(res.data.data);
+      toast.success('Tenant linked to lease');
+      closeLinkModal();
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to link tenant');
+    } finally { setSavingLink(false); }
+  };
+
+  const handleSaveNewTenant = () => {
+    if (!lease) return;
+    const { firstName, email } = newTenant;
+    if (!firstName) { toast.error('First name is required'); return; }
+    if (!email) { toast.error('Email is required'); return; }
+    // Close link modal, show invite choice
+    setLinkModalOpen(false);
+    setPendingTenantData({ ...newTenant });
+    setInviteModalOpen(true);
+  };
+
+  const handleInviteChoice = async (sendInvite) => {
+    if (!lease || !pendingTenantData) return;
+    setSavingLink(true);
+    try {
+      const token = localStorage.getItem('rental_token');
+      const res = await axios.post(
+        `${backendUrl}/api/landlord/leases/${lease._id}/tenant`,
+        { ...pendingTenantData, sendInvite },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setLease(res.data.data.lease);
+      toast.success(sendInvite ? 'Tenant created and invite sent' : 'Tenant created and linked');
+      setInviteModalOpen(false);
+      setPendingTenantData(null);
+      setSelectedTenantId(null);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to create tenant');
+      setInviteModalOpen(false);
+    } finally { setSavingLink(false); }
+  };
+
+  const ntChange = (field, val) => setNewTenant(prev => ({ ...prev, [field]: val }));
+
+  const handleUnlinkTenant = async () => {
+    if (!lease) return;
+    try {
+      const token = localStorage.getItem('rental_token');
+      const res = await axios.put(
+        `${backendUrl}/api/landlord/leases/${lease._id}/tenant`,
+        { tenantId: null },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setLease(res.data.data);
+      toast.success('Tenant unlinked');
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to unlink tenant');
+    }
+  };
+
+  const openExistingInviteModal = (tenant) => {
+    setInvitingExistingTenant(tenant);
+    setInviteModalOpen(true);
+  };
+
+  const handleSendExistingInvite = async () => {
+    if (!invitingExistingTenant) return;
+    setSavingLink(true);
+    try {
+      const token = localStorage.getItem('rental_token');
+      await axios.post(
+        `${backendUrl}/api/landlord/tenants/${invitingExistingTenant._id}/invite`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      toast.success('Invite sent');
+      setInviteModalOpen(false);
+      setInvitingExistingTenant(null);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to send invite');
+    } finally { setSavingLink(false); }
+  };
 
   const fetchMaintenance = () => {
     if (!id) return;
@@ -626,8 +1244,11 @@ const HouseDetail = () => {
 
               {/* Left: icon + name/meta */}
               <div className="flex items-center gap-4 min-w-0">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-slate-50 to-blue-50 border border-gray-200 shadow-sm flex items-center justify-center flex-shrink-0">
-                  {typeSvg}
+                <div className="w-14 h-14 rounded-2xl border border-gray-200 shadow-sm flex-shrink-0 overflow-hidden flex items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50">
+                  {house.photo
+                    ? <img src={`${backendUrl}${house.photo}`} alt={house.name} className="w-full h-full object-cover" />
+                    : typeSvg
+                  }
                 </div>
                 <div className="min-w-0">
                   <h1 className="text-base font-bold text-gray-900 leading-tight truncate">
@@ -692,321 +1313,324 @@ const HouseDetail = () => {
 
         {/* ── Overview ─────────────────────────────────────────── */}
         {activeTab === 'Overview' && (
-          <div className="max-w-xl mx-auto w-full px-5 py-6 space-y-4">
+          <div style={{ maxWidth: 860, margin: '0 auto', width: '100%', padding: '24px 20px 40px', boxSizing: 'border-box' }}>
 
-            {/* Stats row */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="flex divide-x divide-gray-100">
-                {[
-                  {
-                    label: 'TENANTS',
-                    value: tenants.length,
-                    href: '/tenants',
-                    circleBg: '#4B7BE5',
-                    icon: (
-                      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                        <circle cx="9" cy="7" r="4"/>
-                        <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
-                      </svg>
-                    ),
-                  },
-                  {
-                    label: 'OCCUPIED',
-                    value: house.isOccupied ? 'Yes' : 'No',
-                    href: '#',
-                    circleBg: house.isOccupied ? '#10B981' : '#94A3B8',
-                    icon: (
-                      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                        <polyline points="9 22 9 12 15 12 15 22"/>
-                      </svg>
-                    ),
-                  },
-                  {
-                    label: 'MONTHLY RENT',
-                    value: `TZS ${(house.rentAmount || 0).toLocaleString()}`,
-                    href: '#',
-                    circleBg: '#F59E0B',
-                    icon: (
-                      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="12" y1="1" x2="12" y2="23"/>
-                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-                      </svg>
-                    ),
-                  },
-                ].map(({ label, value, href, circleBg, icon }) => (
-                  <Link key={label} to={href} className="flex-1 flex flex-col items-center py-6 px-3 hover:bg-gray-50/80 transition-colors group">
-                    <div
-                      className="w-11 h-11 rounded-full flex items-center justify-center mb-3 shadow-md group-hover:scale-105 transition-transform"
-                      style={{ backgroundColor: circleBg }}
-                    >
-                      {icon}
+            {/* ── Two action cards ── */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+
+              {/* Left: Rent overview (if lease) or Add lease */}
+              <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e5e7eb', padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                {lease ? (
+                  <>
+                    {/* Header row */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+                      <span style={{ fontWeight: 700, fontSize: 15, color: '#042238' }}>Rent overview</span>
+                      {isOverdue && (
+                        <span style={{ border: '1px solid #ef4444', color: '#ef4444', borderRadius: 100, padding: '1px 8px', fontSize: 11, fontWeight: 600, letterSpacing: '0.04em' }}>OVERDUE</span>
+                      )}
+                      {/* Edit lease button group */}
+                      <div style={{ marginLeft: 'auto', position: 'relative', display: 'flex', border: '1px solid #d1d5db', borderRadius: 6, overflow: 'visible' }}>
+                        <button
+                          onClick={() => navigate(`/houses/${id}/create-lease`)}
+                          style={{ padding: '5px 14px', background: '#f9fafb', border: 'none', fontSize: 13, fontWeight: 600, color: '#374151', cursor: 'pointer', borderRadius: '6px 0 0 6px' }}
+                        >Edit lease</button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setEditLeaseDropdown(p => !p); }}
+                          style={{ padding: '5px 8px', background: '#f9fafb', border: 'none', borderLeft: '1px solid #d1d5db', cursor: 'pointer', display: 'flex', alignItems: 'center', borderRadius: '0 6px 6px 0' }}
+                        >
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="#374151"><path d="m7 10 5 5 5-5z"/></svg>
+                        </button>
+                        {editLeaseDropdown && (
+                          <div
+                            onClick={() => setEditLeaseDropdown(false)}
+                            style={{ position: 'absolute', right: 0, top: 'calc(100% + 4px)', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', zIndex: 200, minWidth: 210, padding: '4px 0' }}
+                          >
+                            {['Schedule rent change', 'View lease history'].map(opt => (
+                              <button key={opt}
+                                onClick={() => toast.info(`${opt} — coming soon`)}
+                                style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 16px', background: 'none', border: 'none', fontSize: 14, color: '#374151', cursor: 'pointer', textAlign: 'left' }}
+                              >
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="#042238">
+                                  {opt === 'Schedule rent change'
+                                    ? <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2M12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8m.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
+                                    : <path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9m-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8z"/>
+                                  }
+                                </svg>
+                                {opt}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-[9px] font-bold text-gray-400 tracking-widest uppercase mb-1">{label}</p>
-                    <p className="text-xl font-bold text-gray-900">{value}</p>
-                  </Link>
+                    {/* Amount */}
+                    <p style={{ fontSize: 26, fontWeight: 700, color: '#042238', margin: '0 0 4px', fontFamily: '"Inter", sans-serif' }}>
+                      TZS {lease.rentAmount.toLocaleString()}
+                    </p>
+                    {/* Due date */}
+                    <span style={{ fontSize: 12, color: '#1565c0' }}>Due {fmtDueDate(nextDueDate)}</span>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                      <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="#9ca3af">
+                          <path d="m18.85 10.39 1.06-1.06c.78-.78.78-2.05 0-2.83L18.5 5.09c-.78-.78-2.05-.78-2.83 0l-1.06 1.06zm-5.66-2.83L4 16.76V21h4.24l9.19-9.19zM19 17.5c0 2.19-2.54 3.5-5 3.5-.55 0-1-.45-1-1s.45-1 1-1c1.54 0 3-.73 3-1.5 0-.47-.48-.87-1.23-1.2l1.48-1.48c1.07.63 1.75 1.47 1.75 2.68M4.58 13.35C3.61 12.79 3 12.06 3 11c0-1.8 1.89-2.63 3.56-3.36C7.59 7.18 9 6.56 9 6c0-.41-.78-1-2-1-1.26 0-1.8.61-1.83.64-.35.41-.98.46-1.4.12-.41-.34-.49-.95-.15-1.38C3.73 4.24 4.76 3 7 3s4 1.32 4 3c0 1.87-1.93 2.72-3.64 3.47C6.42 9.88 5 10.5 5 11c0 .31.43.6 1.07.86z"/>
+                        </svg>
+                      </div>
+                      <button
+                        onClick={() => navigate(`/houses/${id}/create-lease`)}
+                        style={{ background: '#042238', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+                      >Add lease</button>
+                    </div>
+                    <span style={{ fontSize: 12, color: '#6b7280', lineHeight: 1.5 }}>
+                      Start by adding your lease and start tracking your rent payments.<br/>No document upload needed.
+                    </span>
+                  </>
+                )}
+              </div>
+
+              {/* Right: Tenants section */}
+              <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e5e7eb', padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                {/* Header */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <span style={{ fontWeight: 700, fontSize: 14, color: '#042238' }}>
+                    Tenants ({lease?.tenant ? 1 : 0})
+                  </span>
+                  <button
+                    disabled={!lease}
+                    onClick={lease ? openLinkModal : undefined}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: lease ? '#042238' : '#e5e7eb', color: lease ? '#fff' : '#9ca3af', border: 'none', borderRadius: 6, padding: '5px 12px', fontSize: 13, fontWeight: 600, cursor: lease ? 'pointer' : 'not-allowed' }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg>
+                    New
+                  </button>
+                </div>
+
+                {lease?.tenant ? (
+                  <>
+                    {/* Tenant row */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#fde8e0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: '#c05a3a' }}>
+                            {(lease.tenant.name || 'T').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                          </span>
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: 14, color: '#042238' }}>{lease.tenant.name}</div>
+                          <div style={{ fontSize: 12, color: '#6b7280' }}>{lease.tenant.email}</div>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ border: '1px solid #f59e0b', color: '#d97706', borderRadius: 20, padding: '2px 10px', fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>NOT INVITED</span>
+                        <div>
+                          <button
+                            onClick={e => {
+                              const menuKey = `ov-${lease.tenant._id}`;
+                              if (tenantMenuOpenId === menuKey) { setTenantMenuOpenId(null); return; }
+                              const r = e.currentTarget.getBoundingClientRect();
+                              setTenantMenuPos({ top: r.bottom + 4, left: r.right - 168 });
+                              setTenantMenuItems([
+                                { icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="#6b7280"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2m0 4-8 5-8-5V6l8 5 8-5z"/></svg>, label: 'Send email', color: '#374151', onClick: () => { window.location.href = `mailto:${lease.tenant.email}`; setTenantMenuOpenId(null); } },
+                                { icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="#6b7280"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75z"/></svg>, label: 'Invite tenant', color: '#374151', onClick: () => { setTenantMenuOpenId(null); openExistingInviteModal(lease.tenant); } },
+                                { icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="#ef4444"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6zM8 9h8v10H8zm7.5-5-1-1h-5l-1 1H5v2h14V4z"/></svg>, label: 'Un-link tenant', color: '#ef4444', onClick: () => { setTenantMenuOpenId(null); handleUnlinkTenant(); } },
+                              ]);
+                              setTenantMenuOpenId(menuKey);
+                            }}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center', color: '#9ca3af', borderRadius: 4 }}
+                          >
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2m0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2m0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2"/></svg>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    <button onClick={() => setActiveTab('Tenants')} style={{ background: 'none', border: 'none', color: '#042238', fontSize: 13, fontWeight: 600, cursor: 'pointer', padding: '10px 0 0', display: 'block' }}>View all</button>
+                  </>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '12px 0 4px', gap: 6 }}>
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="#d1d5db"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4m-9-2V7H4v3H1v2h3v3h2v-3h3v-2zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4"/></svg>
+                    <span style={{ fontSize: 12, color: '#9ca3af' }}>No tenant linked yet</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* ── Payments / Expenses card ── */}
+            <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+
+              {/* Sub-tabs */}
+              <div style={{ display: 'flex', borderBottom: '1px solid #e5e7eb' }}>
+                {['Payments', 'Expenses'].map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => setPayExpTab(tab)}
+                    style={{
+                      padding: '12px 20px',
+                      fontSize: 14,
+                      fontWeight: payExpTab === tab ? 600 : 400,
+                      color: payExpTab === tab ? '#042238' : '#6b7280',
+                      background: 'none',
+                      border: 'none',
+                      borderBottom: payExpTab === tab ? '2px solid #042238' : '2px solid transparent',
+                      cursor: 'pointer',
+                      marginBottom: -1,
+                    }}
+                  >{tab}</button>
                 ))}
               </div>
-            </div>
 
-            {/* Payments card */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-              {/* Accent bar */}
-              <div className="h-0.5 bg-gradient-to-r from-[#033A6D] via-blue-400 to-transparent" />
-              <div className="flex items-center justify-between px-5 py-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-[#033A6D]/10 flex items-center justify-center">
-                    <DollarSign size={14} className="text-[#033A6D]" />
-                  </div>
-                  <h3 className="font-semibold text-gray-900 text-sm">
-                    {paymentView === 'Year'
-                      ? `${new Date().getFullYear()} Payments`
-                      : `${monthName} Payments`}
-                  </h3>
-                </div>
-                <div className="flex rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
-                  {['Month', 'Year'].map(v => (
-                    <button
-                      key={v}
-                      onClick={() => setPaymentView(v)}
-                      className={`px-3 py-1 text-xs font-semibold transition-all ${
-                        paymentView === v
-                          ? 'bg-[#033A6D] text-white shadow-sm'
-                          : 'text-gray-500 hover:text-gray-700'
-                      }`}
-                    >
-                      {v}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="flex divide-x divide-gray-100 border-t border-gray-100">
-                {/* Received */}
-                <a href="#!" className="flex-1 flex flex-col px-5 pt-4 pb-5 bg-emerald-50/60 hover:bg-emerald-50 transition-colors">
-                  <span className="text-[11px] text-gray-500 font-medium mb-1">Received</span>
-                  <span className="text-lg font-bold text-gray-900 mb-3">TZS {received.toLocaleString()}</span>
-                  <div className="mt-auto flex justify-end">
-                    <svg viewBox="0 0 134 134" width="52" height="52" fill="#10B981" fillOpacity="0.35">
-                      <path fillRule="evenodd" d={DOT_PATH} />
-                    </svg>
-                  </div>
-                </a>
-                {/* Past due */}
-                <a href="#!" className="flex-1 flex flex-col px-5 pt-4 pb-5 bg-red-50/60 hover:bg-red-50 transition-colors">
-                  <span className="text-[11px] text-gray-500 font-medium mb-1">Past due</span>
-                  <span className="text-lg font-bold text-gray-900 mb-3">TZS {pastDue.toLocaleString()}</span>
-                  <div className="mt-auto flex justify-end">
-                    <svg viewBox="0 0 134 134" width="52" height="52" fill="#EF4444" fillOpacity="0.35">
-                      <path fillRule="evenodd" d={DOT_PATH} />
-                    </svg>
-                  </div>
-                </a>
-              </div>
-              <div className="border-t border-gray-100">
-                <Link to="/tenants" className="flex items-center justify-center gap-1.5 w-full py-3 text-xs font-semibold text-[#033A6D] hover:bg-gray-50 transition-colors">
-                  View Payments Dashboard
-                  <ChevronRight size={13} />
-                </Link>
-              </div>
-            </div>
-
-            {/* Notes */}
-            {house.description && (
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center">
-                    <FileText size={14} className="text-amber-500" />
-                  </div>
-                  <h3 className="text-sm font-semibold text-gray-900">Notes</h3>
-                </div>
-                <p className="text-sm text-gray-500 leading-relaxed">{house.description}</p>
-              </div>
-            )}
-
-            {/* Leases card */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="h-0.5 bg-gradient-to-r from-sky-400 via-blue-300 to-transparent" />
-              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-                <div className="flex items-center gap-2.5">
-                  <svg height="26" width="22" viewBox="0 0 42 50" fill="none">
-                    <path fill="#7FE3FF" d="m21 48.03 1.212-6.06 13.334-12.121 4.848 4.848L27.06 46.819z"/>
-                    <path d="m37.224 29.028 4.003 4.446c.553.614.514 1.55-.086 2.09L27.51 47.838c-.2.18-.445.3-.71.347l-5.578.998a1.515 1.515 0 0 1-1.711-1.9l1.575-5.444c.075-.259.22-.49.42-.67l13.631-12.274c.6-.54 1.535-.48 2.088.133ZM24.428.758a.92.92 0 0 1 .662.283l8.664 8.973.014.015a.951.951 0 0 1 .05.059l-.064-.074a.947.947 0 0 1 .23.4l.01.033a.93.93 0 0 1 .022.125l.007.111V25.64a.941.941 0 0 1-.93.951.941.941 0 0 1-.931-.951l-.001-14.005h-9.177a.941.941 0 0 1-.93-.952l-.001-8.022H2.255v42.966h13.51c.513 0 .93.426.93.952a.941.941 0 0 1-.93.951H1.324a.941.941 0 0 1-.931-.951V1.709c0-.525.417-.951.93-.951h23.104Zm-1.517 41.705-.05.046-1.36 4.702 4.817-.862.008-.008-3.415-3.878Zm9.756-8.784-8.358 7.526 3.414 3.878 8.358-7.525-3.414-3.88ZM14.25 36.653c.513 0 .93.426.93.952a.941.941 0 0 1-.93.952H7.1a.941.941 0 0 1-.93-.952c0-.526.417-.952.93-.952h7.15Zm21.864-6.076-2.05 1.844 3.404 3.866.01.013 2.093-1.884-3.457-3.84Zm-21.864.093c.513 0 .93.427.93.952a.941.941 0 0 1-.93.952H7.1a.941.941 0 0 1-.93-.952c0-.525.417-.952.93-.952h7.15Zm8.663-8.973c.514 0 .931.426.931.951a.941.941 0 0 1-.93.952H7.1a.941.941 0 0 1-.93-.952c0-.525.417-.951.93-.951h15.813Zm0-5.983c.514 0 .931.426.931.952a.941.941 0 0 1-.93.952H7.1a.941.941 0 0 1-.93-.952c0-.526.417-.952.93-.952h15.813ZM14.25 9.731c.513 0 .93.427.93.952a.941.941 0 0 1-.93.952H7.1a.941.941 0 0 1-.93-.952c0-.525.417-.952.93-.952h7.15Zm9.79-7.07h-.126v7.07h6.95l-6.825-7.07Z" fill="#042238" fillRule="nonzero"/>
+              {/* Payments tab – empty state */}
+              {payExpTab === 'Payments' && (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 24px', textAlign: 'center' }}>
+                  <svg width="56" height="64" viewBox="0 0 56 64" fill="none" style={{ marginBottom: 16 }}>
+                    <rect x="4" y="4" width="48" height="56" rx="5" fill="#e5e7eb"/>
+                    <rect x="12" y="16" width="22" height="3" rx="1.5" fill="#d1d5db"/>
+                    <rect x="12" y="24" width="32" height="3" rx="1.5" fill="#d1d5db"/>
+                    <rect x="12" y="32" width="28" height="3" rx="1.5" fill="#d1d5db"/>
+                    <circle cx="46" cy="48" r="13" fill="#9ca3af"/>
+                    <path d="M46 42v12M40 48h12" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"/>
                   </svg>
-                  <h4 className="text-sm font-semibold text-gray-900">Leases</h4>
+                  <p style={{ fontSize: 16, fontWeight: 700, color: '#1f2937', margin: '0 0 8px' }}>No payments logged</p>
+                  <p style={{ fontSize: 14, color: '#6b7280', maxWidth: 380, lineHeight: 1.5, margin: '0 0 20px' }}>
+                    You haven&apos;t added any payments to this property. Log payments to keep your records up to date.
+                  </p>
+                  <button
+                    onClick={() => navigate('/payments/record')}
+                    style={{ background: '#e5e7eb', color: '#374151', border: 'none', borderRadius: 6, padding: '8px 22px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
+                  >Log payment</button>
                 </div>
-                <button className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#033A6D] border border-[#033A6D]/30 bg-[#033A6D]/5 px-3 py-1.5 rounded-lg hover:bg-[#033A6D] hover:text-white hover:border-[#033A6D] transition-all">
-                  <svg height="12" width="12" viewBox="0 0 18 18" fill="currentColor">
-                    <path d="M9 16.7C13.3 16.7 16.7 13.3 16.7 9 16.7 4.7 13.3 1.3 9 1.3 4.7 1.3 1.3 4.7 1.3 9 1.3 13.3 4.7 16.7 9 16.7ZM9 18C4 18 0 14 0 9 0 4 4 0 9 0 14 0 18 4 18 9 18 14 14 18 9 18ZM9.8 8.2L12.2 8.2C12.6 8.2 13 8.6 13 9 13 9.4 12.6 9.8 12.2 9.8L9.8 9.8 9.8 12.2C9.8 12.6 9.4 13 9 13 8.6 13 8.2 12.6 8.2 12.2L8.2 9.8 5.8 9.8C5.4 9.8 5 9.4 5 9 5 8.6 5.4 8.2 5.8 8.2L8.2 8.2 8.2 5.8C8.2 5.4 8.6 5 9 5 9.4 5 9.8 5.4 9.8 5.8L9.8 8.2Z"/>
-                  </svg>
-                  New Lease
-                </button>
-              </div>
+              )}
 
-              <div className="px-5 py-4 border-b border-gray-100">
-                <div className="flex items-start justify-between gap-3 mb-3">
-                  <div className="flex-1 min-w-0">
-                    <span className="inline-flex items-center text-[10px] font-bold tracking-widest text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-0.5 mb-2">
-                      DRAFT LEASE
-                    </span>
-                    <p className="text-sm font-medium text-gray-800 truncate">
-                      {house.address}{house.city ? `, ${house.city}` : ''} — {new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-8">
-                  <div>
-                    <p className="text-[10px] font-bold tracking-widest text-gray-400 uppercase mb-1">Lease Term</p>
-                    <p className="text-sm text-gray-400 font-medium">—</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold tracking-widest text-gray-400 uppercase mb-1">Unpaid Charges</p>
-                    <p className="text-sm font-bold text-gray-800">TZS 0</p>
-                  </div>
-                </div>
-              </div>
-
-              <Link to="/tenants" className="flex items-center justify-center gap-1.5 w-full py-3 text-xs font-semibold text-[#033A6D] hover:bg-gray-50 transition-colors">
-                View All Leases
-                <ChevronRight size={13} />
-              </Link>
-            </div>
-
-            {/* ── Maintenance card ──────────────────────────── */}
-            {(() => {
-              const activeReqs = maintenanceRequests.filter(r => r.status === 'open' || r.status === 'in_progress');
-              return (
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                  <div className="h-0.5 bg-gradient-to-r from-slate-400 via-slate-300 to-transparent" />
-
-                  {/* Header */}
-                  <div className="flex items-center gap-3 px-5 pt-5 pb-3">
-                    <div className="w-10 h-10 rounded-xl bg-[#042238]/5 flex items-center justify-center flex-shrink-0">
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="#042238">
-                        <path d="M14.595 11.36l3.21 3.234.265-.066a4.731 4.731 0 014.138 1.085l.224.211a4.813 4.813 0 011.015 5.255.9.9 0 01-1.334.402l-.11-.088-1.816-1.69h-.672v.666l1.708 1.783a.914.914 0 01-.172 1.403l-.127.066a4.735 4.735 0 01-5.219-1.022 4.807 4.807 0 01-1.287-4.393l.065-.268-3.21-3.234 1.277-1.286 3.61 3.636c.26.262.336.657.193.998a2.985 2.985 0 00.63 3.26 2.93 2.93 0 001.64.835l.096.01-.757-.79a.912.912 0 01-.242-.492l-.01-.14v-1.94c0-.457.334-.835.77-.9l.133-.01h1.927c.181 0 .358.055.507.157l.106.084.848.789-.017-.152a2.972 2.972 0 00-.666-1.475l-.163-.178a2.935 2.935 0 00-3.238-.634.898.898 0 01-.888-.105l-.103-.09-3.608-3.635 1.277-1.286zM21.136.163a.899.899 0 011.154.103l1.445 1.456c.318.32.354.825.085 1.188l-2.472 3.33a.9.9 0 01-1.362.1l-.502-.506-9.011 9.074 1.404 1.415a.914.914 0 010 1.286.899.899 0 01-1.153.105l-.125-.105-.383-.387-5.69 5.734a2.334 2.334 0 01-3.193.121l-.128-.12a2.375 2.375 0 01-.001-3.344l5.692-5.736-.382-.384a.914.914 0 010-1.286.899.899 0 011.153-.105l.125.105 1.404 1.415 9.01-9.074-.604-.608a.914.914 0 01.03-1.316l.093-.075zM8.172 15.166l-5.69 5.733a.547.547 0 00.001.773c.21.212.553.212.765-.002l5.69-5.733-.766-.771zM8.119 1.409a4.809 4.809 0 011.287 4.394l-.067.267 3.21 3.232-1.277 1.286-3.608-3.632a.914.914 0 01-.193-.998 2.986 2.986 0 00-.63-3.262 2.887 2.887 0 00-1.605-.835l-.163-.02.727.827a.912.912 0 01.218.471l.01.133v1.94a.908.908 0 01-.77.9l-.134.01H3.198a.899.899 0 01-.508-.158l-.107-.085-.758-.71.015.13c.08.526.304 1.03.666 1.457l.164.179a2.926 2.926 0 003.237.614.898.898 0 01.887.104l.103.09 3.61 3.627-1.277 1.287-3.21-3.225-.267.067a4.71 4.71 0 01-4.138-1.068l-.223-.21A4.757 4.757 0 01.377 3a.9.9 0 011.335-.402l.111.089 1.729 1.613h.669v-.685L2.648 1.829a.914.914 0 01.2-1.377l.124-.064C4.739-.365 6.735.017 8.119 1.409zm13.426.68l-1.903 1.332.883.888 1.379-1.859-.359-.36z"/>
+              {/* Expenses tab */}
+              {payExpTab === 'Expenses' && (
+                <div style={{ padding: 16 }}>
+                  {/* Toolbar */}
+                  <div style={{ display: 'flex', gap: 12, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <div style={{ flex: '0 0 200px', position: 'relative' }}>
+                      <input type="text" placeholder="Search"
+                        style={{ width: '100%', padding: '6px 30px 6px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, outline: 'none', boxSizing: 'border-box' }}/>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="#9ca3af" style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)' }}>
+                        <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"/>
                       </svg>
                     </div>
-                    <h4 className="text-sm font-bold text-gray-900">
-                      Open Maintenance{activeReqs.length > 0 ? `: (${activeReqs.length})` : ''}
-                    </h4>
-                  </div>
-
-                  {/* Body — list of active requests */}
-                  <div className="px-5 pb-4 flex flex-col gap-2">
-                    {activeReqs.length === 0 ? (
-                      <p className="text-xs text-gray-400 py-1">No active maintenance requests.</p>
-                    ) : (
-                      activeReqs.slice(0, 5).map(req => {
-                        const st = STATUS_MAP[req.status] || STATUS_MAP.open;
-                        return (
-                          <div
-                            key={req._id}
-                            className="flex items-center justify-between gap-3 py-2 border-b border-gray-50 last:border-0 cursor-pointer hover:bg-gray-50 rounded-lg px-1 -mx-1 transition-colors"
-                            onClick={() => navigate(`/maintenance/${req._id}`)}
-                          >
-                            <div className="min-w-0">
-                              <p className="text-sm font-semibold text-gray-800 truncate">{req.title}</p>
-                              <p className="text-xs text-gray-400 mt-0.5 truncate">
-                                Requested by {req.submittedBy === 'tenant' ? (req.tenant?.name || 'Tenant') : 'You'} in {house?.address || house?.name || ''}
-                              </p>
-                            </div>
-                            <span
-                              className="flex-shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-full"
-                              style={{ background: st.bg, color: st.color, border: `1px solid ${st.border}` }}
-                            >
-                              {st.label}
-                            </span>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-
-                  {/* Footer */}
-                  <div className="border-t border-gray-100 px-5 py-3 bg-gray-50/60 flex items-center justify-center">
-                    <button
-                      onClick={() => setActiveTab('Maintenance')}
-                      className="text-xs font-bold text-[#033A6D] tracking-wide uppercase hover:underline"
-                    >
-                      View All Maintenance
+                    <div style={{ display: 'flex', border: '1px solid #d1d5db', borderRadius: 6, overflow: 'hidden' }}>
+                      {['Expenses', 'Recurring expenses'].map((t, i) => (
+                        <button key={t} style={{ padding: '6px 12px', fontSize: 12, fontWeight: i === 0 ? 600 : 400, background: i === 0 ? '#042238' : '#fff', color: i === 0 ? '#fff' : '#374151', border: 'none', cursor: 'pointer' }}>{t}</button>
+                      ))}
+                    </div>
+                    <button style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#0288d1', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg>
+                      New
                     </button>
                   </div>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
+                          <th style={{ width: 36, padding: '8px 12px' }}><input type="checkbox"/></th>
+                          {['DATE', 'CATEGORY', 'DESCRIPTION', 'STATUS', 'AMOUNT'].map((col, i) => (
+                            <th key={col} style={{ padding: '8px 12px', textAlign: i >= 3 ? 'center' : 'left', fontSize: 11, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.06em' }}>{col}</th>
+                          ))}
+                          <th style={{ width: 40 }}></th>
+                        </tr>
+                      </thead>
+                      <tbody></tbody>
+                    </table>
+                  </div>
                 </div>
-              );
-            })()}
+              )}
+            </div>
 
           </div>
         )}
 
         {/* ── Tenants tab ───────────────────────────────────────── */}
         {activeTab === 'Tenants' && (
-          <div className="max-w-4xl mx-auto w-full px-5 py-6">
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                <div>
-                  <h3 className="text-base font-bold text-gray-900">Tenants</h3>
-                  <p className="text-xs text-gray-400 mt-0.5">{tenants.length} tenant{tenants.length !== 1 ? 's' : ''} on this property</p>
-                </div>
-                <Link to="/tenants" className="inline-flex items-center gap-1 text-xs font-semibold text-[#033A6D] hover:underline">
-                  Manage all
-                  <ChevronRight size={13} />
-                </Link>
+          <div className="max-w-4xl mx-auto w-full px-5 pt-5 pb-6">
+            <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+              {/* Header */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', borderBottom: '1px solid #f3f4f6' }}>
+                <span style={{ fontWeight: 700, fontSize: 15, color: '#042238' }}>Tenants ({tenants.length})</span>
+                <button
+                  disabled={!lease}
+                  onClick={lease ? openLinkModal : undefined}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: lease ? '#042238' : '#e5e7eb', color: lease ? '#fff' : '#9ca3af', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: lease ? 'pointer' : 'not-allowed' }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg>
+                  New
+                </button>
               </div>
+
               {tenants.length === 0 ? (
-                <div className="py-16 text-center">
-                  <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
-                    <Users size={22} className="text-gray-300" />
+                <div style={{ textAlign: 'center', padding: '56px 24px' }}>
+                  <div style={{ width: 48, height: 48, borderRadius: 12, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                    <Users size={22} color="#d1d5db" />
                   </div>
-                  <p className="text-sm font-medium text-gray-400">No tenants yet</p>
-                  <p className="text-xs text-gray-300 mt-1">Tenants assigned to this property will appear here.</p>
+                  <p style={{ fontSize: 14, fontWeight: 600, color: '#9ca3af', margin: '0 0 4px' }}>No tenants yet</p>
+                  <p style={{ fontSize: 12, color: '#d1d5db', margin: 0 }}>Tenants assigned to this property will appear here.</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
                     <thead>
-                      <tr className="bg-gray-50 border-b border-gray-100">
-                        <th className="text-left px-6 py-3 text-[11px] font-bold text-gray-400 uppercase tracking-widest">Tenant</th>
-                        <th className="text-left px-6 py-3 text-[11px] font-bold text-gray-400 uppercase tracking-widest">Email</th>
-                        <th className="text-right px-6 py-3 text-[11px] font-bold text-gray-400 uppercase tracking-widest">Rent</th>
-                        <th className="text-right px-6 py-3 text-[11px] font-bold text-gray-400 uppercase tracking-widest">Balance</th>
-                        <th className="text-center px-6 py-3 text-[11px] font-bold text-gray-400 uppercase tracking-widest">Due Day</th>
+                      <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
+                        {['NAME', 'EMAIL', 'MOBILE', 'STATUS', 'DATE ADDED', ''].map(h => (
+                          <th key={h} style={{ padding: '10px 20px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#042238', letterSpacing: '0.06em', background: '#fff', whiteSpace: 'nowrap' }}>{h}</th>
+                        ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {tenants.map(t => (
-                        <tr key={t._id} className="border-b border-gray-50 hover:bg-blue-50/30 transition-colors">
-                          <td className="px-6 py-3.5">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-full bg-[#033A6D]/10 flex items-center justify-center flex-shrink-0">
-                                <span className="text-xs font-bold text-[#033A6D]">
-                                  {(t.name || 'T').charAt(0).toUpperCase()}
-                                </span>
+                      {tenants.map(t => {
+                        const leaseTenantId = lease?.tenant?._id?.toString() || lease?.tenant?.toString();
+                        const isCurrent = !!leaseTenantId && leaseTenantId === t._id?.toString();
+                        const initials = (t.name || 'T').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+                        const menuKey = `tab-${t._id}`;
+                        const addedDate = t.createdAt ? new Date(t.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+                        return (
+                          <tr key={t._id} style={{ borderBottom: '1px solid #f9fafb' }}
+                            onMouseEnter={e => e.currentTarget.style.background = '#fafafa'}
+                            onMouseLeave={e => e.currentTarget.style.background = ''}
+                          >
+                            <td style={{ padding: '14px 20px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#fde8e0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                  <span style={{ fontSize: 12, fontWeight: 700, color: '#c05a3a' }}>{initials}</span>
+                                </div>
+                                <Link to={`/tenants/${t._id}`} style={{ fontWeight: 700, color: '#042238', textDecoration: 'none' }}>{t.name}</Link>
                               </div>
-                              <Link to={`/tenants/${t._id}`} className="font-semibold text-gray-800 hover:text-[#033A6D] transition-colors">
-                                {t.name}
-                              </Link>
-                            </div>
-                          </td>
-                          <td className="px-6 py-3.5 text-gray-400 text-xs">{t.email}</td>
-                          <td className="px-6 py-3.5 text-right font-medium text-gray-700">
-                            {(t.rentAmount || 0).toLocaleString()}
-                          </td>
-                          <td className="px-6 py-3.5 text-right">
-                            <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${
-                              (t.balance || 0) < 0
-                                ? 'text-red-700 bg-red-50'
-                                : 'text-emerald-700 bg-emerald-50'
-                            }`}>
-                              {(t.balance || 0) < 0 ? '▼' : '▲'} {Math.abs(t.balance || 0).toLocaleString()}
-                            </span>
-                          </td>
-                          <td className="px-6 py-3.5 text-center">
-                            <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gray-100 text-xs font-bold text-gray-600">
-                              {t.rentDueDate || '—'}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
+                            </td>
+                            <td style={{ padding: '14px 20px', color: '#6b7280', fontSize: 13 }}>{t.email}</td>
+                            <td style={{ padding: '14px 20px', color: '#6b7280', fontSize: 13 }}>{t.phone || '—'}</td>
+                            <td style={{ padding: '14px 20px' }}>
+                              {isCurrent ? (
+                                <span style={{ border: '1px solid #34d399', color: '#059669', borderRadius: 20, padding: '3px 12px', fontSize: 11, fontWeight: 600, letterSpacing: '0.04em' }}>CURRENT</span>
+                              ) : (
+                                <span style={{ border: '1px solid #d1d5db', color: '#9ca3af', borderRadius: 20, padding: '3px 12px', fontSize: 11, fontWeight: 600, letterSpacing: '0.04em' }}>PREVIOUS</span>
+                              )}
+                            </td>
+                            <td style={{ padding: '14px 20px', color: '#6b7280', fontSize: 13, whiteSpace: 'nowrap' }}>{addedDate}</td>
+                            <td style={{ padding: '14px 20px', textAlign: 'right' }}>
+                              <button
+                                onClick={e => {
+                                  if (tenantMenuOpenId === menuKey) { setTenantMenuOpenId(null); return; }
+                                  const r = e.currentTarget.getBoundingClientRect();
+                                  setTenantMenuPos({ top: r.bottom + 4, left: r.right - 168 });
+                                  setTenantMenuItems([
+                                    { icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="#6b7280"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2m0 4-8 5-8-5V6l8 5 8-5z"/></svg>, label: 'Send email', color: '#374151', onClick: () => { window.location.href = `mailto:${t.email}`; setTenantMenuOpenId(null); } },
+                                    { icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="#6b7280"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75z"/></svg>, label: 'Invite tenant', color: '#374151', onClick: () => { setTenantMenuOpenId(null); openExistingInviteModal(t); } },
+                                    ...(isCurrent ? [{ icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="#ef4444"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6zM8 9h8v10H8zm7.5-5-1-1h-5l-1 1H5v2h14V4z"/></svg>, label: 'Un-link tenant', color: '#ef4444', onClick: () => { setTenantMenuOpenId(null); handleUnlinkTenant(); } }] : []),
+                                  ]);
+                                  setTenantMenuOpenId(menuKey);
+                                }}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'inline-flex', alignItems: 'center', color: '#9ca3af', borderRadius: 4 }}
+                              >
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2m0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2m0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2"/></svg>
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -1113,16 +1737,17 @@ const HouseDetail = () => {
           </div>
         )}
 
-        {/* ── Placeholder tabs ─────────────────────────────────── */}
-        {['Documents', 'Leases', 'Expenses'].includes(activeTab) && (
-          <div className="max-w-4xl mx-auto w-full px-5 py-10">
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm py-20 text-center">
-              <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
-                <FileText size={24} className="text-gray-300" />
-              </div>
-              <p className="text-sm font-semibold text-gray-400">{activeTab}</p>
-              <p className="text-xs text-gray-300 mt-1">This section is coming soon.</p>
-            </div>
+        {/* ── Documents tab ────────────────────────────────────── */}
+        {activeTab === 'Documents' && (
+          <div className="max-w-4xl mx-auto w-full px-5 pt-5 pb-6">
+            <DocumentsTab houseId={id} backendUrl={backendUrl} />
+          </div>
+        )}
+
+        {/* ── Reminders tab ────────────────────────────────────── */}
+        {activeTab === 'Reminders' && (
+          <div className="max-w-4xl mx-auto w-full px-5 pt-5 pb-6">
+            <RemindersSection houseId={id} houseName={house?.address || house?.name || ''} />
           </div>
         )}
 
@@ -1134,6 +1759,196 @@ const HouseDetail = () => {
           house={house}
           onClose={() => { setShowCreateRequest(false); fetchMaintenance(); }}
         />
+      )}
+
+      {/* ── Edit lease dropdown outside-click dismiss ── */}
+      {editLeaseDropdown && (
+        <div
+          onClick={() => setEditLeaseDropdown(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 190 }}
+        />
+      )}
+
+      {/* ── Link Tenant Modal ─────────────────────────────────── */}
+      {linkModalOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 12, width: '100%', maxWidth: 520, maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 11px 15px -7px rgba(0,0,0,0.2),0 24px 38px 3px rgba(0,0,0,0.14)' }}>
+
+            {/* Modal header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 16px', borderBottom: '1px solid #f3f4f6' }}>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#042238' }}>Link tenant</h2>
+              <button onClick={closeLinkModal} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center', color: '#6b7280' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+              </button>
+            </div>
+
+            {/* Modal body */}
+            <div style={{ overflowY: 'auto', flex: 1, padding: '0 24px' }}>
+
+              {/* ── SELECT TENANT view ── */}
+              {linkView === 'select' && (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 0 12px' }}>
+                    <span style={{ fontSize: 14, color: '#374151' }}>Select tenant</span>
+                    <button onClick={() => setLinkView('new')} style={{ background: 'none', border: 'none', color: '#042238', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>Add new</button>
+                  </div>
+
+                  {loadingTenants ? (
+                    <div style={{ padding: '20px 0', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>Loading tenants…</div>
+                  ) : allTenants.length === 0 ? (
+                    <div style={{ padding: '20px 0', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>No tenants found. Use "Add new" to create one.</div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                      {allTenants.map(t => {
+                        const initials = (t.name || 'T').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+                        const selected = selectedTenantId === t._id;
+                        return (
+                          <div key={t._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #f3f4f6' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                              <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#fce4ec', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: '#c62828', flexShrink: 0 }}>
+                                {initials}
+                              </div>
+                              <div>
+                                <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: '#374151' }}>{t.name}</p>
+                                <p style={{ margin: 0, fontSize: 12, color: '#9ca3af' }}>{t.email}</p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => setSelectedTenantId(selected ? null : t._id)}
+                              style={{ background: 'none', border: 'none', color: selected ? '#042238' : '#042238', fontSize: 14, fontWeight: 600, cursor: 'pointer', opacity: selected ? 1 : 0.8 }}
+                            >
+                              {selected ? '✓ Selected' : 'Select'}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Footer */}
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '16px 0' }}>
+                    <button
+                      disabled={!selectedTenantId || savingLink}
+                      onClick={handleSaveLinked}
+                      style={{ padding: '9px 24px', background: selectedTenantId ? '#042238' : '#e5e7eb', color: selectedTenantId ? '#fff' : '#9ca3af', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 600, cursor: selectedTenantId ? 'pointer' : 'not-allowed' }}
+                    >{savingLink ? 'Saving…' : 'Save'}</button>
+                    <button onClick={closeLinkModal} style={{ padding: '9px 24px', background: 'none', border: 'none', color: '#042238', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
+                  </div>
+                </>
+              )}
+
+              {/* ── NEW TENANT view ── */}
+              {linkView === 'new' && (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 0 12px' }}>
+                    <span style={{ fontSize: 14, color: '#374151' }}>New tenant</span>
+                    <button onClick={() => setLinkView('select')} style={{ background: 'none', border: 'none', color: '#042238', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>Select saved tenant</button>
+                  </div>
+
+
+                  {/* Name row */}
+                  <div style={{ display: 'flex', gap: 12, marginBottom: 14 }}>
+                    {[['First name', 'firstName'], ['Last name', 'lastName']].map(([lbl, key]) => (
+                      <div key={key} style={{ flex: 1 }}>
+                        <label style={{ fontSize: 13, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 6 }}>{lbl}</label>
+                        <input value={newTenant[key]} onChange={e => ntChange(key, e.target.value)} type="text" maxLength={256}
+                          style={{ width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 14, outline: 'none', boxSizing: 'border-box' }} />
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Email */}
+                  <div style={{ marginBottom: 14 }}>
+                    <label style={{ fontSize: 13, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 6 }}>Email address</label>
+                    <input value={newTenant.email} onChange={e => ntChange('email', e.target.value)} type="email" maxLength={256}
+                      style={{ width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 14, outline: 'none', boxSizing: 'border-box' }} />
+                  </div>
+
+                  {/* Phone number */}
+                  <div style={{ marginBottom: 14 }}>
+                    <label style={{ fontSize: 13, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 6 }}>Phone number</label>
+                    <input value={newTenant.phone} onChange={e => ntChange('phone', e.target.value)} type="text" maxLength={256}
+                      style={{ width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 14, outline: 'none', boxSizing: 'border-box' }} />
+                  </div>
+
+                  {/* Notes */}
+                  <div style={{ marginBottom: 14 }}>
+                    <label style={{ fontSize: 13, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 6 }}>Notes</label>
+                    <textarea value={newTenant.notes} onChange={e => ntChange('notes', e.target.value)} rows={4} maxLength={1000}
+                      style={{ width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 14, outline: 'none', boxSizing: 'border-box', resize: 'vertical' }} />
+                  </div>
+
+                  {/* Footer */}
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '4px 0 16px' }}>
+                    <button
+                      disabled={savingLink}
+                      onClick={handleSaveNewTenant}
+                      style={{ padding: '9px 24px', background: '#042238', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 600, cursor: savingLink ? 'not-allowed' : 'pointer' }}
+                    >{savingLink ? 'Saving…' : 'Save'}</button>
+                    <button onClick={closeLinkModal} style={{ padding: '9px 24px', background: 'none', border: 'none', color: '#042238', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Tenant row actions dropdown (fixed, escapes table overflow) ── */}
+      {tenantMenuOpenId && tenantMenuItems.length > 0 && (
+        <>
+          <div onClick={() => setTenantMenuOpenId(null)} style={{ position: 'fixed', inset: 0, zIndex: 490 }} />
+          <div style={{ position: 'fixed', top: tenantMenuPos.top, left: tenantMenuPos.left, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.14)', zIndex: 500, minWidth: 168, overflow: 'hidden' }}>
+            {tenantMenuItems.map(item => (
+              <button key={item.label} onClick={item.onClick}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 14px', background: 'none', border: 'none', fontSize: 14, color: item.color, cursor: 'pointer', textAlign: 'left' }}
+                onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
+                onMouseLeave={e => e.currentTarget.style.background = 'none'}
+              >{item.icon}{item.label}</button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* ── Invite Tenant Modal ───────────────────────────────── */}
+      {inviteModalOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#fff', borderRadius: 10, padding: '28px 28px 20px', width: 380, maxWidth: '90vw', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }}>
+            <h2 style={{ margin: '0 0 12px', fontSize: 18, fontWeight: 700, color: '#042238' }}>Invite tenant</h2>
+            <p style={{ margin: '0 0 24px', fontSize: 14, color: '#374151' }}>
+              Would you like to invite this tenant to the tenant portal?
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              {invitingExistingTenant ? (
+                <>
+                  <button
+                    disabled={savingLink}
+                    onClick={() => { setInviteModalOpen(false); setInvitingExistingTenant(null); }}
+                    style={{ padding: '8px 20px', background: 'none', border: 'none', color: '#042238', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
+                  >Cancel</button>
+                  <button
+                    disabled={savingLink}
+                    onClick={handleSendExistingInvite}
+                    style={{ padding: '8px 20px', background: '#042238', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 600, cursor: savingLink ? 'not-allowed' : 'pointer' }}
+                  >{savingLink ? 'Sending…' : 'Send invite'}</button>
+                </>
+              ) : (
+                <>
+                  <button
+                    disabled={savingLink}
+                    onClick={() => handleInviteChoice(false)}
+                    style={{ padding: '8px 20px', background: 'none', border: 'none', color: '#042238', fontSize: 14, fontWeight: 600, cursor: savingLink ? 'not-allowed' : 'pointer' }}
+                  >Skip invite</button>
+                  <button
+                    disabled={savingLink}
+                    onClick={() => handleInviteChoice(true)}
+                    style={{ padding: '8px 20px', background: '#042238', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 600, cursor: savingLink ? 'not-allowed' : 'pointer' }}
+                  >{savingLink ? 'Sending…' : 'Send invite'}</button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </Layout>
   );

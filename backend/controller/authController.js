@@ -130,7 +130,7 @@ export const forgotPassword = async (req, res) => {
     user.resetTokenExpire = Date.now() + 10 * 60 * 1000;
     await user.save({ validateBeforeSave: false });
 
-    const resetUrl = `${process.env.WEBSITE_URL}/reset-password/${rawToken}`;
+    const resetUrl = `${process.env.WEBSITE_URL}/set-password/${rawToken}`;
 
     try {
       await sendEmail({
@@ -184,6 +184,45 @@ export const resetPassword = async (req, res) => {
 
 export const getMe = async (req, res) => {
   res.json({ success: true, data: req.user });
+};
+
+export const updateProfile = async (req, res) => {
+  try {
+    const { name, phone } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ success: false, message: "Name is required" });
+    }
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { name: name.trim(), ...(phone !== undefined ? { phone: phone.trim() } : {}) },
+      { new: true, runValidators: true }
+    ).select("-password -resetToken -resetTokenExpire");
+    res.json({ success: true, data: user });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ success: false, message: "currentPassword and newPassword are required" });
+    }
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: "New password must be at least 6 characters" });
+    }
+    const user = await User.findById(req.user._id).select("+password");
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: "Current password is incorrect" });
+    }
+    user.password = await bcrypt.hash(newPassword, 12);
+    await user.save({ validateBeforeSave: false });
+    res.json({ success: true, message: "Password changed successfully" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
 };
 
 export const setPassword = async (req, res) => {

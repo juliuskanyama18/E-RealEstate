@@ -167,25 +167,25 @@ const AddProperty = () => {
     e.preventDefault();
     setSaving(true);
     try {
-      const payload = {
-        name,
-        address,
-        unit,
-        city,
-        region,
-        zipCode,
-        rentAmount,
-        deposit,
-        bedrooms: isStudio ? 0 : bedrooms,
-        bathrooms,
-        isStudio,
-        description,
-        propertyType,
-        roomRentals: roomRentals === 'true',
-        isOccupied: isOccupied === 'true',
-        ...(propertyType === 'OTHER' && { otherSubType: otherSubType === 'OTHER' ? otherSpecify : otherSubType }),
-      };
-      await axios.post(`${backendUrl}${API.houses}`, payload);
+      const fd = new FormData();
+      fd.append('name', name);
+      fd.append('address', address);
+      fd.append('city', city);
+      fd.append('rentAmount', rentAmount);
+      if (unit) fd.append('unit', unit);
+      if (region) fd.append('region', region);
+      if (zipCode) fd.append('zipCode', zipCode);
+      if (deposit) fd.append('deposit', deposit);
+      fd.append('bedrooms', isStudio ? '0' : bedrooms);
+      fd.append('bathrooms', bathrooms);
+      fd.append('isStudio', isStudio);
+      fd.append('description', description);
+      fd.append('propertyType', propertyType);
+      fd.append('roomRentals', roomRentals === 'true');
+      fd.append('isOccupied', isOccupied === 'true');
+      if (propertyType === 'OTHER') fd.append('otherSubType', otherSubType === 'OTHER' ? otherSpecify : otherSubType);
+      if (photo) fd.append('photo', photo);
+      await axios.post(`${backendUrl}${API.houses}`, fd);
       toast.success('Property added');
       navigate('/houses');
     } catch (err) {
@@ -430,37 +430,74 @@ const AddProperty = () => {
                 <div className="flex items-center gap-1.5 mb-2">
                   <label className={LABEL} style={{marginBottom:0}}>Property Photo</label>
                   <span className="text-xs text-gray-400 font-normal">(Optional)</span>
-                  <div className="relative group">
-                    <svg width="14" height="14" viewBox="0 0 20 20" fill="none" className="cursor-pointer flex-shrink-0">
-                      <circle cx="10" cy="10" r="9" stroke="#033A6D" strokeWidth="1.5" fill="none"/>
-                      <text x="10" y="14.5" textAnchor="middle" fontSize="11" fontWeight="bold" fill="#033A6D">i</text>
-                    </svg>
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 leading-relaxed opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10 shadow-lg">
-                      Upload a photo of your property. Accepted: JPG, PNG, WEBP.
-                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"/>
+                </div>
+
+                {/* Preview thumbnail */}
+                {photo && (
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={{ position: 'relative', display: 'inline-block', borderRadius: 8, overflow: 'hidden', border: '1px solid #e2e8f0', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+                      <img
+                        src={URL.createObjectURL(photo)}
+                        alt="Property preview"
+                        style={{ width: 160, height: 110, objectFit: 'cover', display: 'block' }}
+                      />
+                      <span style={{
+                        position: 'absolute', top: 7, left: 7,
+                        background: '#042238', color: '#fff',
+                        fontSize: 9, fontWeight: 800, letterSpacing: '0.08em',
+                        padding: '2px 8px', borderRadius: 4,
+                      }}>FEATURED</span>
+                      <button
+                        type="button"
+                        onClick={() => setPhoto(null)}
+                        style={{
+                          position: 'absolute', top: 5, right: 5,
+                          width: 20, height: 20, borderRadius: '50%',
+                          background: 'rgba(0,0,0,0.55)', border: 'none',
+                          color: '#fff', fontSize: 15, cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          lineHeight: 1, fontWeight: 300,
+                        }}
+                        title="Remove photo"
+                      >×</button>
                     </div>
                   </div>
-                </div>
+                )}
+
+                {/* Drop zone */}
                 <label
-                  className={`flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl py-8 cursor-pointer transition-colors
+                  className={`flex flex-col items-center justify-center gap-3 border-2 border-dashed rounded-xl py-8 cursor-pointer transition-colors
                     ${dragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-gray-50 hover:border-gray-400'}`}
                   onDragOver={e => { e.preventDefault(); setDragOver(true); }}
                   onDragLeave={() => setDragOver(false)}
                   onDrop={e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) setPhoto(f); }}
                 >
-                  <input type="file" accept="image/*" className="sr-only" onChange={e => { if (e.target.files[0]) setPhoto(e.target.files[0]); }}/>
-                  {photo ? (
-                    <span className="text-sm text-blue-600 font-medium">{photo.name}</span>
-                  ) : (
-                    <>
-                      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
-                        <polyline points="21 15 16 10 5 21"/>
-                      </svg>
-                      <span className="text-xs font-semibold text-gray-500 tracking-wide uppercase">Click or drag to upload</span>
-                    </>
-                  )}
+                  <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="sr-only"
+                    onChange={e => { if (e.target.files[0]) setPhoto(e.target.files[0]); }}/>
+                  <div style={{ width: 52, height: 52, borderRadius: '50%', background: '#e8f0f7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#5a8fc4" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+                    </svg>
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <div className="text-sm font-bold text-gray-700">Click or drag to upload</div>
+                    <div className="text-xs text-gray-400 mt-1">Files must be &lt;10MB and an image file type. For example: JPG, PNG, HEIC, SVG, or GIF</div>
+                  </div>
                 </label>
+
+                {/* Stats */}
+                <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {[
+                    `${photo ? 1 : 0} / 1 photos uploaded (JPEG or PNG)`,
+                    '1 photo minimum (you can add more later from the property page).',
+                    'Minimum size of 900 x 600 recommended.',
+                  ].map((text, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                      <span style={{ width: 7, height: 7, borderRadius: 2, background: '#f59e0b', flexShrink: 0, marginTop: 4 }}/>
+                      <span style={{ fontSize: 12, color: '#374151', lineHeight: 1.5 }}>{text}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {/* Description */}

@@ -29,7 +29,10 @@ const SetPassword = () => {
       const { data } = await axios.post(`${backendUrl}${API.setPassword}/${token}`, { password });
       if (data.success) {
         applySession(data.data.token, data.data.user);
-        navigate('/portal', { replace: true });
+        const role = data.data.user?.role;
+        if (role === 'superadmin') navigate('/admin', { replace: true });
+        else if (role === 'landlord') navigate('/dashboard', { replace: true });
+        else navigate('/portal', { replace: true });
       } else {
         setError(data.message || 'Something went wrong');
       }

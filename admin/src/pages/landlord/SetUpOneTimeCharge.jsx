@@ -1,7 +1,10 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import axios from 'axios';
+import toast from 'react-hot-toast';
 import Layout from '../../components/Layout';
 import { ArrowLeft, Info, X } from 'lucide-react';
+import { backendUrl, API } from '../../config/constants';
 
 const NAVY = '#042238';
 const TEAL = '#069ED9';
@@ -225,7 +228,20 @@ const SetUpOneTimeCharge = () => {
 
   const removeAttachment = idx => setAttachments(prev => prev.filter((_, i) => i !== idx));
 
-  const [errors, setErrors] = useState({});
+  const [tenantId,   setTenantId]   = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [errors,     setErrors]     = useState({});
+
+  // Fetch the tenant for this house when leaseId (house._id) is available
+  useEffect(() => {
+    if (!leaseId) return;
+    axios.get(`${backendUrl}${API.houses}/${leaseId}/tenants`)
+      .then(res => {
+        const tenants = res.data.data || [];
+        if (tenants.length > 0) setTenantId(tenants[0]._id);
+      })
+      .catch(() => {});
+  }, [leaseId]);
 
   const validate = () => {
     const e = {};
@@ -236,10 +252,33 @@ const SetUpOneTimeCharge = () => {
     return Object.keys(e).length === 0;
   };
 
-  const handleSubmit = e => {
+  const handleSubmit = async e => {
     e.preventDefault();
     if (!validate()) return;
-    // TODO: POST to backend
+    if (!tenantId) { toast.error('No tenant found for this property'); return; }
+
+    // Convert DD/MM/YYYY → YYYY-MM and YYYY-MM-DD
+    const [dd, mm, yyyy] = (dueDate || '').split('/');
+    if (!dd || !mm || !yyyy) { toast.error('Invalid due date'); return; }
+    const monthStr   = `${yyyy}-${mm.padStart(2, '0')}`;
+    const dueDateISO = `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+
+    setSubmitting(true);
+    try {
+      await axios.post(`${backendUrl}${API.charges}`, {
+        tenantId,
+        amount: parseFloat(amount),
+        month: monthStr,
+        dueDate: dueDateISO,
+        notes: description || '',
+      });
+      toast.success('Charge created');
+      navigate('/payments');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to create charge');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -447,17 +486,18 @@ const SetUpOneTimeCharge = () => {
               <div style={{ textAlign: 'center' }}>
                 <button
                   type="submit"
+                  disabled={submitting}
                   style={{
                     fontFamily: FONT, fontSize: 13, fontWeight: 700,
                     letterSpacing: '0.08em', textTransform: 'uppercase',
-                    color: '#fff', background: NAVY,
+                    color: '#fff', background: submitting ? '#6b7280' : NAVY,
                     border: 'none', borderRadius: 100,
-                    padding: '12px 48px', cursor: 'pointer', lineHeight: 1,
+                    padding: '12px 48px', cursor: submitting ? 'not-allowed' : 'pointer', lineHeight: 1,
                   }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#033A6D'}
-                  onMouseLeave={e => e.currentTarget.style.background = NAVY}
+                  onMouseEnter={e => { if (!submitting) e.currentTarget.style.background = '#033A6D'; }}
+                  onMouseLeave={e => { if (!submitting) e.currentTarget.style.background = NAVY; }}
                 >
-                  Create Charge
+                  {submitting ? 'Creating…' : 'Create Charge'}
                 </button>
               </div>
 

@@ -1,6 +1,7 @@
 import User from "../models/User.js";
 import RentRecord from "../models/RentRecord.js";
 import MaintenanceRequest from "../models/MaintenanceRequest.js";
+import Document from "../models/Document.js";
 
 export const getMyDetails = async (req, res) => {
   try {
@@ -107,6 +108,18 @@ export const createTenantMaintenanceRequest = async (req, res) => {
     });
 
     res.status(201).json({ success: true, data: request });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const getMyDocuments = async (req, res) => {
+  try {
+    const tenant = await User.findById(req.user._id).select("house");
+    if (!tenant?.house) return res.json({ success: true, data: [] });
+
+    const docs = await Document.find({ house: tenant.house }).sort({ createdAt: -1 });
+    res.json({ success: true, data: docs });
   } catch (error) {
     res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
