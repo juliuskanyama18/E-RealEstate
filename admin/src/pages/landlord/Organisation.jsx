@@ -445,7 +445,7 @@ const Organisation = () => {
   return (
     <Layout>
       <main className="flex-1 min-h-screen bg-[#f5f6f8]">
-        <div className="max-w-[1100px] mx-auto px-6 py-7">
+        <div className="max-w-[1100px] mx-auto px-3 sm:px-6 py-7">
 
           {/* ── Profile header card ──────────────────────────── */}
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-5">
@@ -461,7 +461,7 @@ const Organisation = () => {
           </div>
 
           {/* ── Tabs ─────────────────────────────────────────── */}
-          <div className="flex gap-0 border-b border-gray-200 mb-6">
+          <div className="flex gap-0 border-b border-gray-200 mb-6 overflow-x-auto">
             {TABS.map((tab) => (
               <button
                 key={tab}
