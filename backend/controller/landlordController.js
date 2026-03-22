@@ -289,37 +289,36 @@ export const addTenant = async (req, res) => {
 
     await House.findByIdAndUpdate(houseId, { isOccupied: true });
 
-    try {
-      const { sendInvitation } = req.body;
-      if (sendInvitation && tenant.email) {
-        // Generate invite token (reuses resetToken field, 7-day expiry)
-        const rawToken = crypto.randomBytes(20).toString("hex");
-        const hashedToken = crypto.createHash("sha256").update(rawToken).digest("hex");
-        await User.findByIdAndUpdate(tenant._id, {
-          resetToken: hashedToken,
-          resetTokenExpire: Date.now() + 7 * 24 * 60 * 60 * 1000,
-        });
-        const setPasswordUrl = `${process.env.WEBSITE_URL}/set-password/${rawToken}`;
-        await sendEmail({
-          from: process.env.EMAIL,
-          to: tenant.email,
-          subject: `You've been invited to ${house.name} — Set your password`,
-          html: getTenantInviteTemplate(tenant, house, setPasswordUrl),
-        });
-      } else {
-        const notifyDaysBefore = req.user.notifyDaysBefore ?? 3;
-        await sendEmail({
-          from: process.env.EMAIL,
-          to: tenant.email,
-          subject: `Welcome to ${house.name}`,
-          html: getTenantWelcomeTemplate(tenant, house, !!password, notifyDaysBefore),
-        });
-      }
-    } catch { /* non-fatal */ }
-
+    // Send response immediately — do NOT await email (prevents hanging on hosted environments)
     const response = tenant.toObject();
     delete response.password;
     res.status(201).json({ success: true, message: "Tenant added successfully", data: response });
+
+    // Fire email in background after response is sent
+    const { sendInvitation } = req.body;
+    if (sendInvitation && tenant.email) {
+      const rawToken = crypto.randomBytes(20).toString("hex");
+      const hashedToken = crypto.createHash("sha256").update(rawToken).digest("hex");
+      User.findByIdAndUpdate(tenant._id, {
+        resetToken: hashedToken,
+        resetTokenExpire: Date.now() + 7 * 24 * 60 * 60 * 1000,
+      }).catch(() => {});
+      const setPasswordUrl = `${process.env.WEBSITE_URL}/set-password/${rawToken}`;
+      sendEmail({
+        from: process.env.EMAIL,
+        to: tenant.email,
+        subject: `You've been invited to ${house.name} — Set your password`,
+        html: getTenantInviteTemplate(tenant, house, setPasswordUrl),
+      }).catch((err) => console.error("[addTenant] Invite email failed:", err.message));
+    } else if (tenant.email) {
+      const notifyDaysBefore = req.user.notifyDaysBefore ?? 3;
+      sendEmail({
+        from: process.env.EMAIL,
+        to: tenant.email,
+        subject: `Welcome to ${house.name}`,
+        html: getTenantWelcomeTemplate(tenant, house, !!password, notifyDaysBefore),
+      }).catch((err) => console.error("[addTenant] Welcome email failed:", err.message));
+    }
   } catch (error) {
     if (error.code === 11000) {
       return res.status(409).json({ success: false, message: "This email address is already registered in the system" });
