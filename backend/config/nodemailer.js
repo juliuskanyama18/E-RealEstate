@@ -1,75 +1,48 @@
-import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
-
 dotenv.config();
 
-// Email configuration with error handling
-const createTransporter = () => {
-  try {
-    // Validate required environment variables
-    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-      console.warn('⚠️  Email configuration incomplete. Check SMTP_USER and SMTP_PASS environment variables.');
-      return null;
-    }
+// Uses Brevo HTTP API instead of SMTP — works on all hosting platforms (no port blocking)
+const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
 
-    const transporter = nodemailer.createTransport({
-      host: 'smtp-relay.brevo.com',
-      port: 587,
-      connectionTimeout: 10000,
-      greetingTimeout: 10000,
-      socketTimeout: 15000,
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      }
-    });
-
-    // Verify transporter configuration
-    transporter.verify((error, success) => {
-      if (error) {
-        console.error('❌ Email transporter verification failed:', error.message);
-      } else {
-        console.log('✅ Email server is ready to take our messages');
-      }
-    });
-
-    return transporter;
-  } catch (error) {
-    console.error('❌ Failed to create email transporter:', error.message);
-    return null;
+export const sendEmail = async ({ from, to, subject, html }) => {
+  const apiKey = process.env.BREVO_API_KEY;
+  if (!apiKey) {
+    throw new Error('BREVO_API_KEY is not configured');
   }
+
+  const payload = {
+    sender: { email: from || process.env.EMAIL, name: 'RentalSaaS' },
+    to: [{ email: to }],
+    subject,
+    htmlContent: html,
+  };
+
+  const response = await fetch(BREVO_API_URL, {
+    method: 'POST',
+    headers: {
+      'api-key': apiKey,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    console.error('❌ Brevo API error:', error);
+    throw new Error(`Brevo API error ${response.status}: ${error}`);
+  }
+
+  const result = await response.json();
+  console.log('✅ Email sent successfully via Brevo API:', result.messageId);
+  return result;
 };
 
-const transporter = createTransporter();
-
-// Helper function to send emails with error handling
-export const sendEmail = async (mailOptions) => {
-  if (!transporter) {
-    throw new Error('Email transporter not configured');
-  }
-
-  try {
-    const info = await transporter.sendMail(mailOptions);
-    console.log('✅ Email sent successfully:', info.messageId);
-    return info;
-  } catch (error) {
-    console.error('❌ Failed to send email:', error.message);
-    throw error;
-  }
-};
-
-// Health check function
 export const checkEmailHealth = async () => {
-  if (!transporter) {
-    return { status: 'error', message: 'Transporter not configured' };
+  if (!process.env.BREVO_API_KEY) {
+    return { status: 'error', message: 'BREVO_API_KEY not configured' };
   }
-
-  try {
-    await transporter.verify();
-    return { status: 'healthy', message: 'Email service is operational' };
-  } catch (error) {
-    return { status: 'error', message: error.message };
-  }
+  return { status: 'healthy', message: 'Brevo API configured' };
 };
 
-export default transporter;
+export default { sendEmail, checkEmailHealth };
