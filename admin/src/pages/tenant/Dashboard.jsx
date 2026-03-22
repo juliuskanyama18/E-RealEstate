@@ -224,6 +224,7 @@ const TenantDashboard = () => {
   const [tab,          setTab]          = useState('overview');
   const [maintModal,   setMaintModal]   = useState(false);
   const [maintForm,    setMaintForm]    = useState({ category: '', title: '', description: '', preferredTime: 'ANYTIME' });
+  const [maintPhotos,  setMaintPhotos]  = useState([]);
   const [submitting,   setSubmitting]   = useState(false);
 
   const fetchMaintenance = async () => {
@@ -252,10 +253,19 @@ const TenantDashboard = () => {
     if (!maintForm.category) { toast.error('Please select a category'); return; }
     setSubmitting(true);
     try {
-      await axios.post(`${backendUrl}${API.tenant.maintenance}`, maintForm);
+      const fd = new FormData();
+      fd.append('category', maintForm.category);
+      fd.append('title', maintForm.title);
+      fd.append('description', maintForm.description);
+      fd.append('preferredTime', maintForm.preferredTime);
+      maintPhotos.forEach(f => fd.append('photos', f));
+      await axios.post(`${backendUrl}${API.tenant.maintenance}`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
       toast.success('Maintenance request submitted');
       setMaintModal(false);
       setMaintForm({ category: '', title: '', description: '', preferredTime: 'ANYTIME' });
+      setMaintPhotos([]);
       fetchMaintenance();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to submit request');
@@ -554,6 +564,15 @@ const TenantDashboard = () => {
                             {r.description.length > 200 ? r.description.slice(0, 200) + '…' : r.description}
                           </p>
                         )}
+                        {r.photos?.length > 0 && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+                            {r.photos.map((photo, pi) => (
+                              <a key={pi} href={`${backendUrl}${photo}`} target="_blank" rel="noreferrer">
+                                <img src={`${backendUrl}${photo}`} alt="" style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 6, border: '1px solid #e4e9f0' }} />
+                              </a>
+                            ))}
+                          </div>
+                        )}
                         {r.submittedBy === 'tenant' && (
                           <p style={{ fontFamily: FONT, fontSize: 11, color: '#9ca3af', margin: '8px 0 0' }}>
                             Submitted by you
@@ -625,11 +644,11 @@ const TenantDashboard = () => {
       {maintModal && (
         <div
           style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(4,34,56,0.5)', padding: '0 16px' }}
-          onClick={e => { if (e.target === e.currentTarget) setMaintModal(false); }}
+          onClick={e => { if (e.target === e.currentTarget) { setMaintModal(false); setMaintPhotos([]); } }}
         >
           <div style={{ background: '#fff', borderRadius: 8, width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto', padding: 32, fontFamily: FONT, color: NAVY, position: 'relative' }}>
             <button
-              onClick={() => setMaintModal(false)}
+              onClick={() => { setMaintModal(false); setMaintPhotos([]); }}
               style={{ position: 'absolute', top: 14, right: 14, background: 'none', border: 'none', cursor: 'pointer', color: '#acb9c8', padding: 4 }}
               onMouseEnter={e => { e.currentTarget.style.color = '#6b7280'; }}
               onMouseLeave={e => { e.currentTarget.style.color = '#acb9c8'; }}
@@ -681,6 +700,31 @@ const TenantDashboard = () => {
                   onFocus={e => { e.target.style.borderColor = NAVY; }}
                   onBlur={e => { e.target.style.borderColor = '#d1d5db'; }}
                 />
+              </div>
+              {/* Photos (optional) */}
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, color: '#5a7a90', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>
+                  Photos <span style={{ fontWeight: 400, textTransform: 'none', color: '#9ca3af' }}>(optional, up to 10)</span>
+                </label>
+                <input
+                  type="file" accept="image/*" multiple
+                  onChange={e => setMaintPhotos(Array.from(e.target.files))}
+                  style={{ width: '100%', fontSize: 13, fontFamily: FONT, color: NAVY }}
+                />
+                {maintPhotos.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+                    {maintPhotos.map((f, i) => (
+                      <div key={i} style={{ position: 'relative' }}>
+                        <img src={URL.createObjectURL(f)} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 6, border: '1px solid #e4e9f0' }} />
+                        <button
+                          type="button"
+                          onClick={() => setMaintPhotos(prev => prev.filter((_, j) => j !== i))}
+                          style={{ position: 'absolute', top: -6, right: -6, background: '#ef4444', border: 'none', borderRadius: '50%', width: 18, height: 18, color: '#fff', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        >×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
               {/* Preferred time */}
               <div style={{ marginBottom: 28 }}>

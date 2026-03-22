@@ -1425,7 +1425,10 @@ const HouseDetail = () => {
                         </div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ border: '1px solid #f59e0b', color: '#d97706', borderRadius: 20, padding: '2px 10px', fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>NOT INVITED</span>
+                        {lease.tenant.portalActivated
+                          ? <span style={{ border: '1px solid #16a34a', color: '#16a34a', borderRadius: 20, padding: '2px 10px', fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>ACTIVE</span>
+                          : <span style={{ border: '1px solid #f59e0b', color: '#d97706', borderRadius: 20, padding: '2px 10px', fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>NOT INVITED</span>
+                        }
                         <div>
                           <button
                             onClick={e => {

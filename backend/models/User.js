@@ -43,6 +43,10 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    portalActivated: {
+      type: Boolean,
+      default: false,
+    },
     // Tenant-specific rental fields
     rentAmount: {
       type: Number,

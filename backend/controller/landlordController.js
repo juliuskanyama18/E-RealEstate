@@ -880,7 +880,7 @@ export const getHouseLease = async (req, res) => {
     if (!house) return res.status(404).json({ success: false, message: "House not found" });
 
     const lease = await Lease.findOne({ house: req.params.id, landlord: req.user._id, status: "active" })
-      .populate("tenant", "name email phone");
+      .populate("tenant", "name email phone portalActivated");
 
     res.json({ success: true, data: lease || null });
   } catch (error) {
@@ -924,7 +924,7 @@ export const linkTenantToLease = async (req, res) => {
     lease.tenant = tenantId;
     await lease.save();
     await House.findByIdAndUpdate(lease.house, { isOccupied: true });
-    await lease.populate("tenant", "name email phone");
+    await lease.populate("tenant", "name email phone portalActivated");
     res.json({ success: true, message: "Tenant linked to lease", data: lease });
   } catch (error) {
     res.status(500).json({ success: false, message: "Server error", error: error.message });
@@ -1010,7 +1010,7 @@ export const createAndLinkTenant = async (req, res) => {
       } catch { /* non-fatal */ }
     }
 
-    await lease.populate("tenant", "name email phone");
+    await lease.populate("tenant", "name email phone portalActivated");
     const response = tenant.toObject();
     delete response.password;
     res.status(201).json({ success: true, message: "Tenant created and linked", data: { lease, tenant: response } });

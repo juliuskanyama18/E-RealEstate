@@ -247,6 +247,7 @@ export const setPassword = async (req, res) => {
     user.password = await bcrypt.hash(password, 12);
     user.resetToken = undefined;
     user.resetTokenExpire = undefined;
+    user.portalActivated = true;
     await user.save();
 
     const authToken = signToken(user._id, user.role);

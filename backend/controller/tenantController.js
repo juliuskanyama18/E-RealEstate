@@ -1,7 +1,27 @@
+import path from "path";
+import fs from "fs";
+import multer from "multer";
 import User from "../models/User.js";
 import RentRecord from "../models/RentRecord.js";
 import MaintenanceRequest from "../models/MaintenanceRequest.js";
 import Document from "../models/Document.js";
+
+const maintUploadDir = path.resolve("uploads/maintenance");
+if (!fs.existsSync(maintUploadDir)) fs.mkdirSync(maintUploadDir, { recursive: true });
+
+const maintStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, maintUploadDir),
+  filename: (_req, file, cb) => cb(null, `${Date.now()}-${file.originalname.replace(/\s+/g, "_")}`),
+});
+
+export const uploadTenantMaintenancePhotos = multer({
+  storage: maintStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (!file.mimetype.startsWith("image/")) return cb(new Error("Only image files are allowed"));
+    cb(null, true);
+  },
+}).array("photos", 10);
 
 export const getMyDetails = async (req, res) => {
   try {
@@ -83,34 +103,40 @@ export const getMyMaintenanceRequests = async (req, res) => {
   }
 };
 
-export const createTenantMaintenanceRequest = async (req, res) => {
-  try {
-    const { category, title, description, preferredTime } = req.body;
-    if (!category || !title || !description) {
-      return res.status(400).json({ success: false, message: "category, title, and description are required" });
+export const createTenantMaintenanceRequest = (req, res) => {
+  uploadTenantMaintenancePhotos(req, res, async (err) => {
+    if (err) return res.status(400).json({ success: false, message: err.message });
+    try {
+      const { category, title, description, preferredTime } = req.body;
+      if (!category || !title || !description) {
+        return res.status(400).json({ success: false, message: "category, title, and description are required" });
+      }
+
+      const tenant = await User.findById(req.user._id).select("house landlord");
+      if (!tenant?.house) {
+        return res.status(400).json({ success: false, message: "You are not assigned to a house" });
+      }
+
+      const photos = (req.files || []).map(f => `/uploads/maintenance/${f.filename}`);
+
+      const request = await MaintenanceRequest.create({
+        landlord: tenant.landlord,
+        house: tenant.house,
+        tenant: req.user._id,
+        category: category.trim(),
+        title: title.trim(),
+        description: description.trim(),
+        photos,
+        preferredTime: preferredTime || "ANYTIME",
+        submittedBy: "tenant",
+        activityLog: [{ entryType: "created", addedBy: "tenant", timestamp: new Date() }],
+      });
+
+      res.status(201).json({ success: true, data: request });
+    } catch (error) {
+      res.status(500).json({ success: false, message: "Server error", error: error.message });
     }
-
-    const tenant = await User.findById(req.user._id).select("house landlord");
-    if (!tenant?.house) {
-      return res.status(400).json({ success: false, message: "You are not assigned to a house" });
-    }
-
-    const request = await MaintenanceRequest.create({
-      landlord: tenant.landlord,
-      house: tenant.house,
-      tenant: req.user._id,
-      category: category.trim(),
-      title: title.trim(),
-      description: description.trim(),
-      preferredTime: preferredTime || "ANYTIME",
-      submittedBy: "tenant",
-      activityLog: [{ entryType: "created", addedBy: "tenant", timestamp: new Date() }],
-    });
-
-    res.status(201).json({ success: true, data: request });
-  } catch (error) {
-    res.status(500).json({ success: false, message: "Server error", error: error.message });
-  }
+  });
 };
 
 export const getMyDocuments = async (req, res) => {
