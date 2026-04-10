@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const reminderSchema = new mongoose.Schema(
   {
-    house:    { type: mongoose.Schema.Types.ObjectId, ref: "House", required: true, index: true },
+    house:    { type: mongoose.Schema.Types.ObjectId, ref: "House", required: false, default: null, index: true },
     landlord: { type: mongoose.Schema.Types.ObjectId, ref: "User",  required: true, index: true },
     dateTime: { type: Date, required: true },
     category: { type: String, default: "Other" },

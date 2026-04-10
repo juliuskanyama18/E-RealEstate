@@ -72,7 +72,7 @@ const userSchema = new mongoose.Schema(
     address:      { type: String, trim: true },
     city:         { type: String, trim: true },
     // Payment configuration
-    defaultRentDueDate: { type: Number, min: 1, max: 31 },
+    defaultRentDueDate: { type: Number, min: 0, max: 31 },
     gracePeriodDays:    { type: Number, default: 0, min: 0 },
     lateFeeType:        { type: String, enum: ['flat', 'percentage'], default: 'flat' },
     lateFeeAmount:      { type: Number, default: 0, min: 0 },

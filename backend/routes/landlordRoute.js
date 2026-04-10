@@ -34,6 +34,7 @@ import {
   getOrgSettings,
   updateOrgSettings,
   createLease,
+  getAllActiveLeases,
   getHouseLease,
   updateLease,
   linkTenantToLease,
@@ -43,6 +44,8 @@ import {
   createDocument,
   deleteDocument,
   uploadDocumentFile,
+  getAllReminders,
+  createAnyReminder,
   getReminders,
   createReminder,
   updateReminder,
@@ -65,6 +68,7 @@ router.put("/houses/:id", updateHouse);
 router.put("/houses/:id/photo", updateHousePhoto);
 router.delete("/houses/:id", deleteHouse);
 router.get("/houses/:id/tenants", getHouseTenants);
+router.get("/leases", getAllActiveLeases);
 router.post("/houses/:id/leases", createLease);
 router.get("/houses/:id/lease", getHouseLease);
 router.put("/leases/:leaseId", updateLease);
@@ -100,6 +104,8 @@ router.put("/maintenance/:id/star", toggleMaintenanceStar);
 router.put("/maintenance/:id/pro", updateMaintenanceProContact);
 router.delete("/maintenance/:id", deleteMaintenanceRequest);
 
+router.get("/reminders", getAllReminders);
+router.post("/reminders", createAnyReminder);
 router.get("/houses/:id/reminders", getReminders);
 router.post("/houses/:id/reminders", createReminder);
 router.put("/reminders/:reminderId", updateReminder);

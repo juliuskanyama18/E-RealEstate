@@ -709,7 +709,7 @@ const DocumentsTab = ({ houseId, backendUrl }) => {
 /* ── Reminders Section ───────────────────────────────────────────────────── */
 const REMINDER_CATEGORIES = ['Rent'];
 
-const RemindersSection = ({ houseId, houseName }) => {
+const RemindersSection = ({ houseId, houseName, backendUrl: bUrl }) => {
   const [reminders, setReminders]         = useState([]);
   const [loading, setLoading]             = useState(true);
   const [reminderTab, setReminderTab]     = useState('Reminders');
@@ -723,7 +723,7 @@ const RemindersSection = ({ houseId, houseName }) => {
   const fetchReminders = async () => {
     try {
       setLoading(true);
-      const { data } = await axios.get(`/api/landlord/houses/${houseId}/reminders`);
+      const { data } = await axios.get(`${bUrl}/api/landlord/houses/${houseId}/reminders`);
       setReminders(data.data || []);
     } catch { /* silent */ } finally { setLoading(false); }
   };
@@ -743,7 +743,7 @@ const RemindersSection = ({ houseId, houseName }) => {
     if (!form.dateTime) return toast.error('Date & Time is required');
     try {
       setSaving(true);
-      await axios.post(`/api/landlord/houses/${houseId}/reminders`, form);
+      await axios.post(`${bUrl}/api/landlord/houses/${houseId}/reminders`, form);
       toast.success('Reminder added');
       setAddOpen(false);
       setForm({ dateTime: '', category: 'Rent', notes: '' });
@@ -755,14 +755,14 @@ const RemindersSection = ({ houseId, houseName }) => {
 
   const handleMarkComplete = async (r) => {
     try {
-      await axios.put(`/api/landlord/reminders/${r._id}`, { status: 'complete' });
+      await axios.put(`${bUrl}/api/landlord/reminders/${r._id}`, { status: 'complete' });
       fetchReminders();
     } catch { toast.error('Failed to update'); }
   };
 
   const handleDelete = async (r) => {
     try {
-      await axios.delete(`/api/landlord/reminders/${r._id}`);
+      await axios.delete(`${bUrl}/api/landlord/reminders/${r._id}`);
       fetchReminders();
     } catch { toast.error('Failed to delete'); }
   };
@@ -1752,7 +1752,7 @@ const HouseDetail = () => {
         {/* ── Reminders tab ────────────────────────────────────── */}
         {activeTab === 'Reminders' && (
           <div className="max-w-4xl mx-auto w-full px-5 pt-5 pb-6">
-            <RemindersSection houseId={id} houseName={house?.address || house?.name || ''} />
+            <RemindersSection houseId={id} houseName={house?.address || house?.name || ''} backendUrl={backendUrl} />
           </div>
         )}
 

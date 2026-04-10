@@ -642,6 +642,10 @@ export const updateOrgSettings = async (req, res) => {
     const update = {};
     allowed.forEach((key) => { if (req.body[key] !== undefined) update[key] = req.body[key]; });
 
+    // Convert empty strings to undefined so Mongoose doesn't try to validate them
+    if (update.defaultRentDueDate === '' || update.defaultRentDueDate === null) delete update.defaultRentDueDate;
+    if (update.notifyDaysBefore   === '' || update.notifyDaysBefore   === null) delete update.notifyDaysBefore;
+
     const landlord = await User.findByIdAndUpdate(req.user._id, update, {
       new: true, runValidators: true,
     }).select(ORG_FIELDS);
@@ -874,6 +878,18 @@ export const createLease = async (req, res) => {
   }
 };
 
+export const getAllActiveLeases = async (req, res) => {
+  try {
+    const leases = await Lease.find({ landlord: req.user._id, status: "active" })
+      .populate("house", "name city")
+      .select("house startDate endDate frequency paymentDay status")
+      .lean();
+    res.json({ success: true, data: leases });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
 export const getHouseLease = async (req, res) => {
   try {
     const house = await House.findOne({ _id: req.params.id, landlord: req.user._id });
@@ -1071,6 +1087,46 @@ export const deleteDocument = async (req, res) => {
 };
 
 // ─── Reminders ─────────────────────────────────────────────────────────────
+
+export const getAllReminders = async (req, res) => {
+  try {
+    const now = new Date();
+    await Reminder.updateMany(
+      { landlord: req.user._id, status: "upcoming", dateTime: { $lt: now } },
+      { status: "overdue" }
+    );
+    const reminders = await Reminder.find({ landlord: req.user._id })
+      .populate("house", "name city")
+      .sort({ dateTime: 1 })
+      .lean();
+    res.json({ success: true, data: reminders });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const createAnyReminder = async (req, res) => {
+  try {
+    const { houseId, dateTime, category, notes } = req.body;
+    if (!dateTime) return res.status(400).json({ success: false, message: "dateTime is required" });
+    if (houseId) {
+      const house = await House.findOne({ _id: houseId, landlord: req.user._id });
+      if (!house) return res.status(404).json({ success: false, message: "House not found" });
+    }
+    const status = new Date(dateTime) < new Date() ? "overdue" : "upcoming";
+    const reminder = await Reminder.create({
+      house: houseId || null,
+      landlord: req.user._id,
+      dateTime,
+      category: category || "Other",
+      notes,
+      status,
+    });
+    res.status(201).json({ success: true, data: reminder });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
 
 export const getReminders = async (req, res) => {
   try {

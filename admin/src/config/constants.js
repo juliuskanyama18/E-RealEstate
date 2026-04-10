@@ -17,6 +17,8 @@ export const API = {
     users:       '/api/admin/users',
   },
   houses: '/api/landlord/houses',
+  leases: '/api/landlord/leases',
+  reminders: '/api/landlord/reminders',
   tenants: '/api/landlord/tenants',
   maintenance: '/api/landlord/maintenance',
   payments: '/api/landlord/payments',

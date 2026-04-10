@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import {
-  Building2, Calendar, Clock, FileText, Bell,
+  Building2, Calendar, FileText, Bell,
   ChevronLeft, ChevronRight, UserPlus, CreditCard, Wrench,
 } from 'lucide-react';
 import Layout from '../../components/Layout';
@@ -10,28 +10,26 @@ import { backendUrl, API } from '../../config/constants';
 import { useAuth } from '../../contexts/AuthContext';
 
 /* ── Mini Calendar ─────────────────────────────────────────── */
-const MiniCalendar = () => {
+const MiniCalendar = ({ current, onPrev, onNext, rentDueDays = new Set(), leaseExpiryDays = new Set(), selectedDate = null, onSelectDate }) => {
   const today = new Date();
-  const [current, setCurrent] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
-
-  const year    = current.getFullYear();
-  const month   = current.getMonth();
+  const year      = current.getFullYear();
+  const month     = current.getMonth();
   const monthName = current.toLocaleString('default', { month: 'long' });
 
   const firstDay    = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const all = [...Array(firstDay).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
 
-  const isToday = (d) =>
-    d === today.getDate() && month === today.getMonth() && year === today.getFullYear();
+  const isToday    = (d) => d === today.getDate() && month === today.getMonth() && year === today.getFullYear();
+  const isSelected = (d) => d === selectedDate;
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
       <div className="flex items-center justify-between mb-3">
         <span className="text-sm font-semibold text-gray-900">{monthName} {year}</span>
         <div className="flex gap-1">
-          <button onClick={() => setCurrent(new Date(year, month - 1, 1))} className="p-1 rounded hover:bg-gray-100 text-gray-500 transition-colors"><ChevronLeft size={14} /></button>
-          <button onClick={() => setCurrent(new Date(year, month + 1, 1))} className="p-1 rounded hover:bg-gray-100 text-gray-500 transition-colors"><ChevronRight size={14} /></button>
+          <button onClick={onPrev} className="p-1 rounded hover:bg-gray-100 text-gray-500 transition-colors"><ChevronLeft size={14} /></button>
+          <button onClick={onNext} className="p-1 rounded hover:bg-gray-100 text-gray-500 transition-colors"><ChevronRight size={14} /></button>
         </div>
       </div>
       <div className="grid grid-cols-7 gap-0.5 text-center mb-1">
@@ -41,14 +39,189 @@ const MiniCalendar = () => {
       </div>
       <div className="grid grid-cols-7 gap-0.5 text-center">
         {all.map((d, i) => (
-          <div key={i} className={`text-xs py-1 rounded-full w-7 h-7 flex items-center justify-center mx-auto cursor-default
-            ${d === null ? '' : isToday(d)
-              ? 'bg-blue-600 text-white font-bold'
-              : 'text-gray-600 hover:bg-gray-100'}`}>
-            {d || ''}
+          <div key={i} className="flex flex-col items-center">
+            <button
+              onClick={() => d && onSelectDate && onSelectDate(isSelected(d) ? null : d)}
+              disabled={!d}
+              className={`text-xs rounded-full w-7 h-7 flex items-center justify-center transition-colors
+                ${!d ? 'cursor-default' :
+                  isSelected(d)
+                    ? 'bg-blue-500 text-white font-bold cursor-pointer'
+                    : isToday(d)
+                    ? 'bg-blue-600 text-white font-bold cursor-pointer'
+                    : 'text-gray-600 hover:bg-gray-100 cursor-pointer'}`}
+            >
+              {d || ''}
+            </button>
+            <div className="h-2 flex gap-0.5 items-center mt-0.5">
+              {d !== null && rentDueDays.has(d) && (
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0" />
+              )}
+              {d !== null && leaseExpiryDays.has(d) && (
+                <span className="w-1.5 h-1.5 rounded-full bg-orange-400 flex-shrink-0" />
+              )}
+            </div>
           </div>
         ))}
       </div>
+    </div>
+  );
+};
+
+/* ── Frequency → interval in months ────────────────────────── */
+const FREQ_MONTHS = {
+  'One-Time': 0, '1 Month': 1, '2 Months': 2, '3 Months': 3,
+  '4 Months': 4, '5 Months': 5, '6 Months': 6,
+  '18 Months': 18, '24 Months': 24, '1 Year': 12,
+};
+
+/* Returns the actual calendar day for paymentDay in given year/month.
+   paymentDay 31 = last day of month. */
+const actualPayDay = (paymentDay, yr, mo) => {
+  if (paymentDay === 31) return new Date(yr, mo + 1, 0).getDate();
+  return Math.min(paymentDay, new Date(yr, mo + 1, 0).getDate());
+};
+
+/* ── Build calendar events from lease data ──────────────────── */
+const buildEvents = (leases, calYear, calMonth) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const events = [];
+
+  leases.forEach((lease) => {
+    if (!lease.house || !lease.startDate || !lease.paymentDay) return;
+    const houseName = [lease.house.name, lease.house.city].filter(Boolean).join(' ');
+    const houseId   = lease.house._id;
+    const start     = new Date(lease.startDate);
+    start.setHours(0, 0, 0, 0); // normalize UTC string to local midnight
+    const end       = lease.endDate ? new Date(lease.endDate) : null;
+    if (end) end.setHours(23, 59, 59, 999); // inclusive end-of-day
+    const interval  = FREQ_MONTHS[lease.frequency] ?? 1;
+    const payDay    = lease.paymentDay;
+
+    // ── Rent Due ────────────────────────────────────────────────
+    const day = actualPayDay(payDay, calYear, calMonth);
+
+    if (interval === 0) {
+      // One-Time: only shows in the start month
+      if (start.getFullYear() === calYear && start.getMonth() === calMonth) {
+        const eventDate = new Date(calYear, calMonth, day);
+        if ((!end || eventDate <= end) && eventDate >= start)
+          events.push({ type: 'rent', day, date: eventDate, houseName, houseId, isOverdue: eventDate < today });
+      }
+    } else {
+      // Periodic: first due = paymentDay of start month (advance one period if pay day already passed before startDate)
+      let dueYr = start.getFullYear();
+      let dueMo = start.getMonth();
+      const firstDueDay = actualPayDay(payDay, dueYr, dueMo);
+      if (new Date(dueYr, dueMo, firstDueDay) < start) {
+        dueMo += interval;
+        dueYr += Math.floor(dueMo / 12);
+        dueMo %= 12;
+      }
+      // Does the calendar month land exactly on a period boundary?
+      const firstTotalMo = dueYr * 12 + dueMo;
+      const calTotalMo   = calYear * 12 + calMonth;
+      const diff = calTotalMo - firstTotalMo;
+      if (diff >= 0 && diff % interval === 0) {
+        const eventDate = new Date(calYear, calMonth, day);
+        if ((!end || eventDate <= end) && eventDate >= start)
+          events.push({ type: 'rent', day, date: eventDate, houseName, houseId, isOverdue: eventDate < today });
+      }
+    }
+
+    // ── Lease Expiry ────────────────────────────────────────────
+    if (end && end.getFullYear() === calYear && end.getMonth() === calMonth) {
+      const day = end.getDate();
+      events.push({ type: 'lease', day, date: new Date(calYear, calMonth, day), houseName, houseId, isOverdue: false });
+    }
+  });
+
+  return events.sort((a, b) => a.date - b.date);
+};
+
+/* ── Calendar Events List ───────────────────────────────────── */
+const CalendarEvents = ({ events, calYear, calMonth, selectedDate = null, onClearDate }) => {
+  const fmtDayHeader = (day) => {
+    const d = new Date(calYear, calMonth, day);
+    const weekday   = d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
+    const monthShort = d.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
+    return `${weekday} ${day} ${monthShort}`;
+  };
+
+  const displayedEvents = selectedDate !== null
+    ? events.filter(ev => ev.day === selectedDate)
+    : events;
+
+  const grouped = {};
+  displayedEvents.forEach((ev) => {
+    if (!grouped[ev.day]) grouped[ev.day] = [];
+    grouped[ev.day].push(ev);
+  });
+  const sortedDays = Object.keys(grouped).map(Number).sort((a, b) => a - b);
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-sm font-semibold text-gray-700">
+          {selectedDate !== null ? fmtDayHeader(selectedDate) : 'Upcoming Events'}
+        </p>
+        {selectedDate !== null && onClearDate && (
+          <button onClick={onClearDate} className="text-xs text-blue-600 hover:underline">Show all</button>
+        )}
+      </div>
+
+      {sortedDays.length === 0 ? (
+        <div className="flex items-center gap-2 py-3">
+          <Bell size={18} className="text-gray-300 flex-shrink-0" />
+          <span className="text-sm text-gray-400">
+            {selectedDate !== null ? 'No events on this date' : 'No events for the selected month'}
+          </span>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {sortedDays.map((day) => {
+            const dayEvs = grouped[day];
+            return (
+              <div key={day}>
+                {selectedDate === null && (
+                  <p className="text-[11px] font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">
+                    {fmtDayHeader(day)} ({dayEvs.length})
+                  </p>
+                )}
+                <div className="space-y-1.5">
+                  {dayEvs.map((ev, idx) => (
+                    <Link
+                      key={idx}
+                      to={`/houses/${ev.houseId}`}
+                      className="flex items-center border border-gray-100 rounded-lg overflow-hidden hover:border-blue-200 hover:bg-blue-50/30 transition-colors"
+                    >
+                      <div className={`w-1 self-stretch flex-shrink-0 ${ev.type === 'rent' ? 'bg-green-500' : 'bg-orange-400'}`} />
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ml-2 ${ev.type === 'rent' ? 'bg-green-100' : 'bg-orange-100'}`}>
+                        {ev.type === 'rent'
+                          ? <Building2 size={13} className="text-green-600" />
+                          : <FileText size={13} className="text-orange-500" />
+                        }
+                      </div>
+                      <div className="flex-1 min-w-0 py-2 pl-2">
+                        <p className="text-xs font-bold text-gray-800">{ev.type === 'rent' ? 'RENT DUE' : 'LEASE EXPIRY'}</p>
+                        <p className="text-[10px] text-gray-400 truncate">{ev.houseName}</p>
+                      </div>
+                      {ev.isOverdue && (
+                        <span className="text-[10px] font-bold bg-red-500 text-white px-2 py-0.5 rounded mx-1.5 flex-shrink-0">OVERDUE</span>
+                      )}
+                      <ChevronRight size={14} className="text-gray-300 mr-2 flex-shrink-0" />
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+          <div className="pt-1 text-center">
+            <Link to="/houses" className="text-xs text-blue-600 hover:underline">Open calendar</Link>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -319,22 +492,27 @@ const LandlordDashboard = () => {
   const { user } = useAuth();
   const [houses,           setHouses]           = useState([]);
   const [tenants,          setTenants]          = useState([]);
+  const [leases,           setLeases]           = useState([]);
   const [maintenance,      setMaintenance]      = useState([]);
   const [monthlyIncome,    setMonthlyIncome]    = useState(Array(12).fill(0));
   const [paidThisMonth,    setPaidThisMonth]    = useState(0);
   const [loading,          setLoading]          = useState(true);
+  const [calCurrent,       setCalCurrent]       = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const [selectedCalDate,  setSelectedCalDate]  = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [housesRes, tenantsRes, maintRes, cashRes] = await Promise.allSettled([
+        const [housesRes, tenantsRes, leasesRes, maintRes, cashRes] = await Promise.allSettled([
           axios.get(`${backendUrl}${API.houses}`),
           axios.get(`${backendUrl}${API.tenants}`),
+          axios.get(`${backendUrl}${API.leases}`),
           axios.get(`${backendUrl}${API.maintenance}`),
           axios.get(`${backendUrl}${API.cashflow}`),
         ]);
         if (housesRes.status === 'fulfilled')  setHouses(housesRes.value.data.data || []);
         if (tenantsRes.status === 'fulfilled') setTenants(tenantsRes.value.data.data || []);
+        if (leasesRes.status === 'fulfilled')  setLeases(leasesRes.value.data.data || []);
         if (maintRes.status === 'fulfilled')   setMaintenance(maintRes.value.data.data || []);
         if (cashRes.status === 'fulfilled') {
           setMonthlyIncome(cashRes.value.data.data || Array(12).fill(0));
@@ -375,6 +553,13 @@ const LandlordDashboard = () => {
   const overdueAmount  = overdueTenants.reduce((s, t) => s + Math.abs(t.balance || 0), 0);
 
   const firstName = user?.name?.split(' ')[0] || 'there';
+
+  // ── Calendar event data ──────────────────────────────────────
+  const calYear  = calCurrent.getFullYear();
+  const calMonth = calCurrent.getMonth();
+  const calEvents        = buildEvents(leases, calYear, calMonth);
+  const rentDueDays      = new Set(calEvents.filter((e) => e.type === 'rent').map((e) => e.day));
+  const leaseExpiryDays  = new Set(calEvents.filter((e) => e.type === 'lease').map((e) => e.day));
 
   // Quick action items
   const quickActions = [
@@ -543,56 +728,25 @@ const LandlordDashboard = () => {
                   {/* Maintenance Card */}
                   <MaintenanceDashboardCard requests={maintenance} />
 
-                  {/* Mini Calendar */}
-                  <MiniCalendar />
+                  {/* Mini Calendar with event dots and date selection */}
+                  <MiniCalendar
+                    current={calCurrent}
+                    onPrev={() => { setCalCurrent(new Date(calYear, calMonth - 1, 1)); setSelectedCalDate(null); }}
+                    onNext={() => { setCalCurrent(new Date(calYear, calMonth + 1, 1)); setSelectedCalDate(null); }}
+                    rentDueDays={rentDueDays}
+                    leaseExpiryDays={leaseExpiryDays}
+                    selectedDate={selectedCalDate}
+                    onSelectDate={setSelectedCalDate}
+                  />
 
-                  {/* Reminders */}
-                  <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-                    <div className="flex items-center justify-between mb-3">
-                      <p className="text-sm font-semibold text-gray-700">Reminders</p>
-                      <button className="text-xs text-blue-600 hover:underline">Add</button>
-                    </div>
-                    {overdueTenants.length === 0 && upcomingTenants.length === 0 ? (
-                      <div className="flex flex-col items-center py-6 text-center">
-                        <Bell size={28} className="text-gray-200 mb-2" />
-                        <p className="text-xs text-gray-400">No reminders yet.</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {overdueTenants.slice(0, 3).map((t) => (
-                          <div key={t._id} className="flex items-start gap-2.5 p-2.5 rounded-lg bg-red-50">
-                            <Clock size={14} className="text-red-500 mt-0.5 flex-shrink-0" />
-                            <div className="min-w-0">
-                              <p className="text-xs font-medium text-red-700 truncate">{t.name}</p>
-                              <p className="text-[10px] text-red-400">Rent overdue · TZS {Math.abs(t.balance || 0).toLocaleString()}</p>
-                            </div>
-                          </div>
-                        ))}
-                        {upcomingTenants.slice(0, 3).map((t) => (
-                          <div key={t._id} className="flex items-start gap-2.5 p-2.5 rounded-lg bg-blue-50">
-                            <Calendar size={14} className="text-blue-500 mt-0.5 flex-shrink-0" />
-                            <div className="min-w-0">
-                              <p className="text-xs font-medium text-blue-700 truncate">{t.name}</p>
-                              <p className="text-[10px] text-blue-400">Due day {t.rentDueDate} · TZS {(t.rentAmount || 0).toLocaleString()}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Documents */}
-                  <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-                    <div className="flex items-center justify-between mb-4">
-                      <p className="text-sm font-semibold text-gray-700">Documents</p>
-                      <button className="text-xs text-blue-600 hover:underline">Upload</button>
-                    </div>
-                    <div className="flex flex-col items-center py-6 text-center">
-                      <FileText size={32} className="text-gray-200 mb-2" />
-                      <p className="text-sm text-gray-400">No documents uploaded yet.</p>
-                      <p className="text-xs text-gray-300 mt-1">Lease agreements, inspection reports, and more.</p>
-                    </div>
-                  </div>
+                  {/* Calendar Events List */}
+                  <CalendarEvents
+                    events={calEvents}
+                    calYear={calYear}
+                    calMonth={calMonth}
+                    selectedDate={selectedCalDate}
+                    onClearDate={() => setSelectedCalDate(null)}
+                  />
                 </div>
               </div>
             </>
