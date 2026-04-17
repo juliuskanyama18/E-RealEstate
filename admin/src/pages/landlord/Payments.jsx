@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
-import { ChevronRight, ChevronDown, FileText, X } from 'lucide-react';
+import { X, Search, Pencil, Trash2, MoreVertical } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 import Layout from '../../components/Layout';
 import { backendUrl, API } from '../../config/constants';
 
@@ -9,631 +10,1347 @@ const NAVY = '#042238';
 const TEAL = '#069ED9';
 const FONT = '"Inter", sans-serif';
 
-/* ── Recurring arrows SVG (Monthly Charge icon) ── */
-const MonthlyIcon = () => (
-  <svg width="60" height="46" viewBox="0 0 60 46" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <g fill={NAVY}>
-      <path d="M50.2 18.7C50.8 18.1 51.7 18.2 52.2 18.9L52.2 18.9 59.1 29.3C59.5 29.9 59.4 30.7 58.8 31.1 58.2 31.5 57.4 31.3 57.1 30.7L57.1 30.7 52.6 24.1C52.3 34 45 43 35.2 45.4 27.6 47.2 19.7 44.9 14.3 39.5 13.8 39 13.8 38.2 14.2 37.7 14.7 37.2 15.5 37.2 16 37.7 20.9 42.5 27.8 44.6 34.6 42.9 43.8 40.7 50.4 32 50.1 22.8L44.1 30C43.7 30.6 42.9 30.6 42.4 30.2 41.9 29.8 41.8 29 42.2 28.4L42.2 28.4 50 19C50.1 18.9 50.1 18.8 50.2 18.8ZM24.8 1.3C33-0.7 41.3 2.1 46.8 8.3 47.2 8.8 47.2 9.6 46.7 10.1 46.2 10.6 45.4 10.5 44.9 10 40.1 4.5 32.6 2 25.4 3.7 15.1 6.2 8.2 16.4 9.6 26.8L15.9 19.2C16.3 18.6 17.1 18.6 17.6 19 18.1 19.5 18.2 20.3 17.8 20.8L17.8 20.8 9.8 30.5C9.3 31.1 8.3 31 7.8 30.3L7.8 30.3 0.9 19.9C0.5 19.3 0.6 18.5 1.2 18.1 1.8 17.8 2.6 17.9 2.9 18.5L2.9 18.5 6.9 24.5C6.7 13.7 14.2 3.8 24.8 1.3Z" />
-    </g>
-  </svg>
+/* ── Category metadata with icons ── */
+const CATEGORIES = [
+  { value: 'Rent',     bg: '#10b981', img: '/images/categories/rent.svg'     },
+  { value: 'Damages',  bg: '#3b82f6', img: '/images/categories/damages.svg'  },
+  { value: 'Deposit',  bg: '#6366f1', img: '/images/categories/deposit.svg'  },
+  { value: 'Late Fee', bg: '#f43f5e', img: '/images/categories/late-fee.svg' },
+];
+
+const PAYMENT_CATS = CATEGORIES.map(c => c.value);
+
+const getCat = (value) => CATEGORIES.find(c => c.value === value) || { value, bg: '#8a9ab0', icon: null };
+
+/* ── Category badge (icon square + label) ── */
+const CatBadge = ({ value }) => {
+  const cat = getCat(value);
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ width: 30, height: 30, borderRadius: 6, background: cat.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        {cat.img
+          ? <img src={cat.img} width={16} height={16} alt={value} style={{ display: 'block' }} />
+          : null}
+      </div>
+      <span style={{ fontFamily: FONT, fontSize: 13, color: NAVY }}>{value || '—'}</span>
+    </div>
+  );
+};
+
+const EXPENSE_CATS = [
+  "Accountant's Fees", 'Advertising', 'Agent Fees', 'Bank Fees',
+  'Cleaning Fees', 'Ground Rents', 'HOA', 'Insurance', 'Interest',
+  'Late Fees', 'Legal Fees', 'Maintenance and Repairs', 'Mortgage',
+  'Other', 'Property Tax', 'Rates', 'Rent Arrears', 'Utilities', 'Water',
+];
+
+const thStyle = {
+  padding: '10px 16px', textAlign: 'left', fontWeight: 700, color: NAVY,
+  fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase',
+  whiteSpace: 'nowrap', borderBottom: '1px solid #e4e9f0',
+};
+const tdStyle = {
+  padding: '12px 16px', fontFamily: FONT, fontSize: 13, color: NAVY,
+  borderBottom: '1px solid #f0f2f5', verticalAlign: 'middle',
+};
+
+const fmt = (n) => `TZS ${Number(n || 0).toLocaleString()}`;
+
+/* ── Empty state ── */
+const EmptyState = ({ message = 'No data to show' }) => (
+  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 28px', gap: 10, color: '#8a9ab0' }}>
+    <svg style={{ width: 24, height: 24, fill: '#8a9ab0' }} viewBox="0 0 24 24">
+      <path d="M4 10.5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5m0-6c-.83 0-1.5.67-1.5 1.5S3.17 7.5 4 7.5 5.5 6.83 5.5 6 4.83 4.5 4 4.5m0 12c-.83 0-1.5.68-1.5 1.5s.68 1.5 1.5 1.5 1.5-.68 1.5-1.5-.67-1.5-1.5-1.5M7 19h14v-2H7zm0-6h14v-2H7zm0-8v2h14V5z" />
+    </svg>
+    <span style={{ fontFamily: FONT, fontSize: 13 }}>{message}</span>
+  </div>
 );
 
-/* ── Dollar coin SVG (One-Time Charge icon) ── */
-const OneTimeIcon = () => (
-  <svg viewBox="0 0 48 48" width="48" height="48" fill={NAVY} xmlns="http://www.w3.org/2000/svg">
-    <path fillRule="evenodd" d="M24 .667C36.887.667 47.333 11.114 47.333 24c0 12.888-10.445 23.333-23.333 23.333C11.114 47.333.667 36.887.667 24 .667 11.116 11.116.667 24 .667zm0 2.029C12.236 2.696 2.696 12.236 2.696 24c0 11.766 9.539 21.304 21.304 21.304 11.768 0 21.304-9.536 21.304-21.304 0-11.765-9.538-21.304-21.304-21.304zm0 7.101c.56 0 1.014.454 1.014 1.015v2.113a6.09 6.09 0 015.073 6.003 1.014 1.014 0 11-2.029 0 4.06 4.06 0 00-3.043-3.93v8.072a6.09 6.09 0 010 12.005v2.113a1.014 1.014 0 01-2.03 0v-2.113a6.088 6.088 0 01-5.072-6.003 1.014 1.014 0 112.029 0 4.059 4.059 0 003.043 3.93V24.93a6.088 6.088 0 010-12.005v-2.113c0-.56.455-1.015 1.015-1.015zm1.015 15.345v7.86a4.059 4.059 0 000-7.86zm-2.03-10.144a4.06 4.06 0 000 7.86z" />
-  </svg>
-);
+/* ── Three-dot row menu ── */
+const RowMenu = ({ onEdit, onDelete, deleteLabel = 'Delete' }) => {
+  const [pos, setPos] = useState(null);
+  const btnRef        = useRef();
 
-/* ── Create Charge Modal ── */
-const CreateChargeModal = ({ onClose, houses }) => {
-  const navigate = useNavigate();
-  const [chargeType,    setChargeType]    = useState('MONTHLY');
-  const [selectedLease, setSelectedLease] = useState('');
-
-  const handleNext = () => {
-    const house = houses.find(h => h._id === selectedLease);
-    const state = { leaseId: selectedLease, leaseName: house ? `${house.name}${house.address ? ' — ' + house.address : ''}` : '' };
-    onClose();
-    if (chargeType === 'MONTHLY') {
-      navigate('/payments/charges/monthly', { state });
-    } else {
-      navigate('/payments/charges/one-time', { state });
-    }
+  const open   = pos !== null;
+  const toggle = () => {
+    if (open) { setPos(null); return; }
+    const r = btnRef.current.getBoundingClientRect();
+    setPos({ top: r.bottom + 4, right: window.innerWidth - r.right });
   };
 
-  const chargeOptions = [
-    {
-      value: 'MONTHLY',
-      label: 'Monthly Charge',
-      description: 'Charges are sent to your tenants on the same day each month. Great for rent, utilities, parking, etc.',
-      icon: <MonthlyIcon />,
-    },
-    {
-      value: 'ONE_TIME',
-      label: 'One-Time Charge',
-      description: 'The charge is sent to your tenants once. Great for fees, security deposits, or pro-rated rent.',
-      icon: <OneTimeIcon />,
-    },
-  ];
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setPos(null);
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [open]);
+
+  return (
+    <div style={{ display: 'inline-block' }}>
+      <button
+        ref={btnRef}
+        title="Actions"
+        onClick={e => { e.stopPropagation(); toggle(); }}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8a9ab0', padding: '4px 6px', display: 'flex', alignItems: 'center', borderRadius: 4 }}
+        onMouseEnter={e => e.currentTarget.style.background = '#f0f2f5'}
+        onMouseLeave={e => e.currentTarget.style.background = 'none'}
+      >
+        <svg focusable="false" aria-hidden="true" viewBox="0 0 24 24" style={{ width: 20, height: 20, fill: '#8a9ab0' }}>
+          <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2m0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2m0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2" />
+        </svg>
+      </button>
+      {open && (
+        <div
+          onMouseDown={e => e.stopPropagation()}
+          style={{
+            position: 'fixed', top: pos.top, right: pos.right, zIndex: 9999,
+            background: '#fff', border: '1px solid #e4e9f0', borderRadius: 8,
+            boxShadow: '0 4px 20px rgba(4,34,56,0.14)', minWidth: 168, overflow: 'hidden',
+          }}
+        >
+          {onEdit && (
+            <>
+              <button
+                onClick={() => { setPos(null); onEdit(); }}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px', border: 'none', background: 'none', cursor: 'pointer', fontFamily: FONT, fontSize: 13, fontWeight: 600, color: NAVY }}
+                onMouseEnter={e => e.currentTarget.style.background = '#f5f6f8'}
+                onMouseLeave={e => e.currentTarget.style.background = 'none'}
+              >
+                <Pencil size={15} color={TEAL} />
+                Edit
+              </button>
+              <div style={{ height: 1, background: '#f0f2f5' }} />
+            </>
+          )}
+          <button
+            onClick={() => { setPos(null); onDelete(); }}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px', border: 'none', background: 'none', cursor: 'pointer', fontFamily: FONT, fontSize: 13, fontWeight: 600, color: '#ef4444' }}
+            onMouseEnter={e => e.currentTarget.style.background = '#fff5f5'}
+            onMouseLeave={e => e.currentTarget.style.background = 'none'}
+          >
+            <Trash2 size={15} color="#ef4444" />
+            {deleteLabel}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ── Attachment preview modal ── */
+const AttachmentPreview = ({ name, onClose, fetchUrl }) => {
+  const [dataUrl, setDataUrl] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    axios.get(`${backendUrl}${fetchUrl}`)
+      .then(r => {
+        const rec = r.data.data;
+        setDataUrl(rec.receiptImage || null);
+      })
+      .catch(() => setDataUrl(null))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const isImage = dataUrl && dataUrl.startsWith('data:image/');
+  const isPdf   = dataUrl && dataUrl.startsWith('data:application/pdf');
 
   return (
     <div
-      style={{
-        position: 'fixed', inset: 0, zIndex: 1000,
-        background: 'rgba(4,34,56,0.45)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: '24px 16px',
-      }}
+      style={{ position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
       onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div style={{
-        background: '#fff', borderRadius: 8,
-        width: '100%', maxWidth: 520,
-        boxShadow: '0 8px 40px rgba(4,34,56,0.18)',
-        overflow: 'hidden',
-      }}>
+      <div style={{ background: '#fff', borderRadius: 10, width: '100%', maxWidth: 780, maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 12px 48px rgba(0,0,0,0.28)', overflow: 'hidden', fontFamily: FONT }}>
         {/* Header */}
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '20px 24px 0',
-        }}>
-          <h2 style={{ fontFamily: FONT, fontSize: 20, fontWeight: 700, color: NAVY, margin: 0 }}>
-            Create Charge
-          </h2>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: '#8a9ab0', padding: 4, borderRadius: 4,
-              display: 'flex', alignItems: 'center',
-            }}
-            onMouseEnter={e => e.currentTarget.style.color = NAVY}
-            onMouseLeave={e => e.currentTarget.style.color = '#8a9ab0'}
-          >
-            <X size={18} strokeWidth={2} />
-          </button>
-        </div>
-
-        {/* Body */}
-        <div style={{ padding: '20px 24px' }}>
-
-          {/* Lease selector */}
-          <div style={{ marginBottom: 6 }}>
-            <label style={{
-              display: 'block', fontFamily: FONT, fontSize: 13, fontWeight: 700,
-              color: NAVY, marginBottom: 8,
-            }}>
-              Select the lease you want to charge:
-            </label>
-            <div style={{ position: 'relative' }}>
-              <select
-                value={selectedLease}
-                onChange={e => setSelectedLease(e.target.value)}
-                style={{
-                  width: '100%', fontFamily: FONT, fontSize: 14, color: NAVY,
-                  background: '#fff', border: '1px solid #c8d0db', borderRadius: 4,
-                  padding: '9px 36px 9px 12px', appearance: 'none',
-                  cursor: 'pointer', outline: 'none',
-                }}>
-                <option value="" disabled>Select a lease…</option>
-                {houses.map(h => (
-                  <option key={h._id} value={h._id}>
-                    {h.name}{h.address ? ` — ${h.address}` : ''}
-                  </option>
-                ))}
-              </select>
-              <svg
-                style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
-                width="10" height="6" viewBox="0 0 10 6" fill={NAVY}
-              >
-                <path d="M9.792 0H.208a.233.233 0 00-.181.076.113.113 0 00.003.15l4.792 5.702A.234.234 0 005 6c.073 0 .14-.027.178-.072L9.97.226a.113.113 0 00.003-.15A.233.233 0 009.792 0z" fillRule="evenodd" />
-              </svg>
-            </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: '1px solid #e4e9f0', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <svg viewBox="0 0 24 24" style={{ width: 16, height: 16, fill: '#2563eb', flexShrink: 0 }}>
+              <path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/>
+            </svg>
+            <span style={{ fontFamily: FONT, fontSize: 14, fontWeight: 600, color: NAVY, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 500 }}>{name}</span>
           </div>
-
-          <a
-            href="#"
-            onClick={e => e.preventDefault()}
-            style={{
-              fontFamily: FONT, fontSize: 13, color: TEAL,
-              textDecoration: 'underline', display: 'inline-block', marginBottom: 20,
-            }}
-          >
-            Haven't created the lease yet?
-          </a>
-
-          {/* Charge type */}
-          <div>
-            <label style={{
-              display: 'block', fontFamily: FONT, fontSize: 13, fontWeight: 700,
-              color: NAVY, marginBottom: 10,
-            }}>
-              What type of charge?
-            </label>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {chargeOptions.map(opt => (
-                <label
-                  key={opt.value}
-                  onClick={() => setChargeType(opt.value)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 16,
-                    border: `2px solid ${chargeType === opt.value ? NAVY : '#e4e9f0'}`,
-                    borderRadius: 6, padding: '16px 18px',
-                    cursor: 'pointer', transition: 'border-color 0.15s',
-                    background: chargeType === opt.value ? '#f7f9fc' : '#fff',
-                  }}
-                >
-                  {/* Radio */}
-                  <div style={{
-                    width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
-                    border: `2px solid ${chargeType === opt.value ? NAVY : '#acb9c8'}`,
-                    background: '#fff',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    {chargeType === opt.value && (
-                      <div style={{ width: 10, height: 10, borderRadius: '50%', background: NAVY }} />
-                    )}
-                  </div>
-
-                  {/* Icon */}
-                  <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 60 }}>
-                    {opt.icon}
-                  </div>
-
-                  {/* Text */}
-                  <div>
-                    <p style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: NAVY, margin: '0 0 4px' }}>
-                      {opt.label}
-                    </p>
-                    <span style={{ fontFamily: FONT, fontSize: 13, color: '#6b7280', lineHeight: 1.5 }}>
-                      {opt.description}
-                    </span>
-                  </div>
-                </label>
-              ))}
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            {dataUrl && (
+              <a href={dataUrl} download={name}
+                style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: '#2563eb', textDecoration: 'none', padding: '5px 12px', border: '1px solid #bfdbfe', borderRadius: 4, background: '#eff6ff' }}>
+                Download
+              </a>
+            )}
+            <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', display: 'flex', alignItems: 'center', padding: 4 }}>
+              <X size={18} />
+            </button>
           </div>
         </div>
 
-        {/* Footer */}
-        <div style={{
-          display: 'flex', justifyContent: 'center', gap: 12,
-          padding: '4px 24px 24px',
-        }}>
-          <button
-            onClick={onClose}
-            style={{
-              fontFamily: FONT, fontSize: 13, fontWeight: 700,
-              letterSpacing: '0.06em', textTransform: 'uppercase',
-              color: NAVY, background: '#fff',
-              border: `2px solid ${NAVY}`, borderRadius: 100,
-              padding: '10px 32px', cursor: 'pointer', lineHeight: 1,
-            }}
-            onMouseEnter={e => e.currentTarget.style.background = '#f0f3f8'}
-            onMouseLeave={e => e.currentTarget.style.background = '#fff'}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleNext}
-            style={{
-              fontFamily: FONT, fontSize: 13, fontWeight: 700,
-              letterSpacing: '0.06em', textTransform: 'uppercase',
-              color: '#fff', background: NAVY,
-              border: `2px solid ${NAVY}`, borderRadius: 100,
-              padding: '10px 40px', cursor: 'pointer', lineHeight: 1,
-            }}
-            onMouseEnter={e => e.currentTarget.style.background = '#033A6D'}
-            onMouseLeave={e => e.currentTarget.style.background = NAVY}
-          >
-            Next
-          </button>
+        {/* Content */}
+        <div style={{ flex: 1, overflow: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', minHeight: 200 }}>
+          {loading ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, color: '#8a9ab0' }}>
+              <div style={{ width: 28, height: 28, border: '3px solid #e4e9f0', borderTopColor: TEAL, borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+              <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+              <span style={{ fontFamily: FONT, fontSize: 13 }}>Loading attachment…</span>
+            </div>
+          ) : !dataUrl ? (
+            <div style={{ textAlign: 'center', color: '#8a9ab0', padding: 40 }}>
+              <span style={{ fontFamily: FONT, fontSize: 14 }}>Unable to load attachment.</span>
+            </div>
+          ) : isImage ? (
+            <img src={dataUrl} alt={name} style={{ maxWidth: '100%', maxHeight: '75vh', objectFit: 'contain', borderRadius: 4, padding: 16 }} />
+          ) : isPdf ? (
+            <iframe src={dataUrl} title={name} style={{ width: '100%', height: '75vh', border: 'none' }} />
+          ) : (
+            <div style={{ textAlign: 'center', padding: 40 }}>
+              <p style={{ fontFamily: FONT, fontSize: 14, color: NAVY, marginBottom: 16 }}>This file type cannot be previewed in the browser.</p>
+              <a href={dataUrl} download={name}
+                style={{ fontFamily: FONT, fontSize: 14, fontWeight: 600, color: '#fff', background: '#2563eb', padding: '9px 22px', borderRadius: 6, textDecoration: 'none' }}>
+                Download file
+              </a>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 };
 
-const statCards = [
-  { label: 'Past Due', key: 'pastDue' },
-  { label: 'Unpaid',   key: 'unpaid'  },
-  { label: 'Charges',  key: 'charges' },
-  { label: 'Paid',     key: 'paid'    },
-];
-
-/* ── Hand + coin SVG ── */
-const HandCoinIcon = () => (
-  <svg width="80" height="72" viewBox="0 0 80 72" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="44" cy="8" r="7" stroke={NAVY} strokeWidth="2.2" fill="none" />
-    <circle cx="44" cy="8" r="3.5" fill={TEAL} />
-    <circle cx="56" cy="18" r="6" stroke={NAVY} strokeWidth="2.2" fill="none" />
-    <circle cx="56" cy="18" r="2.8" fill={TEAL} />
-    <path
-      d="M10 44 C10 44 8 40 12 38 L28 30 C30 29 33 30 33 33 L33 36 C35 34 39 33 41 35 C43 33 47 33 48 36 C50 34 54 35 54 38 L54 50 C54 57 48 62 41 62 L24 62 C17 62 10 56 10 49 Z"
-      stroke={NAVY} strokeWidth="2.2" fill="none" strokeLinejoin="round"
-    />
-    <path d="M33 36 L33 44" stroke={NAVY} strokeWidth="1.8" strokeLinecap="round" />
-    <path d="M41 35 L41 44" stroke={NAVY} strokeWidth="1.8" strokeLinecap="round" />
-    <path d="M48 36 L48 44" stroke={NAVY} strokeWidth="1.8" strokeLinecap="round" />
-    <circle cx="38" cy="26" r="5" stroke={NAVY} strokeWidth="2.2" fill="none" />
-    <circle cx="38" cy="26" r="2.2" fill={TEAL} />
-  </svg>
+/* ── Delete icon button ── */
+const DelBtn = ({ onDelete }) => (
+  <button
+    onClick={onDelete}
+    title="Delete"
+    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '4px 6px', display: 'flex', alignItems: 'center', borderRadius: 4 }}
+    onMouseEnter={e => e.currentTarget.style.background = '#fff5f5'}
+    onMouseLeave={e => e.currentTarget.style.background = 'none'}
+  >
+    <Trash2 size={15} />
+  </button>
 );
 
-/* ── Filter icon SVGs (from TurboTenant HTML) ── */
-const KeyFilterIcon = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="7.5" cy="15.5" r="5.5"/>
-    <path d="M21 2l-9.6 9.6"/>
-    <path d="M15.5 7.5l3 3L22 7l-3-3"/>
-  </svg>
-);
-
-const LeaseFilterIcon = () => (
-  <svg width="13" height="13" viewBox="0 0 22 25" fill="currentColor">
-    <path fillRule="evenodd" d="m19.85 13.943 1.937 2.152a.733.733 0 0 1-.067 1.033l-6.909 6.221a.754.754 0 0 1-.356.18l-2.781.556a.714.714 0 0 1-.828-.92l.844-2.708a.754.754 0 0 1 .215-.335l6.91-6.221a.733.733 0 0 1 1.034.042ZM13.318 0c.21 0 .413.069.577.193l.094.08 4.39 4.344.013.012c.02.02.038.042.056.064l-.068-.076a.928.928 0 0 1 .26.503l.002.012.002.017.008.115v7.238a.932.932 0 0 1-.943.922.936.936 0 0 1-.936-.806l-.008-.116V6.185h-4.18a.936.936 0 0 1-.935-.805l-.007-.116V1.842h-9.09v19.873h6.374c.48 0 .878.351.936.805l.007.116a.93.93 0 0 1-.825.914l-.118.007H1.61a.936.936 0 0 1-.936-.805l-.007-.116V.921c0-.47.36-.857.825-.914L1.61 0h11.709Zm.86 20.552-.804.726-.191.613.633-.126.812-.733-.45-.48Zm3.258-2.932-1.855 1.67.449.48 1.838-1.655-.432-.495Zm-9.277-.248c.521 0 .943.412.943.921a.93.93 0 0 1-.824.914l-.119.007H4.537a.932.932 0 0 1-.943-.921c0-.47.36-.857.825-.914l.118-.007H8.16Zm11.035-1.335-.357.32.433.495.364-.327-.44-.488ZM8.16 14.477c.521 0 .943.412.943.92a.93.93 0 0 1-.824.915l-.119.007H4.537a.932.932 0 0 1-.943-.921c0-.47.36-.857.825-.914l.118-.008H8.16Zm4.391-4.343c.52 0 .943.412.943.92a.93.93 0 0 1-.825.915l-.118.007H4.537a.932.932 0 0 1-.943-.921c0-.47.36-.857.825-.914l.118-.007h8.014Zm0-2.896c.52 0 .943.413.943.921a.93.93 0 0 1-.825.915l-.118.007H4.537a.932.932 0 0 1-.943-.922c0-.47.36-.857.825-.914l.118-.007h8.014Zm-4.39-2.895c.52 0 .942.412.942.921a.93.93 0 0 1-.824.914l-.119.007H4.537a.932.932 0 0 1-.943-.92c0-.47.36-.858.825-.915l.118-.007H8.16ZM13.53 2.44v1.901h1.922L13.53 2.441Z" />
-  </svg>
-);
-
-const CoinFilterIcon = () => (
-  <svg width="13" height="13" viewBox="0 0 22 22" fill="currentColor">
-    <path d="M11 .333C16.891.333 21.667 5.11 21.667 11c0 5.892-4.775 10.667-10.667 10.667C5.11 21.667.333 16.89.333 11 .333 5.11 5.11.333 11 .333zm0 1.447a9.22 9.22 0 000 18.44A9.22 9.22 0 0020.22 11 9.22 9.22 0 0011 1.78zM11 4.4c.369 0 .673.276.718.633l.005.09v.721a2.985 2.985 0 012.26 2.895.723.723 0 01-1.44.09l-.006-.09c0-.587-.33-1.097-.814-1.356v2.981a2.985 2.985 0 010 5.79v.72a.723.723 0 01-1.44.091l-.006-.09v-.721a2.984 2.984 0 01-2.26-2.895.723.723 0 111.446 0c0 .587.33 1.097.813 1.356v-2.981a2.984 2.984 0 010-5.79v-.72c0-.4.325-.724.724-.724zm.723 7.503v2.712a1.536 1.536 0 000-2.712zM9.463 8.74c0 .587.33 1.098.813 1.356V7.384a1.537 1.537 0 00-.813 1.356z" />
-  </svg>
-);
-
-const CalendarFilterIcon = () => (
-  <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
-    <path d="M5.054 0c.26 0 .47.21.47.47v.839h4.951V.471c0-.26.211-.471.471-.471h1.964c.26 0 .471.21.471.47v.839h2.148a.47.47 0 01.463.386L16 1.78v13.75c0 .26-.21.47-.47.47H.47a.47.47 0 01-.47-.47V1.78c0-.26.21-.47.47-.47l2.148-.001V.471C2.619.21 2.83 0 3.09 0h1.964zm10.004 5.524H.941v9.535H15.06l-.001-9.535zm-4.112.369c.26 0 .47.21.47.47v.839h2.804a.47.47 0 01.463.386l.008.085c0 .26-.211.47-.471.47h-2.804V9.82l2.804.001a.47.47 0 01.463.386l.008.085c0 .26-.211.47-.471.47h-2.804v1.677h2.804a.47.47 0 01.463.387l.008.084c0 .26-.211.471-.471.471h-2.804v.839a.47.47 0 01-.385.463l-.085.008a.47.47 0 01-.47-.471l-.001-.839H8.143v.839a.47.47 0 01-.386.463l-.084.008a.47.47 0 01-.471-.471v-.839H4.869v.839a.47.47 0 01-.385.463l-.085.008a.47.47 0 01-.47-.471l-.001-.839H1.78a.47.47 0 01-.463-.386l-.008-.085c0-.26.211-.47.471-.47l2.148-.001v-1.677H1.78a.47.47 0 01-.463-.386l-.008-.084c0-.26.211-.471.471-.471l2.148-.001V8.143H1.78a.47.47 0 01-.463-.386l-.008-.084c0-.26.211-.471.471-.471h2.148v-.839a.47.47 0 01.386-.463l.085-.007c.26 0 .47.21.47.47v.839h2.333v-.839a.47.47 0 01.386-.463l.085-.007c.26 0 .47.21.47.47v.839h2.332v-.839a.47.47 0 01.387-.463zm-3.744 4.869H4.869v1.677h2.333v-1.677zm3.273 0H8.143v1.677h2.332v-1.677zM7.202 8.143H4.869V9.82h2.333V8.143zm3.273 0H8.143V9.82h2.332V8.143zM2.618 2.25H.941v2.333h14.117V2.251l-1.677-.001v.84c0 .26-.21.47-.47.47h-1.965a.47.47 0 01-.47-.47l-.001-.84H5.524v.84c0 .26-.21.47-.47.47H3.09a.47.47 0 01-.471-.47l-.001-.84zM4.583.941H3.56V2.62h1.023V.94zm7.857 0h-1.023V2.62h1.023V.94z" fillRule="evenodd" />
-  </svg>
-);
-
-/* ── No charges found icon (folder + magnifier) ── */
-const NoChargesIcon = () => (
-  <svg width="72" height="64" viewBox="0 0 72 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-    {/* Folder body */}
-    <path d="M4 18C4 15.8 5.8 14 8 14H28L34 20H64C66.2 20 68 21.8 68 24V54C68 56.2 66.2 58 64 58H8C5.8 58 4 56.2 4 54V18Z"
-      stroke={NAVY} strokeWidth="2.5" fill="none" strokeLinejoin="round" />
-    {/* Folder tab */}
-    <path d="M4 18H28L34 14H8C5.8 14 4 15.8 4 18Z"
-      fill="#e4e9f0" stroke={NAVY} strokeWidth="2.5" strokeLinejoin="round" />
-    {/* Magnifier circle */}
-    <circle cx="44" cy="40" r="10" stroke={TEAL} strokeWidth="2.5" fill="none" />
-    {/* Magnifier handle */}
-    <line x1="51" y1="48" x2="58" y2="56" stroke={TEAL} strokeWidth="2.5" strokeLinecap="round" />
-  </svg>
-);
-
-/* ── Filter constants ── */
-const CATEGORIES = ['Rent', 'Late Fee', 'Security Deposit', 'Utility Charge', 'NSF Fee', 'Other'];
-
-const STATUS_OPTIONS = [
-  { value: 'all',      label: 'All Statuses' },
-  { value: 'PAST_DUE', label: 'Past Due'     },
-  { value: 'UNPAID',   label: 'Unpaid'       },
-  { value: 'PAID',     label: 'Paid'         },
-];
-
-const DATE_OPTIONS = [
-  { value: 'all',           label: 'All Time'     },
-  { value: 'CURRENT_MONTH', label: 'This Month'   },
-  { value: 'LAST_MONTH',    label: 'Last Month'   },
-  { value: 'YTD',           label: 'Year to Date' },
-  { value: 'LAST_YEAR',     label: 'Last Year'    },
-  { value: 'CUSTOM',        label: 'Custom'       },
-];
-
-const STATUS_LABELS = { all: 'All Statuses', PAST_DUE: 'Past Due', UNPAID: 'Unpaid', PAID: 'Paid' };
-const DATE_LABELS   = { all: 'All Time', CURRENT_MONTH: 'This Month', LAST_MONTH: 'Last Month', YTD: 'Year to Date', LAST_YEAR: 'Last Year', CUSTOM: 'Custom' };
-
-/* ── Radio bullet ── */
-const RadioDot = ({ active }) => (
-  <div style={{
-    width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
-    border: `2px solid ${active ? NAVY : '#c8d0db'}`,
-    background: '#fff',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
+/* ── Status badge ── */
+const StatusBadge = ({ status }) => (
+  <span style={{
+    display: 'inline-block', padding: '3px 10px', borderRadius: 100,
+    fontWeight: 700, fontSize: 11, letterSpacing: '0.04em',
+    background: status === 'paid' ? '#d1fae5' : '#fee2e2',
+    color: status === 'paid' ? '#065f46' : '#991b1b',
   }}>
-    {active && <div style={{ width: 8, height: 8, borderRadius: '50%', background: NAVY }} />}
-  </div>
+    {status === 'paid' ? 'Paid' : 'Unpaid'}
+  </span>
 );
 
-const Payments = () => {
-  const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+/* ── Create / Edit Payment Modal ── */
+const PaymentModal = ({ onClose, onSaved, payment = null }) => {
+  // If editing, convert ISO date → dd/mm/yyyy for display
+  const toDisplay = (iso) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d)) return '';
+    return `${String(d.getUTCDate()).padStart(2,'0')}/${String(d.getUTCMonth()+1).padStart(2,'0')}/${d.getUTCFullYear()}`;
+  };
 
-  /* Initialise from URL so back/forward and direct links work */
-  const [tab,    setTabState]    = useState(searchParams.get('view')   || 'overview');
-  const [period, setPeriodState] = useState(searchParams.get('period') || 'month');
-
-  const [actionsOpen,      setActionsOpen]      = useState(false);
-  const [createChargeOpen, setCreateChargeOpen] = useState(false);
-  const [houses,           setHouses]           = useState([]);
-  const [records,          setRecords]          = useState([]);
-  const [loadingRecords,   setLoadingRecords]   = useState(true);
-  const dropdownRef  = useRef(null);
-  const filterBarRef = useRef(null);
-
-  /* Charge filters — status & dateRange live in the URL, rest stay local */
-  const [chargeFilters, setChargeFilters] = useState({
-    status:    searchParams.get('status')     || 'all',
-    dateRange: searchParams.get('dateFilter') || 'CURRENT_MONTH',
-    rentals:   [],
-    leases:    [],
-    categories:[],
+  const [form,    setForm]    = useState({
+    date:     payment ? toDisplay(payment.date) : '',
+    category: payment?.category || '',
+    notes:    payment?.notes    || '',
+    amount:   payment?.amount   != null ? String(payment.amount) : '',
   });
-  const [openFilter,     setOpenFilter]     = useState(null);
-  const [leaseSearch,    setLeaseSearch]    = useState('');
-  const [chargesPerPage, setChargesPerPage] = useState(50);
+  // existingReceipt = base64 data URL from DB; receipt = newly chosen File
+  const [existingReceipt,  setExistingReceipt]  = useState(payment?.receiptImage || null);
+  const [existingName,     setExistingName]      = useState(payment?.receiptName  || null);
+  const [receipt,          setReceipt]           = useState(null);
+  const [saving,           setSaving]            = useState(false);
+  const [loadingReceipt,   setLoadingReceipt]    = useState(false);
+  const [confirmDelete,    setConfirmDelete]     = useState(false);
+  const [deleting,         setDeleting]          = useState(false);
+  const fileRef = useRef();
+  const calRef  = useRef();
 
-  const now         = new Date();
-  const month       = now.toLocaleString('en-US', { month: 'long', year: 'numeric' });
-  const year        = String(now.getFullYear());
-  const periodLabel = period === 'month' ? month : year;
+  const isEdit = !!payment;
 
-  /* Helper — build the charges search params object */
-  const chargesParams = (status, dateRange) => {
-    const p = { view: 'charges', dateFilter: dateRange };
-    if (status !== 'all') p.status = status;
-    return p;
-  };
-
-  /* Tab switcher — updates URL */
-  const setTab = (newTab) => {
-    setTabState(newTab);
-    if (newTab === 'overview') {
-      setSearchParams({ view: 'overview', period });
-    } else {
-      setSearchParams(chargesParams(chargeFilters.status, chargeFilters.dateRange));
-    }
-  };
-
-  /* Period switcher — updates URL */
-  const setPeriod = (newPeriod) => {
-    setPeriodState(newPeriod);
-    setSearchParams({ view: 'overview', period: newPeriod });
-  };
-
-  /* Click stat card → charges tab with pre-applied filters */
-  const handleStatCardClick = (key) => {
-    const statusMap = { pastDue: 'PAST_DUE', unpaid: 'UNPAID', charges: 'all', paid: 'PAID' };
-    const newStatus  = statusMap[key] ?? 'all';
-    const newDate    = period === 'month' ? 'CURRENT_MONTH' : 'YTD';
-    setChargeFilters(f => ({ ...f, status: newStatus, dateRange: newDate }));
-    setTabState('charges');
-    setSearchParams(chargesParams(newStatus, newDate));
-  };
-
-  /* Status filter change — updates URL */
-  const setStatus = (newStatus) => {
-    setChargeFilters(f => ({ ...f, status: newStatus }));
-    setSearchParams(chargesParams(newStatus, chargeFilters.dateRange));
-    setOpenFilter(null);
-  };
-
-  /* Date filter change — updates URL */
-  const setDateRange = (newDate) => {
-    setChargeFilters(f => ({ ...f, dateRange: newDate }));
-    setSearchParams(chargesParams(chargeFilters.status, newDate));
-    setOpenFilter(null);
-  };
-
-  const resetFilters = () => {
-    setChargeFilters({ status: 'all', dateRange: 'CURRENT_MONTH', rentals: [], leases: [], categories: [] });
-    setLeaseSearch('');
-    setOpenFilter(null);
-    setSearchParams({ view: 'charges', dateFilter: 'CURRENT_MONTH' });
-  };
-
-  /* fetch houses */
+  // Fetch the full payment (with base64 receipt) in the background — modal opens instantly
   useEffect(() => {
-    axios.get(`${backendUrl}${API.houses}`)
-      .then(r => setHouses(r.data.data || []))
-      .catch(() => {});
-  }, []);
-
-  /* fetch rent records */
-  useEffect(() => {
-    setLoadingRecords(true);
-    axios.get(`${backendUrl}${API.payments}`)
-      .then(r => setRecords(r.data.data || []))
+    if (!isEdit || !payment._id) return;
+    setLoadingReceipt(true);
+    axios.get(`${backendUrl}${API.orgPayment(payment._id)}`)
+      .then(r => {
+        const full = r.data.data;
+        if (full.receiptImage) { setExistingReceipt(full.receiptImage); setExistingName(full.receiptName || 'receipt'); }
+      })
       .catch(() => {})
-      .finally(() => setLoadingRecords(false));
+      .finally(() => setLoadingReceipt(false));
   }, []);
 
-  /* close actions dropdown on outside click */
-  useEffect(() => {
-    const handler = e => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setActionsOpen(false);
+  // Convert dd/mm/yyyy → ISO yyyy-mm-dd for the backend
+  const parseDate = (str) => {
+    const [d, m, y] = (str || '').split('/');
+    if (!d || !m || !y || y.length !== 4) return null;
+    const iso = `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+    return isNaN(Date.parse(iso)) ? null : iso;
+  };
+
+  const handleSave = async () => {
+    const isoDate = parseDate(form.date);
+    if (!isoDate) return toast.error('Enter a valid date (DD/MM/YYYY)');
+    if (!form.amount) return toast.error('Amount is required');
+    try {
+      setSaving(true);
+      const fd = new FormData();
+      fd.append('date', isoDate);
+      if (form.category) fd.append('category', form.category);
+      if (form.notes)    fd.append('notes', form.notes);
+      fd.append('amount', Number(form.amount));
+      if (receipt) fd.append('receiptImage', receipt);
+      // If user cleared the existing receipt and didn't upload a new one, tell backend to remove it
+      if (isEdit && !existingReceipt && !receipt) fd.append('removeReceipt', 'true');
+      if (isEdit) {
+        await axios.put(`${backendUrl}${API.orgPayments}/${payment._id}`, fd);
+        toast.success('Payment updated');
+      } else {
+        await axios.post(`${backendUrl}${API.orgPayments}`, fd);
+        toast.success('Payment saved');
       }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  /* close filter dropdowns on outside click */
-  useEffect(() => {
-    const handler = e => {
-      if (filterBarRef.current && !filterBarRef.current.contains(e.target)) {
-        setOpenFilter(null);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  const base = { fontFamily: FONT, fontSize: 14, color: NAVY, lineHeight: 1.5 };
-
-  const dropdownItem = {
-    display: 'block', width: '100%', textAlign: 'left',
-    fontFamily: FONT, fontSize: 14, fontWeight: 500, color: NAVY,
-    background: 'none', border: 'none', cursor: 'pointer',
-    padding: '10px 20px', lineHeight: 1.4,
+      onSaved();
+      onClose();
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Failed to save');
+    } finally { setSaving(false); }
   };
 
-  /* Filter button style helper */
-  const filterBtnStyle = (isActive) => ({
-    fontFamily: FONT, fontSize: 13, fontWeight: 600,
-    color: isActive ? '#fff' : NAVY,
-    background: isActive ? NAVY : '#fff',
-    border: `1px solid ${isActive ? NAVY : '#c8d0db'}`,
-    borderRadius: 100, padding: '7px 13px', cursor: 'pointer',
-    display: 'inline-flex', alignItems: 'center', gap: 6,
-    lineHeight: 1, whiteSpace: 'nowrap', outline: 'none',
-  });
-
-  /* Filter dropdown panel style */
-  const filterPanel = {
-    position: 'absolute', top: 'calc(100% + 6px)', left: 0,
-    background: '#fff', border: '1px solid #e4e9f0',
-    borderRadius: 6, boxShadow: '0 4px 16px rgba(4,34,56,0.12)',
-    zIndex: 200, padding: '8px 0',
-  };
-
-  const filteredLeases = houses.filter(h =>
-    !leaseSearch || h.name.toLowerCase().includes(leaseSearch.toLowerCase()) ||
-    (h.address || '').toLowerCase().includes(leaseSearch.toLowerCase())
-  );
-
-  /* ── Currency formatter ── */
-  const fmt = (n) => `TZS ${Number(n || 0).toLocaleString()}`;
-
-  /* ── Date keys ── */
-  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const lastMonthDate   = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const lastMonthKey    = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}`;
-  const currentYearKey  = String(now.getFullYear());
-  const lastYearKey     = String(now.getFullYear() - 1);
-
-  /* ── Overview stats (scoped to selected period) ── */
-  const periodRecords = records.filter(r => {
-    if (period === 'month') return r.month === currentMonthKey;
-    if (period === 'year')  return r.month?.startsWith(currentYearKey);
-    return true;
-  });
-  const overviewStats = {
-    paid:    periodRecords.filter(r => r.status === 'paid').reduce((s, r) => s + r.amount, 0),
-    unpaid:  periodRecords.filter(r => r.status === 'pending').reduce((s, r) => s + r.amount, 0),
-    pastDue: periodRecords.filter(r => r.status === 'overdue').reduce((s, r) => s + r.amount, 0),
-    charges: periodRecords.reduce((s, r) => s + r.amount, 0),
-  };
-  const statValues = {
-    pastDue: overviewStats.pastDue,
-    unpaid:  overviewStats.unpaid,
-    charges: overviewStats.charges,
-    paid:    overviewStats.paid,
-  };
-
-  /* ── Filtered charges for the Charges tab ── */
-  const filteredCharges = records.filter(r => {
-    const dr = chargeFilters.dateRange;
-    const inDate =
-      dr === 'CURRENT_MONTH' ? r.month === currentMonthKey :
-      dr === 'LAST_MONTH'    ? r.month === lastMonthKey    :
-      dr === 'YTD'           ? r.month?.startsWith(currentYearKey) :
-      dr === 'LAST_YEAR'     ? r.month?.startsWith(lastYearKey) : true;
-    const st = chargeFilters.status;
-    const inStatus =
-      st === 'PAID'     ? r.status === 'paid'    :
-      st === 'UNPAID'   ? r.status === 'pending' :
-      st === 'PAST_DUE' ? r.status === 'overdue' : true;
-    const inRental =
-      chargeFilters.rentals.length === 0 ||
-      chargeFilters.rentals.includes(r.house?._id);
-    return inDate && inStatus && inRental;
-  }).slice(0, chargesPerPage);
+  const inputStyle = { width: '100%', fontFamily: FONT, fontSize: 14, color: NAVY, border: '1px solid #c8d0db', borderRadius: 4, padding: '9px 12px', outline: 'none', boxSizing: 'border-box', background: '#fff' };
+  const labelStyle = { display: 'block', fontFamily: FONT, fontSize: 13, fontWeight: 600, color: NAVY, marginBottom: 6 };
 
   return (
-    <Layout>
-      <div style={{ ...base, minHeight: '100vh', background: '#f5f6f8', paddingBottom: 50 }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(4,34,56,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 16px' }}
+      onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ background: '#fff', borderRadius: 8, width: '100%', maxWidth: 540, boxShadow: '0 8px 40px rgba(4,34,56,0.18)', overflow: 'hidden', fontFamily: FONT }}>
 
-        {/* ── Page header ── */}
-        <div style={{ background: '#fff', borderBottom: '1px solid #e4e9f0' }}>
-          <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 24px' }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button onClick={onClose} aria-label="Close"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: FONT, fontSize: 20, lineHeight: 1, color: '#6b7280', padding: '0 4px', display: 'flex', alignItems: 'center' }}>
+              <span aria-hidden="true">×</span>
+            </button>
+            <h2 style={{ fontFamily: FONT, fontSize: 20, fontWeight: 700, color: NAVY, margin: 0 }}>{isEdit ? 'Edit Payment' : 'Create Payment'}</h2>
+          </div>
+          <button onClick={handleSave} disabled={saving}
+            style={{ fontFamily: FONT, fontSize: 14, fontWeight: 600, color: '#fff', background: '#2563eb', border: 'none', borderRadius: 6, padding: '9px 22px', cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        </div>
 
-            {/* Title row */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 24, paddingBottom: 16 }}>
-              <h1 style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: NAVY, margin: 0, lineHeight: 1.2 }}>
-                Payments
-              </h1>
+        {/* Body card */}
+        <div style={{ margin: '0 16px 16px', border: '1px solid #e4e9f0', borderRadius: 8, padding: '20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-
-                {/* Actions dropdown */}
-                <div style={{ position: 'relative' }} ref={dropdownRef}>
-                  <button
-                    onClick={() => setActionsOpen(o => !o)}
-                    style={{
-                      fontFamily: FONT, fontSize: 13, fontWeight: 700,
-                      letterSpacing: '0.06em', textTransform: 'uppercase',
-                      color: NAVY, background: '#fff',
-                      border: `2px solid ${NAVY}`, borderRadius: 100,
-                      padding: '8px 18px', cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', gap: 6,
-                      lineHeight: 1,
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.background = '#f0f3f8'}
-                    onMouseLeave={e => e.currentTarget.style.background = actionsOpen ? '#f0f3f8' : '#fff'}
-                  >
-                    Actions
-                    <ChevronDown
-                      size={14} strokeWidth={2.5}
-                      style={{ transform: actionsOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}
-                    />
-                  </button>
-
-                  {actionsOpen && (
-                    <div style={{
-                      position: 'absolute', top: 'calc(100% + 6px)', right: 0,
-                      background: '#fff', border: '1px solid #e4e9f0',
-                      borderRadius: 6, boxShadow: '0 4px 16px rgba(4,34,56,0.12)',
-                      minWidth: 180, zIndex: 100, overflow: 'hidden',
-                    }}>
-                      {[
-                        { label: 'Record payment', path: '/payments/record' },
-                        { label: 'Add credit',     path: null               },
-                      ].map(item => (
-                        <button
-                          key={item.label}
-                          style={dropdownItem}
-                          onClick={() => { setActionsOpen(false); if (item.path) navigate(item.path); }}
-                          onMouseEnter={e => e.currentTarget.style.background = '#f5f6f8'}
-                          onMouseLeave={e => e.currentTarget.style.background = 'none'}
-                        >
-                          {item.label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Create Charge button */}
-                <button
-                  onClick={() => setCreateChargeOpen(true)}
-                  style={{
-                    fontFamily: FONT, fontSize: 13, fontWeight: 700,
-                    letterSpacing: '0.06em', textTransform: 'uppercase',
-                    color: '#fff', background: NAVY,
-                    border: `2px solid ${NAVY}`, borderRadius: 100,
-                    padding: '8px 20px', cursor: 'pointer', lineHeight: 1,
+          {/* Payment Date + Category */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div>
+              <label style={labelStyle}>Payment Date</label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="text"
+                  value={form.date}
+                  placeholder="DD/MM/YYYY"
+                  maxLength={10}
+                  onChange={e => {
+                    let v = e.target.value.replace(/[^\d]/g, '');
+                    if (v.length > 2) v = v.slice(0,2) + '/' + v.slice(2);
+                    if (v.length > 5) v = v.slice(0,5) + '/' + v.slice(5);
+                    setForm(p => ({ ...p, date: v }));
                   }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#033A6D'}
-                  onMouseLeave={e => e.currentTarget.style.background = NAVY}
+                  style={{ ...inputStyle, paddingRight: 36 }}
+                />
+                {/* Hidden native date picker */}
+                <input
+                  ref={calRef}
+                  type="date"
+                  style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: 0, height: 0, top: 0, right: 0 }}
+                  onChange={e => {
+                    const [y, m, d] = (e.target.value || '').split('-');
+                    if (y && m && d) setForm(p => ({ ...p, date: `${d}/${m}/${y}` }));
+                  }}
+                />
+                {/* Calendar icon */}
+                <button
+                  type="button"
+                  onClick={() => calRef.current.showPicker?.() || calRef.current.click()}
+                  style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: '#6b7280', display: 'flex', alignItems: 'center' }}
                 >
-                  Create Charge
+                  <svg focusable="false" aria-hidden="true" viewBox="0 0 24 24" style={{ width: 18, height: 18, fill: 'currentColor' }}>
+                    <path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z" />
+                  </svg>
                 </button>
               </div>
             </div>
+            <div>
+              <label style={labelStyle}>Category</label>
+              <select value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))} style={inputStyle}>
+                <option value="" disabled />
+                {PAYMENT_CATS.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Amount */}
+          <div>
+            <label style={labelStyle}>Amount</label>
+            <div style={{ position: 'relative' }}>
+              <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontFamily: FONT, fontSize: 14, color: '#6b7280' }}>TZS</span>
+              <input type="number" min="0" step="0.01" value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))}
+                placeholder="0.00"
+                style={{ ...inputStyle, paddingLeft: 48 }} />
+            </div>
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label style={labelStyle}>Notes</label>
+            <textarea rows={3} value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
+              placeholder="Enter notes"
+              style={{ ...inputStyle, resize: 'vertical' }} />
+          </div>
+
+          {/* Upload receipt */}
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/webp,image/bmp,.pdf,.doc,.docx,.xls,.xlsx"
+            style={{ display: 'none' }}
+            onChange={e => {
+              const file = e.target.files[0];
+              if (!file) return;
+              const allowed = ['image/jpeg','image/png','image/gif','image/webp','image/bmp',
+                'application/pdf','application/msword',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'application/vnd.ms-excel',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
+              if (!allowed.includes(file.type)) {
+                toast.error('Only images and documents (PDF, Word, Excel) are allowed');
+                e.target.value = '';
+                return;
+              }
+              setReceipt(file);
+              setExistingReceipt(null);
+            }}
+          />
+
+          {/* Show existing or newly chosen file */}
+          {loadingReceipt ? (
+            <div style={{ border: '1px solid #e4e9f0', borderRadius: 8, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 10, color: '#8a9ab0', fontFamily: FONT, fontSize: 13 }}>
+              <div style={{ width: 16, height: 16, border: '2px solid #c8d0db', borderTopColor: TEAL, borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+              Loading receipt…
+              <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+            </div>
+          ) : (existingReceipt || receipt) ? (
+            <div style={{ border: '1px solid #e4e9f0', borderRadius: 8, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12, background: '#f8fafc' }}>
+              {/* File icon */}
+              <div style={{ flexShrink: 0, width: 36, height: 36, background: '#fee2e2', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg viewBox="0 0 24 24" style={{ width: 18, height: 18, fill: '#dc2626' }}>
+                  <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8zm4 18H6V4h8v4h4zm-6-3c-1.1 0-2-.9-2-2V9.5c0-.28.22-.5.5-.5s.5.22.5.5V15h2V9.5C13 8.12 11.88 7 10.5 7S8 8.12 8 9.5V15c0 2.21 1.79 4 4 4s4-1.79 4-4v-4h-2v4c0 1.1-.9 2-2 2" />
+                </svg>
+              </div>
+              {/* Filename — clickable link for existing saved files */}
+              {receipt ? (
+                <span style={{ fontFamily: FONT, fontSize: 12, color: '#2563eb', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {receipt.name}
+                </span>
+              ) : (
+                <a
+                  href={existingReceipt}
+                  download={existingName}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ fontFamily: FONT, fontSize: 12, color: '#2563eb', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'none' }}
+                >
+                  {existingName}
+                </a>
+              )}
+              {/* X to remove */}
+              <button
+                type="button"
+                onClick={() => { setReceipt(null); setExistingReceipt(null); }}
+                style={{ flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: 2, display: 'flex' }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+          ) : (
+            <div
+              onClick={() => fileRef.current.click()}
+              style={{ border: '2px dashed #93c5fd', borderRadius: 8, padding: '28px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, cursor: 'pointer', background: '#fff' }}>
+              {/* Document + plus icon */}
+              <div style={{ position: 'relative', width: 48, height: 56 }}>
+                <svg viewBox="0 0 48 56" fill="none" style={{ width: 48, height: 56 }}>
+                  <rect x="2" y="2" width="44" height="52" rx="5" fill="#dbeafe" />
+                  <path d="M10 18h28M10 26h20" stroke="#93c5fd" strokeWidth="3" strokeLinecap="round" />
+                </svg>
+                <div style={{ position: 'absolute', bottom: -4, right: -4, width: 20, height: 20, background: '#2563eb', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg viewBox="0 0 12 12" style={{ width: 10, height: 10 }} fill="none">
+                    <path d="M6 2v8M2 6h8" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                </div>
+              </div>
+              <span style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: NAVY }}>Upload receipt</span>
+              <span style={{ fontFamily: FONT, fontSize: 13, color: '#2563eb', textAlign: 'center' }}>Submit an image of the receipt and we'll do the rest.</span>
+            </div>
+          )}
+        </div>
+
+        {/* Delete button — edit mode only */}
+        {isEdit && (
+          <div style={{ padding: '0 24px 20px' }}>
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(true)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: FONT, fontSize: 16, fontWeight: 700, color: '#C71E11', padding: '6px 8px', borderRadius: 4, margin: '16px 0 0' }}
+            >
+              Delete
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Confirmation dialog */}
+      {confirmDelete && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+          <div style={{ background: '#fff', borderRadius: 16, maxWidth: 480, width: '100%', boxShadow: '0px 11px 15px -7px rgba(0,0,0,0.2),0px 24px 38px 3px rgba(0,0,0,0.14),0px 9px 46px 8px rgba(0,0,0,0.12)', overflow: 'hidden' }}>
+            <div style={{ padding: '20px 24px 8px', fontFamily: FONT, fontSize: 18, fontWeight: 700, color: NAVY }}>
+              Confirmation
+            </div>
+            <div style={{ padding: '8px 24px 16px', fontFamily: FONT, fontSize: 15, color: NAVY }}>
+              Are you sure you want to delete this payment?
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '8px 16px 16px' }}>
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(false)}
+                style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: '#0ea5e9', background: 'none', border: 'none', borderRadius: 4, padding: '6px 12px', cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={async () => {
+                  try {
+                    setDeleting(true);
+                    await axios.delete(`${backendUrl}${API.orgPayments}/${payment._id}`);
+                    toast.success('Payment deleted');
+                    onSaved();
+                    onClose();
+                  } catch { toast.error('Failed to delete'); setDeleting(false); setConfirmDelete(false); }
+                }}
+                style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: '#fff', background: '#C71E11', border: 'none', borderRadius: 4, padding: '6px 16px', cursor: 'pointer', opacity: deleting ? 0.7 : 1 }}
+              >
+                {deleting ? 'Deleting…' : 'Yes, delete payment'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ── Add Expense Modal ── */
+/* ── Shared helpers ── */
+const iStyle = { width: '100%', fontFamily: FONT, fontSize: 14, color: NAVY, border: '1px solid #c8d0db', borderRadius: 4, padding: '9px 12px', outline: 'none', boxSizing: 'border-box', background: '#fff' };
+const lStyle = { display: 'block', fontFamily: FONT, fontSize: 13, fontWeight: 600, color: NAVY, marginBottom: 6 };
+
+/* ── Yes / No radio group ── */
+const YesNo = ({ value, onChange }) => (
+  <div style={{ display: 'flex', gap: 8 }}>
+    {[true, false].map(v => (
+      <label key={String(v)} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontFamily: FONT, fontSize: 13, color: NAVY,
+        border: `1px solid ${value === v ? NAVY : '#c8d0db'}`, borderRadius: 4, padding: '6px 14px',
+        background: value === v ? NAVY : '#fff', color: value === v ? '#fff' : NAVY, userSelect: 'none' }}>
+        <input type="radio" checked={value === v} onChange={() => onChange(v)}
+          style={{ accentColor: NAVY, width: 14, height: 14 }} />
+        {v ? 'Yes' : 'No'}
+      </label>
+    ))}
+  </div>
+);
+
+/* ── Date text input with calendar picker ── */
+const DateInput = ({ value, onChange }) => {
+  const calRef = useRef();
+  return (
+    <div style={{ position: 'relative' }}>
+      <input type="text" value={value} placeholder="DD/MM/YYYY" maxLength={10}
+        onChange={e => {
+          let v = e.target.value.replace(/[^\d]/g, '');
+          if (v.length > 2) v = v.slice(0,2) + '/' + v.slice(2);
+          if (v.length > 5) v = v.slice(0,5) + '/' + v.slice(5);
+          onChange(v);
+        }}
+        style={{ ...iStyle, paddingRight: 36 }} />
+      <input ref={calRef} type="date" style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: 0, height: 0, top: 0, right: 0 }}
+        onChange={e => { const [y,m,d] = (e.target.value||'').split('-'); if(y&&m&&d) onChange(`${d}/${m}/${y}`); }} />
+      <button type="button" onClick={() => calRef.current.showPicker?.() || calRef.current.click()}
+        style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: '#6b7280', display: 'flex', alignItems: 'center' }}>
+        <svg focusable="false" aria-hidden="true" viewBox="0 0 24 24" style={{ width: 18, height: 18, fill: 'currentColor' }}>
+          <path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z" />
+        </svg>
+      </button>
+    </div>
+  );
+};
+
+/* ── Profession options for Add Supplier ── */
+const PROFESSIONS = [
+  { value: 'bathroom',        label: 'Bathroom Fitter' },
+  { value: 'metalworker',     label: 'Blacksmith / Metal Worker' },
+  { value: 'bricklayer',      label: 'Bricklayer' },
+  { value: 'builder',         label: 'Builder' },
+  { value: 'carpenter',       label: 'Carpenter / Joiner' },
+  { value: 'network',         label: 'CCTV / Satellites / Alarms' },
+  { value: 'cleaner',         label: 'Cleaner' },
+  { value: 'drainage',        label: 'Drainage Specialist' },
+  { value: 'driveway',        label: 'Driveway Pavers' },
+  { value: 'electrician',     label: 'Electrician' },
+  { value: 'flooring',        label: 'Floor Fitters' },
+  { value: 'gardener',        label: 'Gardener / Landscape Gardeners' },
+  { value: 'heating',         label: 'Gas / Heating Engineer' },
+  { value: 'handyman',        label: 'Handyman' },
+  { value: 'hvac',            label: 'HVAC' },
+  { value: 'kitchen',         label: 'Kitchen Specialist' },
+  { value: 'lawyer',          label: 'Lawyer' },
+  { value: 'locksmiths',      label: 'Locksmith' },
+  { value: 'loft',            label: 'Loft Conversion Specialist' },
+  { value: 'other',           label: 'Other' },
+  { value: 'decorator',       label: 'Painter and Decorator' },
+  { value: 'pest',            label: 'Pest Control' },
+  { value: 'plasterer',       label: 'Plasterer / Renderer' },
+  { value: 'plumber',         label: 'Plumber' },
+  { value: 'propertymanager', label: 'Property Manager' },
+  { value: 'removal',         label: 'Removal' },
+  { value: 'roofer',          label: 'Roofer' },
+  { value: 'security',        label: 'Security Systems / Alarms' },
+  { value: 'specialist',      label: 'Specialist Tradesman' },
+  { value: 'stoneworker',     label: 'Stoneworker / Stonemason' },
+  { value: 'pool',            label: 'Swimming Pool Specialist' },
+  { value: 'tiler',           label: 'Tiler' },
+  { value: 'craftsman',       label: 'Traditional Craftsman' },
+  { value: 'tree',            label: 'Tree Surgeon' },
+  { value: 'windows',         label: 'Window Fitter / Conservatory Installer' },
+];
+
+/* ── Add Supplier sub-modal ── */
+const AddSupplierModal = ({ onClose, onSaved }) => {
+  const [form, setForm] = useState({ name: '', profession: 'bathroom', email: '', phone: '', mobile: '' });
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!form.name.trim()) return toast.error('Name is required');
+    try {
+      setSaving(true);
+      const res = await axios.post(`${backendUrl}${API.suppliers}`, form);
+      toast.success('Supplier added');
+      onSaved(res.data.data);
+      onClose();
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Failed to save supplier');
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+      onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ background: '#fff', borderRadius: 8, width: '100%', maxWidth: 440, boxShadow: '0 8px 40px rgba(4,34,56,0.22)', fontFamily: FONT, overflow: 'hidden' }}>
+        {/* Header */}
+        <div style={{ position: 'relative', padding: '18px 24px', borderBottom: '1px solid #e4e9f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <h3 style={{ margin: 0, fontFamily: FONT, fontSize: 17, fontWeight: 700, color: NAVY }}>Add Supplier</h3>
+          <button onClick={onClose} style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', display: 'flex', alignItems: 'center' }}>
+            <X size={18} />
+          </button>
+        </div>
+        {/* Body */}
+        <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <label style={lStyle}>Name <span style={{ color: '#ef4444' }}>*</span></label>
+            <input type="text" value={form.name} placeholder="Enter name"
+              onChange={e => setForm(p => ({ ...p, name: e.target.value }))} style={iStyle} />
+          </div>
+          <div>
+            <label style={lStyle}>Profession <span style={{ color: '#ef4444' }}>*</span></label>
+            <select value={form.profession} onChange={e => setForm(p => ({ ...p, profession: e.target.value }))} style={iStyle}>
+              {PROFESSIONS.map(pr => <option key={pr.value} value={pr.value}>{pr.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={lStyle}>Email Address</label>
+            <input type="email" value={form.email} placeholder="Enter email"
+              onChange={e => setForm(p => ({ ...p, email: e.target.value }))} style={iStyle} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={lStyle}>Phone Number</label>
+              <input type="text" value={form.phone} placeholder="Enter phone"
+                onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} style={iStyle} />
+            </div>
+            <div>
+              <label style={lStyle}>Mobile Number</label>
+              <input type="text" value={form.mobile} placeholder="Enter mobile"
+                onChange={e => setForm(p => ({ ...p, mobile: e.target.value }))} style={iStyle} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 4 }}>
+            <button onClick={handleSave} disabled={saving}
+              style={{ fontFamily: FONT, fontSize: 14, fontWeight: 600, color: '#fff', background: '#2563eb', border: 'none', borderRadius: 6, padding: '9px 24px', cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ── Add Expense Modal ── */
+const ExpenseModal = ({ onClose, onSaved }) => {
+  const [form, setForm] = useState({
+    dueDate: '', amount: '', category: "Accountant's Fees",
+    description: '', status: 'unpaid', paymentDate: '',
+    payableByTenant: false, capitalExpense: false, notes: '',
+    supplier: '',
+  });
+  const [receipt,           setReceipt]           = useState(null);
+  const [saving,            setSaving]             = useState(false);
+  const [suppliers,         setSuppliers]          = useState([]);
+  const [addSupplierOpen,   setAddSupplierOpen]    = useState(false);
+  const fileRef = useRef();
+
+  useEffect(() => {
+    axios.get(`${backendUrl}${API.suppliers}`)
+      .then(r => setSuppliers(r.data.data || []))
+      .catch(() => {});
+  }, []);
+
+  const parseDate = (str) => {
+    const [d, m, y] = (str || '').split('/');
+    if (!d || !m || !y || y.length !== 4) return null;
+    const iso = `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+    return isNaN(Date.parse(iso)) ? null : iso;
+  };
+
+  const handleSave = async () => {
+    const isoDue = parseDate(form.dueDate);
+    if (!isoDue) return toast.error('Enter a valid due date (DD/MM/YYYY)');
+    if (!form.amount) return toast.error('Amount is required');
+    try {
+      setSaving(true);
+      const fd = new FormData();
+      fd.append('dueDate', isoDue);
+      fd.append('amount', Number(form.amount));
+      fd.append('category', form.category);
+      if (form.description) fd.append('description', form.description);
+      fd.append('status', form.status);
+      if (form.paymentDate) { const iso = parseDate(form.paymentDate); if (iso) fd.append('paymentDate', iso); }
+      fd.append('payableByTenant', form.payableByTenant);
+      fd.append('capitalExpense', form.capitalExpense);
+      if (form.notes) fd.append('notes', form.notes);
+      if (form.supplier) fd.append('supplier', form.supplier);
+      if (receipt) fd.append('receiptImage', receipt);
+      await axios.post(`${backendUrl}${API.expenses}`, fd);
+      toast.success('Expense added');
+      onSaved();
+      onClose();
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Failed to save');
+    } finally { setSaving(false); }
+  };
+
+  const ALLOWED = ['image/jpeg','image/png','image/gif','image/webp','image/bmp',
+    'application/pdf','application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(4,34,56,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '24px 16px', overflowY: 'auto' }}
+      onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ background: '#fff', borderRadius: 8, width: '100%', maxWidth: 560, boxShadow: '0 8px 40px rgba(4,34,56,0.18)', fontFamily: FONT, margin: 'auto' }}>
+
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button onClick={onClose} aria-label="Close"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: FONT, fontSize: 20, lineHeight: 1, color: '#6b7280', padding: '0 4px', display: 'flex', alignItems: 'center' }}>
+              <span aria-hidden="true">×</span>
+            </button>
+            <h2 style={{ fontFamily: FONT, fontSize: 20, fontWeight: 700, color: NAVY, margin: 0 }}>Add New Expense</h2>
+          </div>
+          <button onClick={handleSave} disabled={saving}
+            style={{ fontFamily: FONT, fontSize: 14, fontWeight: 600, color: '#fff', background: '#2563eb', border: 'none', borderRadius: 6, padding: '9px 22px', cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+
+        {/* Body card */}
+        <div style={{ margin: '0 16px 20px', border: '1px solid #e4e9f0', borderRadius: 8, padding: '20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+          {/* Add Receipt Image */}
+          <div>
+            <label style={lStyle}>Add Receipt Image</label>
+            <input ref={fileRef} type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp,image/bmp,.pdf,.doc,.docx,.xls,.xlsx"
+              style={{ display: 'none' }}
+              onChange={e => {
+                const f = e.target.files[0];
+                if (!f) return;
+                if (!ALLOWED.includes(f.type)) { toast.error('Only images and documents are allowed'); e.target.value = ''; return; }
+                setReceipt(f);
+              }} />
+            {receipt ? (
+              <div style={{ border: '1px solid #e4e9f0', borderRadius: 8, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10, background: '#f8fafc' }}>
+                <div style={{ width: 32, height: 32, background: '#fee2e2', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg viewBox="0 0 24 24" style={{ width: 16, height: 16, fill: '#dc2626' }}>
+                    <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8zm4 18H6V4h8v4h4z" />
+                  </svg>
+                </div>
+                <span style={{ flex: 1, fontSize: 12, color: '#2563eb', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{receipt.name}</span>
+                <button type="button" onClick={() => setReceipt(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', display: 'flex', padding: 2 }}><X size={15} /></button>
+              </div>
+            ) : (
+              <div onClick={() => fileRef.current.click()}
+                style={{ border: '2px dashed #93c5fd', borderRadius: 8, padding: '22px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, cursor: 'pointer', background: '#fff' }}>
+                <div style={{ position: 'relative', width: 42, height: 50 }}>
+                  <svg viewBox="0 0 48 56" fill="none" style={{ width: 42, height: 50 }}>
+                    <rect x="2" y="2" width="44" height="52" rx="5" fill="#dbeafe" />
+                    <path d="M10 18h28M10 26h20" stroke="#93c5fd" strokeWidth="3" strokeLinecap="round" />
+                  </svg>
+                  <div style={{ position: 'absolute', bottom: -4, right: -4, width: 18, height: 18, background: '#2563eb', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg viewBox="0 0 12 12" style={{ width: 9, height: 9 }} fill="none">
+                      <path d="M6 2v8M2 6h8" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+                  </div>
+                </div>
+                <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: NAVY }}>Upload receipt</span>
+                <span style={{ fontFamily: FONT, fontSize: 12, color: '#2563eb', textAlign: 'center' }}>Submit an image of the receipt and we'll do the rest.</span>
+              </div>
+            )}
+          </div>
+
+          {/* Due Date */}
+          <div>
+            <label style={lStyle}>Due Date</label>
+            <DateInput value={form.dueDate} onChange={v => setForm(p => ({ ...p, dueDate: v }))} />
+          </div>
+
+          {/* Total Amount */}
+          <div>
+            <label style={lStyle}>Total Amount (TZS)</label>
+            <div style={{ position: 'relative' }}>
+              <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontFamily: FONT, fontSize: 14, color: '#6b7280' }}>TZS</span>
+              <input type="number" min="0" step="0.01" value={form.amount} placeholder="0.00"
+                onChange={e => setForm(p => ({ ...p, amount: e.target.value }))}
+                style={{ ...iStyle, paddingLeft: 48 }} />
+            </div>
+          </div>
+
+          {/* Category */}
+          <div>
+            <label style={lStyle}>Category</label>
+            <select value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))} style={iStyle}>
+              {EXPENSE_CATS.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+
+          {/* Supplier */}
+          <div>
+            <label style={lStyle}>Supplier</label>
+            <select value={form.supplier} onChange={e => setForm(p => ({ ...p, supplier: e.target.value }))} style={iStyle}>
+              <option value=""></option>
+              {suppliers.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+            </select>
+            <div style={{ textAlign: 'right', marginTop: 4 }}>
+              <button type="button" onClick={() => setAddSupplierOpen(true)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: FONT, fontSize: 12, color: '#2563eb', fontWeight: 600, padding: '2px 0' }}>
+                Add Supplier
+              </button>
+            </div>
+          </div>
+
+          {/* Description */}
+          <div>
+            <label style={lStyle}>Description</label>
+            <input type="text" value={form.description} placeholder="Enter description"
+              onChange={e => setForm(p => ({ ...p, description: e.target.value }))} style={iStyle} />
+          </div>
+
+          {/* Paid? + Payment Date */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div>
+              <label style={lStyle}>Paid?</label>
+              <YesNo value={form.status === 'paid'} onChange={v => setForm(p => ({ ...p, status: v ? 'paid' : 'unpaid' }))} />
+            </div>
+            <div>
+              <label style={lStyle}>Payment Date</label>
+              <DateInput value={form.paymentDate} onChange={v => setForm(p => ({ ...p, paymentDate: v }))} />
+            </div>
+          </div>
+
+          {/* Payable by Tenant? + Capital Expense? */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div>
+              <label style={lStyle}>Payable by Tenant?</label>
+              <YesNo value={form.payableByTenant} onChange={v => setForm(p => ({ ...p, payableByTenant: v }))} />
+            </div>
+            <div>
+              <label style={lStyle}>Capital Expense?</label>
+              <YesNo value={form.capitalExpense} onChange={v => setForm(p => ({ ...p, capitalExpense: v }))} />
+            </div>
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label style={lStyle}>Notes</label>
+            <textarea rows={3} value={form.notes} placeholder="Enter notes"
+              onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
+              style={{ ...iStyle, resize: 'vertical' }} />
+          </div>
+        </div>
+      </div>
+
+      {/* Add Supplier sub-modal */}
+      {addSupplierOpen && (
+        <AddSupplierModal
+          onClose={() => setAddSupplierOpen(false)}
+          onSaved={(newSupplier) => {
+            setSuppliers(prev => [...prev, newSupplier]);
+            setForm(p => ({ ...p, supplier: newSupplier._id }));
+          }}
+        />
+      )}
+    </div>
+  );
+};
+
+/* ── Move To Modal ── */
+const MoveToModal = ({ selectedIds, onClose, onSaved }) => {
+  const [houses,  setHouses]  = useState([]);
+  const [houseId, setHouseId] = useState('');
+  const [saving,  setSaving]  = useState(false);
+
+  useEffect(() => {
+    axios.get(`${backendUrl}${API.houses}`)
+      .then(r => setHouses(r.data.data || r.data.houses || []))
+      .catch(() => {});
+  }, []);
+
+  const handleMove = async () => {
+    if (!houseId) return toast.error('Please select a property');
+    try {
+      setSaving(true);
+      await Promise.all(selectedIds.map(id =>
+        axios.put(`${backendUrl}${API.expenses}/${id}`, { house: houseId })
+      ));
+      toast.success(`Moved ${selectedIds.length} expense(s)`);
+      onSaved();
+    } catch {
+      toast.error('Failed to move expenses');
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+      onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ background: '#fff', borderRadius: 8, width: '100%', maxWidth: 420, boxShadow: '0 8px 40px rgba(4,34,56,0.22)', fontFamily: FONT, overflow: 'hidden' }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 24px', borderBottom: '1px solid #e4e9f0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <svg viewBox="0 0 24 24" style={{ width: 20, height: 20, fill: '#6366f1', flexShrink: 0 }}>
+              <path d="M6.99 11 3 15l3.99 4v-3H14v-2H6.99zM21 9l-3.99-4v3H10v2h7.01v3z" />
+            </svg>
+            <h3 style={{ margin: 0, fontFamily: FONT, fontSize: 17, fontWeight: 700, color: NAVY }}>
+              Move to Property
+            </h3>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', display: 'flex', alignItems: 'center', padding: 4 }}>
+            <X size={18} />
+          </button>
+        </div>
+        {/* Body */}
+        <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <p style={{ margin: 0, fontFamily: FONT, fontSize: 13, color: '#6b7280' }}>
+            Moving <strong style={{ color: NAVY }}>{selectedIds.length}</strong> selected expense{selectedIds.length !== 1 ? 's' : ''} to:
+          </p>
+          <div>
+            <label style={lStyle}>Property</label>
+            <select value={houseId} onChange={e => setHouseId(e.target.value)} style={iStyle}>
+              <option value="">— Select a property —</option>
+              {houses.map(h => (
+                <option key={h._id} value={h._id}>{h.name || h.address || h._id}</option>
+              ))}
+            </select>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, paddingTop: 4 }}>
+            <button onClick={onClose}
+              style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: '#6b7280', background: 'none', border: '1px solid #c8d0db', borderRadius: 6, padding: '8px 18px', cursor: 'pointer' }}>
+              Cancel
+            </button>
+            <button onClick={handleMove} disabled={saving}
+              style={{ fontFamily: FONT, fontSize: 14, fontWeight: 600, color: '#fff', background: '#6366f1', border: 'none', borderRadius: 6, padding: '9px 22px', cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
+              {saving ? 'Moving…' : 'Move'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ── Edit Expense Modal ── */
+const EditExpenseModal = ({ expense: init, onClose, onSaved }) => {
+  const toDisplay = (iso) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d)) return '';
+    return `${String(d.getUTCDate()).padStart(2,'0')}/${String(d.getUTCMonth()+1).padStart(2,'0')}/${d.getUTCFullYear()}`;
+  };
+
+  const [form, setForm] = useState({
+    dueDate:         toDisplay(init.dueDate),
+    amount:          init.amount != null ? String(init.amount) : '',
+    category:        init.category || "Accountant's Fees",
+    description:     init.description || '',
+    status:          init.status || 'unpaid',
+    paymentDate:     toDisplay(init.paymentDate),
+    payableByTenant: !!init.payableByTenant,
+    capitalExpense:  !!init.capitalExpense,
+    notes:           init.notes || '',
+    supplier:        init.supplier || '',
+  });
+  const [existingReceipt, setExistingReceipt] = useState(null);
+  const [existingName,    setExistingName]    = useState(init.receiptName || null);
+  const [receipt,         setReceipt]         = useState(null);
+  const [loadingReceipt,  setLoadingReceipt]  = useState(false);
+  const [saving,          setSaving]          = useState(false);
+  const [confirmDelete,   setConfirmDelete]   = useState(false);
+  const [deleting,        setDeleting]        = useState(false);
+  const [suppliers,       setSuppliers]       = useState([]);
+  const [addSupplierOpen, setAddSupplierOpen] = useState(false);
+  const fileRef = useRef();
+
+  const ALLOWED = ['image/jpeg','image/png','image/gif','image/webp','image/bmp',
+    'application/pdf','application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
+
+  useEffect(() => {
+    axios.get(`${backendUrl}${API.suppliers}`)
+      .then(r => setSuppliers(r.data.data || [])).catch(() => {});
+    if (init.receiptName) {
+      setLoadingReceipt(true);
+      axios.get(`${backendUrl}${API.expense(init._id)}`)
+        .then(r => {
+          const full = r.data.data;
+          if (full.receiptImage) { setExistingReceipt(full.receiptImage); setExistingName(full.receiptName || 'receipt'); }
+        }).catch(() => {}).finally(() => setLoadingReceipt(false));
+    }
+  }, []);
+
+  const parseDate = (str) => {
+    const [d, m, y] = (str || '').split('/');
+    if (!d || !m || !y || y.length !== 4) return null;
+    const iso = `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+    return isNaN(Date.parse(iso)) ? null : iso;
+  };
+
+  const handleSave = async () => {
+    const isoDue = parseDate(form.dueDate);
+    if (!isoDue) return toast.error('Enter a valid due date (DD/MM/YYYY)');
+    if (!form.amount) return toast.error('Amount is required');
+    try {
+      setSaving(true);
+      const fd = new FormData();
+      fd.append('dueDate', isoDue);
+      fd.append('amount', Number(form.amount));
+      fd.append('category', form.category);
+      if (form.description) fd.append('description', form.description);
+      fd.append('status', form.status);
+      if (form.paymentDate) { const iso = parseDate(form.paymentDate); if (iso) fd.append('paymentDate', iso); }
+      fd.append('payableByTenant', form.payableByTenant);
+      fd.append('capitalExpense', form.capitalExpense);
+      if (form.notes) fd.append('notes', form.notes);
+      if (form.supplier) fd.append('supplier', form.supplier);
+      if (receipt) fd.append('receiptImage', receipt);
+      if (!existingReceipt && !receipt && init.receiptName) fd.append('removeReceipt', 'true');
+      await axios.put(`${backendUrl}${API.expenses}/${init._id}`, fd);
+      toast.success('Expense updated');
+      onSaved();
+      onClose();
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Failed to save');
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(4,34,56,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '24px 16px', overflowY: 'auto' }}
+      onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ background: '#fff', borderRadius: 8, width: '100%', maxWidth: 560, boxShadow: '0 8px 40px rgba(4,34,56,0.18)', fontFamily: FONT, margin: 'auto' }}>
+
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: FONT, fontSize: 20, lineHeight: 1, color: '#6b7280', padding: '0 4px', display: 'flex', alignItems: 'center' }}>
+              <span aria-hidden="true">×</span>
+            </button>
+            <h2 style={{ fontFamily: FONT, fontSize: 20, fontWeight: 700, color: NAVY, margin: 0 }}>Edit Expense</h2>
+          </div>
+          <button onClick={handleSave} disabled={saving}
+            style={{ fontFamily: FONT, fontSize: 14, fontWeight: 600, color: '#fff', background: '#2563eb', border: 'none', borderRadius: 6, padding: '9px 22px', cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+
+        {/* Body card */}
+        <div style={{ margin: '0 16px 8px', border: '1px solid #e4e9f0', borderRadius: 8, padding: '20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+          {/* Receipt */}
+          <div>
+            <label style={lStyle}>{existingReceipt || receipt ? 'Receipt Image' : 'Add Receipt Image'}</label>
+            <input ref={fileRef} type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp,image/bmp,.pdf,.doc,.docx,.xls,.xlsx"
+              style={{ display: 'none' }}
+              onChange={e => {
+                const f = e.target.files[0]; if (!f) return;
+                if (!ALLOWED.includes(f.type)) { toast.error('Only images and documents are allowed'); e.target.value = ''; return; }
+                setReceipt(f); setExistingReceipt(null);
+              }} />
+            {loadingReceipt ? (
+              <div style={{ border: '1px solid #e4e9f0', borderRadius: 8, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 10, color: '#8a9ab0', fontSize: 13 }}>
+                <div style={{ width: 16, height: 16, border: '2px solid #c8d0db', borderTopColor: TEAL, borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+                Loading receipt…
+              </div>
+            ) : (existingReceipt || receipt) ? (
+              <div style={{ border: '1px solid #e4e9f0', borderRadius: 8, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10, background: '#f8fafc' }}>
+                <div style={{ width: 32, height: 32, background: '#fee2e2', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg viewBox="0 0 24 24" style={{ width: 16, height: 16, fill: '#dc2626' }}><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8zm4 18H6V4h8v4h4z" /></svg>
+                </div>
+                {receipt ? (
+                  <span style={{ flex: 1, fontSize: 12, color: '#2563eb', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{receipt.name}</span>
+                ) : (
+                  <a href={existingReceipt} download={existingName} target="_blank" rel="noopener noreferrer"
+                    style={{ flex: 1, fontSize: 12, color: '#2563eb', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'none' }}>{existingName}</a>
+                )}
+                <button type="button" onClick={() => { setReceipt(null); setExistingReceipt(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', display: 'flex', padding: 2 }}><X size={15} /></button>
+              </div>
+            ) : (
+              <div onClick={() => fileRef.current.click()}
+                style={{ border: '2px dashed #93c5fd', borderRadius: 8, padding: '22px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, cursor: 'pointer', background: '#fff' }}>
+                <div style={{ position: 'relative', width: 42, height: 50 }}>
+                  <svg viewBox="0 0 48 56" fill="none" style={{ width: 42, height: 50 }}>
+                    <rect x="2" y="2" width="44" height="52" rx="5" fill="#dbeafe" />
+                    <path d="M10 18h28M10 26h20" stroke="#93c5fd" strokeWidth="3" strokeLinecap="round" />
+                  </svg>
+                  <div style={{ position: 'absolute', bottom: -4, right: -4, width: 18, height: 18, background: '#2563eb', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg viewBox="0 0 12 12" style={{ width: 9, height: 9 }} fill="none"><path d="M6 2v8M2 6h8" stroke="#fff" strokeWidth="2" strokeLinecap="round" /></svg>
+                  </div>
+                </div>
+                <span style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>Upload receipt</span>
+                <span style={{ fontSize: 12, color: '#2563eb' }}>Submit an image of the receipt and we'll do the rest.</span>
+              </div>
+            )}
+          </div>
+
+          {/* Due Date */}
+          <div><label style={lStyle}>Due Date</label><DateInput value={form.dueDate} onChange={v => setForm(p => ({ ...p, dueDate: v }))} /></div>
+
+          {/* Total Amount */}
+          <div>
+            <label style={lStyle}>Total Amount (TZS)</label>
+            <div style={{ position: 'relative' }}>
+              <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 14, color: '#6b7280' }}>TZS</span>
+              <input type="number" min="0" step="0.01" value={form.amount} placeholder="0.00"
+                onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} style={{ ...iStyle, paddingLeft: 48 }} />
+            </div>
+          </div>
+
+          {/* Category */}
+          <div>
+            <label style={lStyle}>Category</label>
+            <select value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))} style={iStyle}>
+              {EXPENSE_CATS.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+
+          {/* Supplier */}
+          <div>
+            <label style={lStyle}>Supplier</label>
+            <select value={form.supplier} onChange={e => setForm(p => ({ ...p, supplier: e.target.value }))} style={iStyle}>
+              <option value=""></option>
+              {suppliers.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+            </select>
+            <div style={{ textAlign: 'right', marginTop: 4 }}>
+              <button type="button" onClick={() => setAddSupplierOpen(true)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: FONT, fontSize: 12, color: '#2563eb', fontWeight: 600, padding: '2px 0' }}>
+                Add Supplier
+              </button>
+            </div>
+          </div>
+
+          {/* Description */}
+          <div>
+            <label style={lStyle}>Description</label>
+            <input type="text" value={form.description} placeholder="Enter description"
+              onChange={e => setForm(p => ({ ...p, description: e.target.value }))} style={iStyle} />
+          </div>
+
+          {/* Paid? + Payment Date */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div><label style={lStyle}>Paid?</label><YesNo value={form.status === 'paid'} onChange={v => setForm(p => ({ ...p, status: v ? 'paid' : 'unpaid' }))} /></div>
+            <div><label style={lStyle}>Payment Date</label><DateInput value={form.paymentDate} onChange={v => setForm(p => ({ ...p, paymentDate: v }))} /></div>
+          </div>
+
+          {/* Payable by Tenant? + Capital Expense? */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div><label style={lStyle}>Payable by Tenant?</label><YesNo value={form.payableByTenant} onChange={v => setForm(p => ({ ...p, payableByTenant: v }))} /></div>
+            <div><label style={lStyle}>Capital Expense?</label><YesNo value={form.capitalExpense} onChange={v => setForm(p => ({ ...p, capitalExpense: v }))} /></div>
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label style={lStyle}>Notes</label>
+            <textarea rows={3} value={form.notes} placeholder="Enter notes"
+              onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} style={{ ...iStyle, resize: 'vertical' }} />
+          </div>
+        </div>
+
+        {/* Delete button */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 24px 20px' }}>
+          <button type="button" onClick={() => setConfirmDelete(true)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: FONT, fontSize: 15, fontWeight: 700, color: '#C71E11', padding: '6px 0' }}>
+            Delete
+          </button>
+        </div>
+      </div>
+
+      {/* Confirm delete dialog */}
+      {confirmDelete && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+          <div style={{ background: '#fff', borderRadius: 16, maxWidth: 480, width: '100%', boxShadow: '0px 11px 15px -7px rgba(0,0,0,0.2),0px 24px 38px 3px rgba(0,0,0,0.14)', overflow: 'hidden' }}>
+            <div style={{ padding: '20px 24px 8px', fontFamily: FONT, fontSize: 18, fontWeight: 700, color: NAVY }}>Confirmation</div>
+            <div style={{ padding: '8px 24px 16px', fontFamily: FONT, fontSize: 15, color: NAVY }}>Are you sure you want to delete this expense?</div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '8px 16px 16px' }}>
+              <button onClick={() => setConfirmDelete(false)}
+                style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: '#0ea5e9', background: 'none', border: 'none', borderRadius: 4, padding: '6px 12px', cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button disabled={deleting} onClick={async () => {
+                try {
+                  setDeleting(true);
+                  await axios.delete(`${backendUrl}${API.expenses}/${init._id}`);
+                  toast.success('Expense deleted'); onSaved(); onClose();
+                } catch { toast.error('Failed to delete'); setDeleting(false); setConfirmDelete(false); }
+              }}
+                style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: '#fff', background: '#C71E11', border: 'none', borderRadius: 4, padding: '6px 16px', cursor: 'pointer', opacity: deleting ? 0.7 : 1 }}>
+                {deleting ? 'Deleting…' : 'Yes, delete expense'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {addSupplierOpen && (
+        <AddSupplierModal
+          onClose={() => setAddSupplierOpen(false)}
+          onSaved={s => { setSuppliers(prev => [...prev, s]); setForm(p => ({ ...p, supplier: s._id })); }}
+        />
+      )}
+    </div>
+  );
+};
+
+/* ── Main Payments Page ── */
+const Payments = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [tab, setTabState] = useState(searchParams.get('view') || 'payments');
+
+  /* Payments state */
+  const [orgPayments,   setOrgPayments]   = useState([]);
+  const [orgPaySearch,  setOrgPaySearch]  = useState('');
+  const [payModalOpen,  setPayModalOpen]  = useState(false);
+  const [editingPayment, setEditingPayment] = useState(null);
+
+  /* Expenses state */
+  const [expenses,       setExpenses]       = useState([]);
+  const [expSearch,      setExpSearch]      = useState('');
+  const [expModalOpen,   setExpModalOpen]   = useState(false);
+  const [editingExpense, setEditingExpense] = useState(null);
+  const [selectedExp,    setSelectedExp]    = useState(new Set());
+  const [actionsOpen,    setActionsOpen]    = useState(false);
+  const [actionsPos,     setActionsPos]     = useState(null);
+  const [moveToOpen,     setMoveToOpen]     = useState(false);
+  const actionsRef    = useRef();
+  const actionsBtnRef = useRef();
+
+  // preview: { name, fetchUrl }
+  const [preview, setPreview] = useState(null);
+
+  const setTab = (t) => { setTabState(t); setSearchParams({ view: t }); };
+
+  useEffect(() => {
+    if (!actionsOpen) return;
+    const close = (e) => {
+      if (actionsRef.current && !actionsRef.current.contains(e.target)) {
+        setActionsOpen(false);
+        setActionsPos(null);
+      }
+    };
+    const reset = () => { setActionsOpen(false); setActionsPos(null); };
+    document.addEventListener('mousedown', close);
+    window.addEventListener('scroll', reset, true);
+    window.addEventListener('resize', reset);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      window.removeEventListener('scroll', reset, true);
+      window.removeEventListener('resize', reset);
+    };
+  }, [actionsOpen]);
+
+  const fetchOrgPayments = () => {
+    axios.get(`${backendUrl}${API.orgPayments}`)
+      .then(r => setOrgPayments(r.data.data || []))
+      .catch(() => {});
+  };
+
+  const fetchExpenses = () => {
+    axios.get(`${backendUrl}${API.expenses}`)
+      .then(r => setExpenses(r.data.data || []))
+      .catch(() => {});
+  };
+
+  useEffect(() => { fetchOrgPayments(); fetchExpenses(); }, []);
+
+  const filteredPayments = orgPayments.filter(p => {
+    if (!orgPaySearch) return true;
+    const q = orgPaySearch.toLowerCase();
+    return (p.category || '').toLowerCase().includes(q) || (p.notes || '').toLowerCase().includes(q);
+  });
+
+  const filteredExpenses = expenses.filter(e => {
+    if (!expSearch) return true;
+    const q = expSearch.toLowerCase();
+    return (e.category || '').toLowerCase().includes(q) || (e.description || '').toLowerCase().includes(q);
+  });
+
+  return (
+    <Layout>
+      <div style={{ fontFamily: FONT, fontSize: 14, color: NAVY, minHeight: '100vh', background: '#f5f6f8', paddingBottom: 50 }}>
+
+        {/* Page header */}
+        <div style={{ background: '#fff', borderBottom: '1px solid #e4e9f0' }}>
+          <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 24px' }}>
+            <div style={{ paddingTop: 24, paddingBottom: 0 }}>
+              <h1 style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: NAVY, margin: '0 0 16px' }}>Payments</h1>
+            </div>
 
             {/* Tab bar */}
-            <div style={{ display: 'flex', overflowX: 'auto' }}>
-              {[{ key: 'overview', label: 'Overview' }, { key: 'charges', label: 'Charges' }].map(t => (
-                <button
-                  key={t.key}
-                  onClick={() => setTab(t.key)}
+            <div style={{ display: 'flex' }}>
+              {[{ key: 'payments', label: 'Payments' }, { key: 'expenses', label: 'Expenses' }].map(t => (
+                <button key={t.key} onClick={() => setTab(t.key)}
                   style={{
                     fontFamily: FONT, fontSize: 13, fontWeight: 600,
                     letterSpacing: '0.05em', textTransform: 'uppercase',
@@ -654,526 +1371,258 @@ const Payments = () => {
           </div>
         </div>
 
-        {/* ── Body ── */}
+        {/* Body */}
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: '28px 24px', boxSizing: 'border-box' }}>
 
-          {/* ── OVERVIEW tab ── */}
-          {tab === 'overview' && (
-            <>
-              {/* Stats card */}
-              <div style={{
-                background: '#fff', border: '1px solid #e4e9f0', borderRadius: 6,
-                padding: '24px 28px', marginBottom: 20,
-                boxShadow: '0 1px 4px rgba(4,34,56,0.06)',
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-                  <h2 style={{ fontFamily: FONT, fontSize: 18, fontWeight: 700, color: NAVY, margin: 0 }}>
-                    {periodLabel}
-                  </h2>
-                  <div style={{ display: 'flex', borderRadius: 4, border: '1px solid #c8d0db', overflow: 'hidden' }}>
-                    {[{ key: 'month', label: 'Month-to-date' }, { key: 'year', label: 'Year-to-date' }].map((p, i) => (
-                      <button
-                        key={p.key}
-                        onClick={() => setPeriod(p.key)}
-                        style={{
-                          fontFamily: FONT, fontSize: 13, fontWeight: 600,
-                          color: period === p.key ? '#fff' : '#6b7280',
-                          background: period === p.key ? NAVY : '#fff',
-                          border: 'none', borderLeft: i > 0 ? '1px solid #c8d0db' : 'none',
-                          padding: '7px 16px', cursor: 'pointer', lineHeight: 1,
-                          transition: 'background 0.15s, color 0.15s',
-                        }}
-                      >
-                        {p.label}
-                      </button>
-                    ))}
-                  </div>
+          {/* ── PAYMENTS tab ── */}
+          {tab === 'payments' && (
+            <div style={{ background: '#fff', border: '1px solid #e4e9f0', borderRadius: 6, boxShadow: '0 1px 4px rgba(4,34,56,0.06)', overflow: 'hidden' }}>
+              {/* Toolbar */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: '1px solid #f0f2f5', gap: 12 }}>
+                <div style={{ position: 'relative', width: 240 }}>
+                  <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#8a9ab0', pointerEvents: 'none' }} />
+                  <input value={orgPaySearch} onChange={e => setOrgPaySearch(e.target.value)} placeholder="Search"
+                    style={{ width: '100%', fontFamily: FONT, fontSize: 13, color: NAVY, border: '1px solid #c8d0db', borderRadius: 4, padding: '7px 10px 7px 30px', outline: 'none', boxSizing: 'border-box' }} />
                 </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
-                  {statCards.map(card => (
-                    <div
-                      key={card.key}
-                      onClick={() => handleStatCardClick(card.key)}
-                      style={{
-                        background: NAVY, borderRadius: 4, padding: '18px 20px',
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        cursor: 'pointer', transition: 'opacity 0.15s',
-                      }}
-                      onMouseEnter={e => e.currentTarget.style.opacity = '0.88'}
-                      onMouseLeave={e => e.currentTarget.style.opacity = '1'}
-                    >
-                      <div>
-                        <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: TEAL, marginBottom: 6 }}>
-                          {card.label}
-                        </div>
-                        <div style={{ fontFamily: FONT, fontSize: 26, fontWeight: 700, color: '#fff', lineHeight: 1 }}>
-                          {fmt(statValues[card.key])}
-                        </div>
-                      </div>
-                      <ChevronRight size={18} color="#4da6d0" strokeWidth={2} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Rent roll card */}
-              <div style={{
-                background: '#fff', border: '1px solid #e4e9f0', borderRadius: 6,
-                padding: '24px 28px', boxShadow: '0 1px 4px rgba(4,34,56,0.06)',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24,
-                flexWrap: 'wrap',
-              }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-                  <div style={{ width: 40, height: 40, borderRadius: 6, background: '#eef6fb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <FileText size={20} color={TEAL} />
-                  </div>
-                  <div>
-                    <h3 style={{ fontFamily: FONT, fontSize: 15, fontWeight: 700, color: NAVY, margin: '0 0 4px' }}>
-                      Rent roll report
-                    </h3>
-                    <p style={{ fontFamily: FONT, fontSize: 13, color: '#6b7280', margin: 0, maxWidth: 520, lineHeight: 1.5 }}>
-                      A rent roll provides an itemized report of each unit's occupancy status and income.{' '}
-                      <span style={{ color: TEAL, cursor: 'pointer', textDecoration: 'underline' }}>Learn more</span>
-                    </p>
-                  </div>
-                </div>
-                <button
-                  style={{
-                    fontFamily: FONT, fontSize: 13, fontWeight: 700,
-                    letterSpacing: '0.06em', textTransform: 'uppercase',
-                    color: '#fff', background: TEAL, border: 'none', borderRadius: 100,
-                    padding: '10px 22px', cursor: 'pointer', whiteSpace: 'nowrap', lineHeight: 1, flexShrink: 0,
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#0589bf'}
-                  onMouseLeave={e => e.currentTarget.style.background = TEAL}
-                >
-                  Generate &amp; Export CSV
+                <button onClick={() => setPayModalOpen(true)}
+                  style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: '#fff', background: TEAL, border: 'none', borderRadius: 4, padding: '8px 16px', cursor: 'pointer' }}>
+                  + New
                 </button>
               </div>
-            </>
-          )}
-
-          {/* ── CHARGES tab ── */}
-          {tab === 'charges' && (
-            <div style={{
-              background: '#fff', border: '1px solid #e4e9f0', borderRadius: 6,
-              boxShadow: '0 1px 4px rgba(4,34,56,0.06)',
-            }}>
-              {/* Section title */}
-              <div style={{ padding: '20px 24px 16px' }}>
-                <h2 style={{ fontFamily: FONT, fontSize: 18, fontWeight: 700, color: NAVY, margin: 0 }}>
-                  Sent Charges
-                </h2>
-              </div>
-
-              {/* Filter bar */}
-              <div style={{ padding: '0 24px 16px' }} ref={filterBarRef}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-
-                  {/* Rentals dropdown */}
-                  <div style={{ position: 'relative' }}>
-                    <button
-                      onClick={() => setOpenFilter(openFilter === 'rentals' ? null : 'rentals')}
-                      style={filterBtnStyle(chargeFilters.rentals.length > 0)}
+              {/* Table */}
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: '#f5f6f8' }}>
+                    {['Date', 'Category', 'Notes', '', 'Amount', ''].map((h, i) => <th key={i} style={thStyle}>{h}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredPayments.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} style={{ padding: 0 }}><EmptyState /></td>
+                    </tr>
+                  ) : filteredPayments.map(p => (
+                    <tr key={p._id}
+                      onClick={() => { setEditingPayment(p); setPayModalOpen(true); }}
+                      style={{ cursor: 'pointer' }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                     >
-                      <KeyFilterIcon />
-                      {chargeFilters.rentals.length > 0
-                        ? `${chargeFilters.rentals.length} Rental${chargeFilters.rentals.length > 1 ? 's' : ''}`
-                        : 'Rentals'}
-                    </button>
-
-                    {openFilter === 'rentals' && (
-                      <div style={{ ...filterPanel, minWidth: 260 }}>
-                        {houses.length === 0 ? (
-                          <div style={{ padding: '16px', fontFamily: FONT, fontSize: 13, color: '#8a9ab0', textAlign: 'center' }}>
-                            No properties found
-                          </div>
-                        ) : (
-                          houses.map(h => (
-                            <label
-                              key={h._id}
-                              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 16px', cursor: 'pointer' }}
-                              onMouseEnter={e => e.currentTarget.style.background = '#f5f6f8'}
-                              onMouseLeave={e => e.currentTarget.style.background = 'none'}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={chargeFilters.rentals.includes(h._id)}
-                                onChange={e => setChargeFilters(f => ({
-                                  ...f,
-                                  rentals: e.target.checked
-                                    ? [...f.rentals, h._id]
-                                    : f.rentals.filter(id => id !== h._id),
-                                }))}
-                                style={{ accentColor: NAVY, width: 14, height: 14, cursor: 'pointer' }}
-                              />
-                              <span style={{ fontFamily: FONT, fontSize: 13, color: NAVY }}>
-                                {h.address ? h.address : h.name}{h.city ? `, ${h.city}` : ''}
-                              </span>
-                            </label>
-                          ))
-                        )}
-
-                        <div style={{ borderTop: '1px solid #e4e9f0', padding: '10px 16px 6px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                      <td style={tdStyle}>{new Date(p.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                      <td style={tdStyle}><CatBadge value={p.category} /></td>
+                      <td style={{ ...tdStyle, color: '#6b7280' }}>{p.notes || '—'}</td>
+                      <td onClick={e => e.stopPropagation()} style={{ ...tdStyle, textAlign: 'center', padding: '4px 8px', width: 36 }}>
+                        {p.receiptName && (
                           <button
-                            onClick={() => setOpenFilter(null)}
-                            style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#fff', background: NAVY, border: 'none', borderRadius: 100, padding: '9px 0', cursor: 'pointer', width: '100%' }}
+                            onClick={() => setPreview({ name: p.receiptName, fetchUrl: API.orgPayment(p._id) })}
+                            title={p.receiptName}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2563eb', padding: 4, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 4 }}
+                            onMouseEnter={e => e.currentTarget.style.background = '#eff6ff'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'none'}
                           >
-                            Apply Filter
-                          </button>
-                          <button
-                            onClick={() => { setChargeFilters(f => ({ ...f, rentals: [] })); setOpenFilter(null); }}
-                            style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: TEAL, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0' }}
-                          >
-                            Clear Filters
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* All Leases dropdown */}
-                  <div style={{ position: 'relative' }}>
-                    <button
-                      onClick={() => { setOpenFilter(openFilter === 'leases' ? null : 'leases'); setLeaseSearch(''); }}
-                      style={filterBtnStyle(chargeFilters.leases.length > 0)}
-                    >
-                      <LeaseFilterIcon />
-                      {chargeFilters.leases.length > 0
-                        ? `${chargeFilters.leases.length} Lease${chargeFilters.leases.length > 1 ? 's' : ''}`
-                        : 'All Leases'}
-                    </button>
-
-                    {openFilter === 'leases' && (
-                      <div style={{ ...filterPanel, minWidth: 270 }}>
-                        {/* Search */}
-                        <div style={{ padding: '4px 12px 10px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #c8d0db', borderRadius: 4, padding: '6px 10px', gap: 6 }}>
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8a9ab0" strokeWidth="2">
-                              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                            <svg focusable="false" aria-hidden="true" viewBox="0 0 24 24" style={{ width: 18, height: 18, fill: '#2563eb' }}>
+                              <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8zm4 18H6V4h8v4h4zm-6-3c-1.1 0-2-.9-2-2V9.5c0-.28.22-.5.5-.5s.5.22.5.5V15h2V9.5C13 8.12 11.88 7 10.5 7S8 8.12 8 9.5V15c0 2.21 1.79 4 4 4s4-1.79 4-4v-4h-2v4c0 1.1-.9 2-2 2" />
                             </svg>
-                            <input
-                              value={leaseSearch}
-                              onChange={e => setLeaseSearch(e.target.value)}
-                              placeholder="Search..."
-                              autoFocus
-                              style={{ border: 'none', outline: 'none', fontFamily: FONT, fontSize: 13, color: NAVY, width: '100%', background: 'transparent' }}
-                            />
-                          </div>
-                        </div>
-
-                        {/* All Leases radio */}
-                        <div
-                          onClick={() => setChargeFilters(f => ({ ...f, leases: [] }))}
-                          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 16px', cursor: 'pointer' }}
-                          onMouseEnter={e => e.currentTarget.style.background = '#f5f6f8'}
-                          onMouseLeave={e => e.currentTarget.style.background = 'none'}
-                        >
-                          <RadioDot active={chargeFilters.leases.length === 0} />
-                          <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: NAVY }}>All Leases</span>
-                        </div>
-
-                        {filteredLeases.length > 0 && (
-                          <div style={{ display: 'flex', alignItems: 'center', padding: '6px 16px', gap: 8 }}>
-                            <div style={{ flex: 1, height: 1, background: '#e4e9f0' }} />
-                            <span style={{ fontFamily: FONT, fontSize: 11, color: '#8a9ab0', fontWeight: 700, letterSpacing: '0.04em' }}>OR</span>
-                            <div style={{ flex: 1, height: 1, background: '#e4e9f0' }} />
-                          </div>
+                          </button>
                         )}
-
-                        {filteredLeases.map(h => (
-                          <label
-                            key={h._id}
-                            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 16px', cursor: 'pointer' }}
-                            onMouseEnter={e => e.currentTarget.style.background = '#f5f6f8'}
-                            onMouseLeave={e => e.currentTarget.style.background = 'none'}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={chargeFilters.leases.includes(h._id)}
-                              onChange={e => setChargeFilters(f => ({
-                                ...f,
-                                leases: e.target.checked
-                                  ? [...f.leases, h._id]
-                                  : f.leases.filter(id => id !== h._id),
-                              }))}
-                              style={{ accentColor: NAVY, width: 14, height: 14, cursor: 'pointer' }}
-                            />
-                            <span style={{ fontFamily: FONT, fontSize: 13, color: NAVY }}>
-                              {h.name}{h.address ? ` — ${h.address}` : ''}
-                            </span>
-                          </label>
-                        ))}
-
-                        <div style={{ borderTop: '1px solid #e4e9f0', padding: '10px 16px 6px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                          <button
-                            onClick={() => setOpenFilter(null)}
-                            style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#fff', background: NAVY, border: 'none', borderRadius: 100, padding: '9px 0', cursor: 'pointer', width: '100%' }}
-                          >
-                            Apply Filter
-                          </button>
-                          <button
-                            onClick={() => { setChargeFilters(f => ({ ...f, leases: [] })); setOpenFilter(null); }}
-                            style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: TEAL, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0' }}
-                          >
-                            Clear Filters
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* All Categories dropdown */}
-                  <div style={{ position: 'relative' }}>
-                    <button
-                      onClick={() => setOpenFilter(openFilter === 'categories' ? null : 'categories')}
-                      style={filterBtnStyle(chargeFilters.categories.length > 0)}
-                    >
-                      <CoinFilterIcon />
-                      {chargeFilters.categories.length > 0
-                        ? chargeFilters.categories.length === 1
-                          ? chargeFilters.categories[0]
-                          : `${chargeFilters.categories.length} Categories`
-                        : 'All Categories'}
-                    </button>
-
-                    {openFilter === 'categories' && (
-                      <div style={{ ...filterPanel, minWidth: 220 }}>
-                        {/* All Categories radio */}
-                        <div
-                          onClick={() => setChargeFilters(f => ({ ...f, categories: [] }))}
-                          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 16px', cursor: 'pointer' }}
-                          onMouseEnter={e => e.currentTarget.style.background = '#f5f6f8'}
-                          onMouseLeave={e => e.currentTarget.style.background = 'none'}
-                        >
-                          <RadioDot active={chargeFilters.categories.length === 0} />
-                          <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: NAVY }}>All Categories</span>
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', padding: '6px 16px', gap: 8 }}>
-                          <div style={{ flex: 1, height: 1, background: '#e4e9f0' }} />
-                          <span style={{ fontFamily: FONT, fontSize: 11, color: '#8a9ab0', fontWeight: 700, letterSpacing: '0.04em' }}>OR</span>
-                          <div style={{ flex: 1, height: 1, background: '#e4e9f0' }} />
-                        </div>
-
-                        {CATEGORIES.map(cat => (
-                          <label
-                            key={cat}
-                            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 16px', cursor: 'pointer' }}
-                            onMouseEnter={e => e.currentTarget.style.background = '#f5f6f8'}
-                            onMouseLeave={e => e.currentTarget.style.background = 'none'}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={chargeFilters.categories.includes(cat)}
-                              onChange={e => setChargeFilters(f => ({
-                                ...f,
-                                categories: e.target.checked
-                                  ? [...f.categories, cat]
-                                  : f.categories.filter(c => c !== cat),
-                              }))}
-                              style={{ accentColor: NAVY, width: 14, height: 14, cursor: 'pointer' }}
-                            />
-                            <span style={{ fontFamily: FONT, fontSize: 13, color: NAVY }}>{cat}</span>
-                          </label>
-                        ))}
-
-                        <div style={{ borderTop: '1px solid #e4e9f0', padding: '10px 16px 6px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                          <button
-                            onClick={() => setOpenFilter(null)}
-                            style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#fff', background: NAVY, border: 'none', borderRadius: 100, padding: '9px 0', cursor: 'pointer', width: '100%' }}
-                          >
-                            Apply Filter
-                          </button>
-                          <button
-                            onClick={() => { setChargeFilters(f => ({ ...f, categories: [] })); setOpenFilter(null); }}
-                            style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: TEAL, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0' }}
-                          >
-                            Clear Filters
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Status dropdown */}
-                  <div style={{ position: 'relative' }}>
-                    <button
-                      onClick={() => setOpenFilter(openFilter === 'status' ? null : 'status')}
-                      style={filterBtnStyle(chargeFilters.status !== 'all')}
-                    >
-                      <CoinFilterIcon />
-                      {STATUS_LABELS[chargeFilters.status]}
-                    </button>
-
-                    {openFilter === 'status' && (
-                      <div style={{ ...filterPanel, minWidth: 180 }}>
-                        {STATUS_OPTIONS.map(opt => (
-                          <div
-                            key={opt.value}
-                            onClick={() => setStatus(opt.value)}
-                            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 16px', cursor: 'pointer' }}
-                            onMouseEnter={e => e.currentTarget.style.background = '#f5f6f8'}
-                            onMouseLeave={e => e.currentTarget.style.background = 'none'}
-                          >
-                            <RadioDot active={chargeFilters.status === opt.value} />
-                            <span style={{ fontFamily: FONT, fontSize: 13, color: NAVY }}>{opt.label}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Date range dropdown */}
-                  <div style={{ position: 'relative' }}>
-                    <button
-                      onClick={() => setOpenFilter(openFilter === 'date' ? null : 'date')}
-                      style={filterBtnStyle(chargeFilters.dateRange !== 'all')}
-                    >
-                      <CalendarFilterIcon />
-                      {DATE_LABELS[chargeFilters.dateRange]}
-                    </button>
-
-                    {openFilter === 'date' && (
-                      <div style={{ ...filterPanel, minWidth: 180 }}>
-                        {DATE_OPTIONS.map(opt => (
-                          <div
-                            key={opt.value}
-                            onClick={() => setDateRange(opt.value)}
-                            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 16px', cursor: 'pointer' }}
-                            onMouseEnter={e => e.currentTarget.style.background = '#f5f6f8'}
-                            onMouseLeave={e => e.currentTarget.style.background = 'none'}
-                          >
-                            <RadioDot active={chargeFilters.dateRange === opt.value} />
-                            <span style={{ fontFamily: FONT, fontSize: 13, color: NAVY }}>{opt.label}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Reset all */}
-                  <button
-                    onClick={resetFilters}
-                    style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, letterSpacing: '0.04em', color: NAVY, background: 'none', border: 'none', cursor: 'pointer', padding: '7px 4px', lineHeight: 1 }}
-                    onMouseEnter={e => e.currentTarget.style.color = TEAL}
-                    onMouseLeave={e => e.currentTarget.style.color = NAVY}
-                  >
-                    RESET ALL
-                  </button>
-                </div>
-              </div>
-
-              {/* Divider */}
-              <div style={{ borderTop: '1px solid #e4e9f0' }} />
-
-              {loadingRecords ? (
-                <div style={{ padding: '60px 28px', textAlign: 'center', color: '#8a9ab0', fontFamily: FONT, fontSize: 13 }}>
-                  Loading…
-                </div>
-              ) : filteredCharges.length === 0 ? (
-                /* Empty state */
-                <div style={{ padding: '60px 28px 52px', textAlign: 'center' }}>
-                  <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 18 }}>
-                    <NoChargesIcon />
-                  </div>
-                  <h3 style={{ fontFamily: FONT, fontSize: 16, fontWeight: 700, color: NAVY, margin: '0 0 8px', lineHeight: 1.3 }}>
-                    No charges found
-                  </h3>
-                  <p style={{ fontFamily: FONT, fontSize: 13, color: TEAL, margin: 0 }}>
-                    Please adjust filters
-                  </p>
-                </div>
-              ) : (
-                /* Records table */
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: FONT, fontSize: 13 }}>
-                    <thead>
-                      <tr style={{ background: '#f5f6f8', borderBottom: '1px solid #e4e9f0' }}>
-                        {['Tenant', 'Property', 'Month', 'Due Date', 'Paid Date', 'Amount', 'Status'].map(h => (
-                          <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 700, color: NAVY, fontSize: 12, letterSpacing: '0.04em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredCharges.map((r, i) => {
-                        const statusColor =
-                          r.status === 'paid'    ? { bg: '#ecfdf5', text: '#059669' } :
-                          r.status === 'overdue' ? { bg: '#fff1f2', text: '#e11d48' } :
-                                                   { bg: '#fffbeb', text: '#d97706' };
-                        const statusLabel =
-                          r.status === 'paid' ? 'Paid' : r.status === 'overdue' ? 'Overdue' : 'Pending';
-                        return (
-                          <tr
-                            key={r._id}
-                            onClick={() => navigate(`/payments/${r._id}`)}
-                            style={{ borderBottom: '1px solid #e4e9f0', background: i % 2 === 0 ? '#fff' : '#fafbfc', cursor: 'pointer', transition: 'background 0.1s' }}
-                            onMouseEnter={e => e.currentTarget.style.background = '#f0f4f8'}
-                            onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? '#fff' : '#fafbfc'}
-                          >
-                            <td style={{ padding: '12px 16px', color: NAVY, fontWeight: 600 }}>
-                              {r.tenant?.name || '—'}
-                              {r.tenant?.email && <div style={{ fontSize: 11, color: '#8a9ab0', fontWeight: 400 }}>{r.tenant.email}</div>}
-                            </td>
-                            <td style={{ padding: '12px 16px', color: NAVY }}>
-                              {r.house?.name || '—'}
-                              {r.house?.address && <div style={{ fontSize: 11, color: '#8a9ab0' }}>{r.house.address}</div>}
-                            </td>
-                            <td style={{ padding: '12px 16px', color: NAVY }}>{r.month || '—'}</td>
-                            <td style={{ padding: '12px 16px', color: '#6b7280' }}>
-                              {r.dueDate ? new Date(r.dueDate).toLocaleDateString() : '—'}
-                            </td>
-                            <td style={{ padding: '12px 16px', color: '#6b7280' }}>
-                              {r.paidDate ? new Date(r.paidDate).toLocaleDateString() : '—'}
-                            </td>
-                            <td style={{ padding: '12px 16px', color: NAVY, fontWeight: 700 }}>
-                              {fmt(r.amount)}
-                            </td>
-                            <td style={{ padding: '12px 16px' }}>
-                              <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 100, fontSize: 11, fontWeight: 700, background: statusColor.bg, color: statusColor.text }}>
-                                {statusLabel}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              {/* Pagination footer */}
-              <div style={{ borderTop: '1px solid #e4e9f0', padding: '12px 24px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontFamily: FONT, fontSize: 13, color: NAVY }}>Show</span>
-                <div style={{ position: 'relative' }}>
-                  <select
-                    value={chargesPerPage}
-                    onChange={e => setChargesPerPage(Number(e.target.value))}
-                    style={{
-                      fontFamily: FONT, fontSize: 13, color: NAVY,
-                      border: '1px solid #c8d0db', borderRadius: 4,
-                      padding: '5px 28px 5px 10px', appearance: 'none',
-                      cursor: 'pointer', outline: 'none', background: '#fff',
-                    }}
-                  >
-                    {[25, 50, 100, 500].map(n => <option key={n} value={n}>{n}</option>)}
-                  </select>
-                  <svg style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
-                    width="10" height="6" viewBox="0 0 10 6" fill={NAVY}>
-                    <path d="M9.792 0H.208a.233.233 0 00-.181.076.113.113 0 00.003.15l4.792 5.702A.234.234 0 005 6c.073 0 .14-.027.178-.072L9.97.226a.113.113 0 00.003-.15A.233.233 0 009.792 0z" fillRule="evenodd" />
-                  </svg>
-                </div>
-                <span style={{ fontFamily: FONT, fontSize: 13, color: NAVY }}>charges per page</span>
-              </div>
+                      </td>
+                      <td style={{ ...tdStyle, fontWeight: 600 }}>{fmt(p.amount)}</td>
+                      <td onClick={e => e.stopPropagation()} style={{ ...tdStyle, textAlign: 'right', padding: '4px 8px' }}>
+                        <RowMenu
+                          onEdit={() => { setEditingPayment(p); setPayModalOpen(true); }}
+                          onDelete={async () => {
+                            if (!window.confirm('Delete this payment?')) return;
+                            try { await axios.delete(`${backendUrl}${API.orgPayments}/${p._id}`); fetchOrgPayments(); toast.success('Deleted'); }
+                            catch { toast.error('Failed to delete'); }
+                          }}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
+
+          {/* ── EXPENSES tab ── */}
+          {tab === 'expenses' && (() => {
+            const allIds = filteredExpenses.map(e => e._id);
+            const allChecked = allIds.length > 0 && allIds.every(id => selectedExp.has(id));
+            const someChecked = selectedExp.size > 0;
+            const toggleAll = () => {
+              if (allChecked) setSelectedExp(new Set());
+              else setSelectedExp(new Set(allIds));
+            };
+            const toggleOne = (id) => {
+              const next = new Set(selectedExp);
+              next.has(id) ? next.delete(id) : next.add(id);
+              setSelectedExp(next);
+            };
+            const bulkStatus = async (status) => {
+              try {
+                await Promise.all([...selectedExp].map(id => axios.put(`${backendUrl}${API.expenses}/${id}`, { status })));
+                toast.success(`Marked as ${status}`); setSelectedExp(new Set()); fetchExpenses();
+              } catch { toast.error('Failed to update'); }
+            };
+            const bulkDelete = async () => {
+              if (!window.confirm(`Delete ${selectedExp.size} expense(s)?`)) return;
+              try {
+                await Promise.all([...selectedExp].map(id => axios.delete(`${backendUrl}${API.expenses}/${id}`)));
+                toast.success('Deleted'); setSelectedExp(new Set()); fetchExpenses();
+              } catch { toast.error('Failed to delete'); }
+            };
+            const chkStyle = { width: 15, height: 15, cursor: 'pointer', accentColor: TEAL };
+            return (
+              <div style={{ background: '#fff', border: '1px solid #e4e9f0', borderRadius: 6, boxShadow: '0 1px 4px rgba(4,34,56,0.06)', overflow: 'hidden' }}>
+                {/* Toolbar */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: '1px solid #f0f2f5', gap: 12, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ position: 'relative', width: 200 }}>
+                      <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#8a9ab0', pointerEvents: 'none' }} />
+                      <input value={expSearch} onChange={e => setExpSearch(e.target.value)} placeholder="Search"
+                        style={{ width: '100%', fontFamily: FONT, fontSize: 13, color: NAVY, border: '1px solid #c8d0db', borderRadius: 4, padding: '7px 10px 7px 30px', outline: 'none', boxSizing: 'border-box' }} />
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {/* Actions button — visible only when rows are selected */}
+                    {someChecked && (
+                      <div ref={actionsRef} style={{ position: 'relative' }}>
+                        <button
+                          ref={actionsBtnRef}
+                          onClick={() => {
+                            if (actionsOpen) { setActionsOpen(false); setActionsPos(null); return; }
+                            const r = actionsBtnRef.current.getBoundingClientRect();
+                            setActionsPos({ top: r.bottom + 4, left: r.left });
+                            setActionsOpen(true);
+                          }}
+                          style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: NAVY, background: '#fff', border: '1px solid #c8d0db', borderRadius: 4, padding: '7px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                          Actions
+                          <svg viewBox="0 0 24 24" style={{ width: 16, height: 16, fill: NAVY }}><path d="m7 10 5 5 5-5z" /></svg>
+                        </button>
+                        {actionsOpen && actionsPos && (
+                          <div onMouseDown={e => e.stopPropagation()} style={{ position: 'fixed', top: actionsPos.top, left: actionsPos.left, background: '#fff', border: '1px solid #e4e9f0', borderRadius: 8, boxShadow: '0 4px 20px rgba(4,34,56,0.14)', minWidth: 200, zIndex: 9999, overflow: 'hidden' }}>
+                            {/* Mark as paid */}
+                            <button onClick={() => { setActionsOpen(false); bulkStatus('paid'); }}
+                              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px', border: 'none', background: 'none', cursor: 'pointer', fontFamily: FONT, fontSize: 13, fontWeight: 500, color: NAVY }}
+                              onMouseEnter={e => e.currentTarget.style.background = '#f5f6f8'}
+                              onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                              <svg viewBox="0 0 24 24" style={{ width: 18, height: 18, fill: '#10b981', flexShrink: 0 }}><path d="M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2m-7.53 12L9 10.5l1.4-1.41 2.07 2.08L17.6 6 19 7.41zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4z" /></svg>
+                              Mark as paid
+                            </button>
+                            {/* Mark as unpaid */}
+                            <button onClick={() => { setActionsOpen(false); bulkStatus('unpaid'); }}
+                              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px', border: 'none', background: 'none', cursor: 'pointer', fontFamily: FONT, fontSize: 13, fontWeight: 500, color: NAVY }}
+                              onMouseEnter={e => e.currentTarget.style.background = '#f5f6f8'}
+                              onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                              <svg viewBox="0 0 24 24" style={{ width: 18, height: 18, fill: '#8a9ab0', flexShrink: 0 }}><path d="M3 5H1v16c0 1.1.9 2 2 2h16v-2H3zm18-4H7c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V3c0-1.1-.9-2-2-2m0 16H7V3h14z" /></svg>
+                              Mark as unpaid
+                            </button>
+                            {/* Move to */}
+                            <button onClick={() => { setActionsOpen(false); setMoveToOpen(true); }}
+                              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px', border: 'none', background: 'none', cursor: 'pointer', fontFamily: FONT, fontSize: 13, fontWeight: 500, color: NAVY }}
+                              onMouseEnter={e => e.currentTarget.style.background = '#f5f6f8'}
+                              onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                              <svg viewBox="0 0 24 24" style={{ width: 18, height: 18, fill: '#6366f1', flexShrink: 0 }}><path d="M6.99 11 3 15l3.99 4v-3H14v-2H6.99zM21 9l-3.99-4v3H10v2h7.01v3z" /></svg>
+                              Move to
+                            </button>
+                            <div style={{ height: 1, background: '#f0f2f5', margin: '4px 0' }} />
+                            {/* Delete */}
+                            <button onClick={() => { setActionsOpen(false); bulkDelete(); }}
+                              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px', border: 'none', background: 'none', cursor: 'pointer', fontFamily: FONT, fontSize: 13, fontWeight: 500, color: '#ef4444' }}
+                              onMouseEnter={e => e.currentTarget.style.background = '#fff5f5'}
+                              onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                              <svg viewBox="0 0 24 24" style={{ width: 18, height: 18, fill: '#ef4444', flexShrink: 0 }}><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6zM8 9h8v10H8zm7.5-5-1-1h-5l-1 1H5v2h14V4z" /></svg>
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <button onClick={() => setExpModalOpen(true)}
+                      style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: '#fff', background: TEAL, border: 'none', borderRadius: 4, padding: '8px 16px', cursor: 'pointer' }}>
+                      + New
+                    </button>
+                  </div>
+                </div>
+                {/* Table */}
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ background: '#f5f6f8' }}>
+                      <th style={{ ...thStyle, width: 40, textAlign: 'center' }}>
+                        <input type="checkbox" checked={allChecked} onChange={toggleAll} style={chkStyle} />
+                      </th>
+                      {['Date', 'Category', 'Description', '', 'Status', 'Amount', ''].map((h, i) => <th key={i} style={thStyle}>{h}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredExpenses.length === 0 ? (
+                      <tr><td colSpan={8} style={{ padding: 0 }}><EmptyState /></td></tr>
+                    ) : filteredExpenses.map(e => (
+                      <tr key={e._id}
+                        onClick={() => setEditingExpense(e)}
+                        style={{ background: selectedExp.has(e._id) ? '#f0f9ff' : 'transparent', cursor: 'pointer' }}
+                        onMouseEnter={ev => { if (!selectedExp.has(e._id)) ev.currentTarget.style.background = '#f8fafc'; }}
+                        onMouseLeave={ev => { ev.currentTarget.style.background = selectedExp.has(e._id) ? '#f0f9ff' : 'transparent'; }}
+                      >
+                        <td onClick={ev => ev.stopPropagation()} style={{ ...tdStyle, textAlign: 'center', padding: '4px 8px', width: 40 }}>
+                          <input type="checkbox" checked={selectedExp.has(e._id)} onChange={() => toggleOne(e._id)} style={chkStyle} />
+                        </td>
+                        <td style={tdStyle}>{new Date(e.dueDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                        <td style={tdStyle}>{e.category}</td>
+                        <td style={{ ...tdStyle, color: '#6b7280' }}>{e.description || '—'}</td>
+                        <td onClick={ev => ev.stopPropagation()} style={{ ...tdStyle, textAlign: 'center', padding: '4px 8px', width: 36 }}>
+                          {e.receiptName && (
+                            <button onClick={() => setPreview({ name: e.receiptName, fetchUrl: API.expense(e._id) })} title={e.receiptName}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2563eb', padding: 4, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 4 }}
+                              onMouseEnter={ev2 => ev2.currentTarget.style.background = '#eff6ff'}
+                              onMouseLeave={ev2 => ev2.currentTarget.style.background = 'none'}>
+                              <svg focusable="false" aria-hidden="true" viewBox="0 0 24 24" style={{ width: 18, height: 18, fill: '#2563eb' }}>
+                                <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8zm4 18H6V4h8v4h4zm-6-3c-1.1 0-2-.9-2-2V9.5c0-.28.22-.5.5-.5s.5.22.5.5V15h2V9.5C13 8.12 11.88 7 10.5 7S8 8.12 8 9.5V15c0 2.21 1.79 4 4 4s4-1.79 4-4v-4h-2v4c0 1.1-.9 2-2 2" />
+                              </svg>
+                            </button>
+                          )}
+                        </td>
+                        <td style={tdStyle}><StatusBadge status={e.status} /></td>
+                        <td style={{ ...tdStyle, fontWeight: 600 }}>{fmt(e.amount)}</td>
+                        <td onClick={ev => ev.stopPropagation()} style={{ ...tdStyle, textAlign: 'right', padding: '4px 8px' }}>
+                          <RowMenu
+                            onEdit={() => setEditingExpense(e)}
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })()}
         </div>
       </div>
 
-      {createChargeOpen && <CreateChargeModal onClose={() => setCreateChargeOpen(false)} houses={houses} />}
+      {payModalOpen && (
+        <PaymentModal
+          payment={editingPayment}
+          onClose={() => { setPayModalOpen(false); setEditingPayment(null); }}
+          onSaved={fetchOrgPayments}
+        />
+      )}
+      {expModalOpen && <ExpenseModal onClose={() => setExpModalOpen(false)} onSaved={fetchExpenses} />}
+      {editingExpense && <EditExpenseModal expense={editingExpense} onClose={() => setEditingExpense(null)} onSaved={() => { fetchExpenses(); setSelectedExp(new Set()); }} />}
+      {moveToOpen && (
+        <MoveToModal
+          selectedIds={[...selectedExp]}
+          onClose={() => setMoveToOpen(false)}
+          onSaved={() => { fetchExpenses(); setSelectedExp(new Set()); setMoveToOpen(false); }}
+        />
+      )}
+
+      {preview && (
+        <AttachmentPreview
+          name={preview.name}
+          fetchUrl={preview.fetchUrl}
+          onClose={() => setPreview(null)}
+        />
+      )}
     </Layout>
   );
 };

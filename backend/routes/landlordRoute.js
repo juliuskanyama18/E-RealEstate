@@ -50,6 +50,21 @@ import {
   createReminder,
   updateReminder,
   deleteReminder,
+  getOrgPayments,
+  getOrgPayment,
+  createOrgPayment,
+  updateOrgPayment,
+  deleteOrgPayment,
+  uploadReceiptFile,
+  getExpenses,
+  getExpense,
+  getHouseExpenses,
+  createExpense,
+  updateExpense,
+  deleteExpense,
+  getSuppliers,
+  createSupplier,
+  deleteSupplier,
 } from "../controller/landlordController.js";
 import { protect, requireActive, requireRole } from "../middleware/auth.js";
 
@@ -60,6 +75,23 @@ router.use(protect, requireActive, requireRole("landlord"));
 router.get("/cashflow", getCashflow);
 router.get("/org", getOrgSettings);
 router.put("/org", updateOrgSettings);
+
+router.get("/org-payments", getOrgPayments);
+router.post("/org-payments", uploadReceiptFile, createOrgPayment);
+router.get("/org-payments/:id", getOrgPayment);
+router.put("/org-payments/:id", uploadReceiptFile, updateOrgPayment);
+router.delete("/org-payments/:id", deleteOrgPayment);
+
+router.get("/expenses", getExpenses);
+router.get("/expenses/:id", getExpense);
+router.get("/houses/:houseId/expenses", getHouseExpenses);
+router.post("/expenses", uploadReceiptFile, createExpense);
+router.put("/expenses/:id", uploadReceiptFile, updateExpense);
+router.delete("/expenses/:id", deleteExpense);
+
+router.get("/suppliers", getSuppliers);
+router.post("/suppliers", createSupplier);
+router.delete("/suppliers/:id", deleteSupplier);
 
 router.post("/houses", uploadHousePhoto, createHouse);
 router.get("/houses", getHouses);

@@ -5,7 +5,8 @@
       "Bash(node --env-file=backend/.env.local -e ':*)",
       "Bash(node --env-file=.env.local server.js)",
       "Bash(curl -s -X POST http://localhost:4000/api/auth/login -H \"Content-Type: application/json\" -d \"{\\\\\"email\\\\\":\\\\\"landlord1@rentalsaas.com\\\\\",\\\\\"password\\\\\":\\\\\"Landlord1\\\\\"}\")",
-      "Bash(node -e \"const d=require\\('fs'\\).readFileSync\\('/dev/stdin','utf8'\\); const j=JSON.parse\\(d\\); console.log\\(j.data?.token ? 'TOKEN:'+j.data.token : 'ERROR:'+d\\)\")"
+      "Bash(node -e \"const d=require\\('fs'\\).readFileSync\\('/dev/stdin','utf8'\\); const j=JSON.parse\\(d\\); console.log\\(j.data?.token ? 'TOKEN:'+j.data.token : 'ERROR:'+d\\)\")",
+      "WebFetch(domain:portal.landlordstudio.com)"
     ]
   }
 }

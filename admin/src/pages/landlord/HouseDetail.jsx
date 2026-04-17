@@ -968,6 +968,8 @@ const HouseDetail = () => {
   const [activeTab, setActiveTab]         = useState('Overview');
   const [paymentView, setPaymentView]     = useState('Month');
   const [payExpTab, setPayExpTab]         = useState('Payments');
+  const [houseExpenses,    setHouseExpenses]    = useState([]);
+  const [expLoading,       setExpLoading]       = useState(false);
   const [showCreateRequest, setShowCreateRequest] = useState(false);
   const [maintenanceRequests, setMaintenanceRequests] = useState([]);
   const [loadingMaintenance, setLoadingMaintenance] = useState(false);
@@ -1162,6 +1164,19 @@ const HouseDetail = () => {
   useEffect(() => {
     if (id) fetchMaintenance();
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const fetchHouseExpenses = () => {
+    if (!id) return;
+    setExpLoading(true);
+    axios.get(`${backendUrl}${API.houseExpenses(id)}`)
+      .then(r => setHouseExpenses(r.data.data || []))
+      .catch(() => {})
+      .finally(() => setExpLoading(false));
+  };
+
+  useEffect(() => {
+    if (payExpTab === 'Expenses') fetchHouseExpenses();
+  }, [payExpTab, id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const monthName = new Date().toLocaleString('default', { month: 'long' });
 
@@ -1510,39 +1525,54 @@ const HouseDetail = () => {
               {/* Expenses tab */}
               {payExpTab === 'Expenses' && (
                 <div style={{ padding: 16 }}>
-                  {/* Toolbar */}
-                  <div style={{ display: 'flex', gap: 12, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' }}>
-                    <div style={{ flex: '0 0 200px', position: 'relative' }}>
-                      <input type="text" placeholder="Search"
-                        style={{ width: '100%', padding: '6px 30px 6px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, outline: 'none', boxSizing: 'border-box' }}/>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="#9ca3af" style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)' }}>
-                        <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"/>
+                  {expLoading ? (
+                    <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0', color: '#9ca3af', fontSize: 13 }}>Loading…</div>
+                  ) : houseExpenses.length === 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 24px', textAlign: 'center' }}>
+                      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" style={{ marginBottom: 12 }}>
+                        <rect x="3" y="3" width="18" height="18" rx="3" stroke="#d1d5db" strokeWidth="1.5" fill="#f9fafb"/>
+                        <path d="M8 8h8M8 12h5" stroke="#d1d5db" strokeWidth="1.5" strokeLinecap="round"/>
                       </svg>
+                      <p style={{ fontSize: 15, fontWeight: 700, color: '#374151', margin: '0 0 6px' }}>No expenses for this property</p>
+                      <p style={{ fontSize: 13, color: '#6b7280', margin: 0 }}>Expenses moved here from the Payments page will appear in this list.</p>
                     </div>
-                    <div style={{ display: 'flex', border: '1px solid #d1d5db', borderRadius: 6, overflow: 'hidden' }}>
-                      {['Expenses', 'Recurring expenses'].map((t, i) => (
-                        <button key={t} style={{ padding: '6px 12px', fontSize: 12, fontWeight: i === 0 ? 600 : 400, background: i === 0 ? '#042238' : '#fff', color: i === 0 ? '#fff' : '#374151', border: 'none', cursor: 'pointer' }}>{t}</button>
-                      ))}
-                    </div>
-                    <button style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#0288d1', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg>
-                      New
-                    </button>
-                  </div>
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                      <thead>
-                        <tr style={{ borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
-                          <th style={{ width: 36, padding: '8px 12px' }}><input type="checkbox"/></th>
-                          {['DATE', 'CATEGORY', 'DESCRIPTION', 'STATUS', 'AMOUNT'].map((col, i) => (
-                            <th key={col} style={{ padding: '8px 12px', textAlign: i >= 3 ? 'center' : 'left', fontSize: 11, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.06em' }}>{col}</th>
+                  ) : (
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                        <thead>
+                          <tr style={{ borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
+                            {['DATE', 'CATEGORY', 'DESCRIPTION', 'STATUS', 'AMOUNT'].map((col, i) => (
+                              <th key={col} style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>{col}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {houseExpenses.map(exp => (
+                            <tr key={exp._id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                              <td style={{ padding: '10px 12px', color: '#374151', whiteSpace: 'nowrap' }}>
+                                {new Date(exp.dueDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                              </td>
+                              <td style={{ padding: '10px 12px', color: '#374151' }}>{exp.category || '—'}</td>
+                              <td style={{ padding: '10px 12px', color: '#6b7280' }}>{exp.description || '—'}</td>
+                              <td style={{ padding: '10px 12px' }}>
+                                <span style={{
+                                  display: 'inline-block', padding: '2px 10px', borderRadius: 100,
+                                  fontSize: 11, fontWeight: 700,
+                                  background: exp.status === 'paid' ? '#d1fae5' : '#fee2e2',
+                                  color: exp.status === 'paid' ? '#065f46' : '#991b1b',
+                                }}>
+                                  {exp.status === 'paid' ? 'Paid' : 'Unpaid'}
+                                </span>
+                              </td>
+                              <td style={{ padding: '10px 12px', fontWeight: 600, color: '#374151', whiteSpace: 'nowrap' }}>
+                                TZS {Number(exp.amount || 0).toLocaleString()}
+                              </td>
+                            </tr>
                           ))}
-                          <th style={{ width: 40 }}></th>
-                        </tr>
-                      </thead>
-                      <tbody></tbody>
-                    </table>
-                  </div>
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

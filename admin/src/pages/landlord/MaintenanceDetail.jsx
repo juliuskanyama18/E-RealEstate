@@ -176,10 +176,13 @@ const MaintenanceDetail = () => {
 
   const openDetailEdit = () => {
     setDetailDraft({
-      category: request.category || '',
+      category: request.category || 'General',
       title: request.title || '',
       description: request.description || '',
-      preferredTime: request.preferredTime || 'ANYTIME',
+      status: request.status || 'open',
+      dueDate: request.dueDate ? new Date(request.dueDate).toISOString().split('T')[0] : '',
+      priority: request.priority || 'medium',
+      viewableBy: request.viewableBy || 'all',
       existingPhotos: [...(request.photos || [])],
       newPhotos: [],
     });
@@ -190,10 +193,13 @@ const MaintenanceDetail = () => {
     setDetailSaving(true);
     try {
       const fd = new FormData();
-      fd.append('category', detailDraft.category);
+      fd.append('category', detailDraft.category || 'General');
       fd.append('title', detailDraft.title);
       fd.append('description', detailDraft.description);
-      fd.append('preferredTime', detailDraft.preferredTime);
+      fd.append('status', detailDraft.status);
+      if (detailDraft.dueDate) fd.append('dueDate', detailDraft.dueDate);
+      fd.append('priority', detailDraft.priority);
+      fd.append('viewableBy', detailDraft.viewableBy);
       fd.append('existingPhotos', JSON.stringify(detailDraft.existingPhotos));
       detailDraft.newPhotos.forEach(f => fd.append('photos', f));
       const res = await axios.put(`${backendUrl}${API.maintenance}/${id}`, fd, {
@@ -473,99 +479,112 @@ const MaintenanceDetail = () => {
 
               {/* ── EDIT FORM ── */}
               {detailEdit && detailDraft ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-
-                  {/* Category */}
-                  <div>
-                    <label style={{
-                      display: 'block', fontFamily: FONT, fontSize: 11, fontWeight: 700,
-                      color: '#6b7c93', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 5,
-                    }}>Category</label>
-                    <select
-                      value={detailDraft.category}
-                      onChange={e => setDetailDraft(d => ({ ...d, category: e.target.value }))}
-                      style={{
-                        width: '100%', boxSizing: 'border-box',
-                        padding: '8px 10px', fontFamily: FONT, fontSize: 14, color: NAVY,
-                        border: '1px solid #dde3ec', borderRadius: 6, outline: 'none',
-                        background: '#fff', cursor: 'pointer',
-                      }}
-                    >
-                      <option value="">Select category…</option>
-                      {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                  </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
 
                   {/* Title */}
-                  <div>
-                    <label style={{
-                      display: 'block', fontFamily: FONT, fontSize: 11, fontWeight: 700,
-                      color: '#6b7c93', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 5,
-                    }}>Title</label>
+                  <div style={{ marginBottom: 14 }}>
+                    <label style={{ display: 'block', fontFamily: FONT, fontSize: 11, fontWeight: 700, color: '#6b7c93', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 5 }}>Title</label>
                     <input
-                      type="text"
-                      maxLength={50}
-                      value={detailDraft.title}
+                      type="text" maxLength={50} value={detailDraft.title}
                       onChange={e => setDetailDraft(d => ({ ...d, title: e.target.value }))}
-                      style={{
-                        width: '100%', boxSizing: 'border-box',
-                        padding: '8px 10px', fontFamily: FONT, fontSize: 14, color: NAVY,
-                        border: '1px solid #dde3ec', borderRadius: 6, outline: 'none', background: '#fff',
-                      }}
+                      style={{ width: '100%', boxSizing: 'border-box', padding: '8px 10px', fontFamily: FONT, fontSize: 14, color: NAVY, border: '1px solid #dde3ec', borderRadius: 6, outline: 'none', background: '#fff' }}
                     />
                   </div>
+
+                  {/* 2-column field rows */}
+                  {(() => {
+                    const fieldRowStyle = { display: 'grid', gridTemplateColumns: '5fr 7fr', alignItems: 'center', borderBottom: '1px solid #f3f4f6', padding: '8px 0', gap: 8 };
+                    const labelStyle = { display: 'flex', alignItems: 'center', gap: 6, fontFamily: FONT, fontSize: 13, color: '#374151', fontWeight: 500 };
+                    const inputStyle = { width: '100%', boxSizing: 'border-box', padding: '6px 10px', border: '1px solid #e5e7eb', borderRadius: 6, fontFamily: FONT, fontSize: 13, color: NAVY, background: '#fff', outline: 'none', appearance: 'none', cursor: 'pointer' };
+                    const chevron = <svg width="12" height="12" viewBox="0 0 14 14" style={{ position: 'absolute', right: 7, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}><path d="M2 4l5 5 5-5" stroke="#9ca3af" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+                    const PRIORITY_C = { low: '#16a34a', medium: '#d97706', high: '#dc2626' };
+
+                    return (
+                      <>
+                        {/* Created */}
+                        <div style={fieldRowStyle}>
+                          <div style={labelStyle}>
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="#9ca3af"><path d="M20 3h-1V1h-2v2H7V1H5v2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2m0 18H4V8h16z"/></svg>
+                            Created
+                          </div>
+                          <span style={{ fontFamily: FONT, fontSize: 13, color: '#6b7280' }}>
+                            {new Date(request.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                          </span>
+                        </div>
+
+                        {/* Status */}
+                        <div style={fieldRowStyle}>
+                          <div style={labelStyle}>
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="#9ca3af"><path d="M5.33 20H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2h1.33c1.1 0 2 .9 2 2v12c0 1.1-.89 2-2 2M22 18V6c0-1.1-.9-2-2-2h-1.33c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2H20c1.11 0 2-.9 2-2m-7.33 0V6c0-1.1-.9-2-2-2h-1.33c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h1.33c1.1 0 2-.9 2-2"/></svg>
+                            Status
+                          </div>
+                          <div style={{ position: 'relative' }}>
+                            <select value={detailDraft.status} onChange={e => setDetailDraft(d => ({ ...d, status: e.target.value }))} style={{ ...inputStyle, paddingRight: 24 }}>
+                              <option value="open">New</option>
+                              <option value="in_progress">In Progress</option>
+                              <option value="resolved">Resolved</option>
+                              <option value="closed">Closed</option>
+                            </select>
+                            {chevron}
+                          </div>
+                        </div>
+
+                        {/* Due Date */}
+                        <div style={fieldRowStyle}>
+                          <div style={labelStyle}>
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="#9ca3af"><path d="M20 3h-1V1h-2v2H7V1H5v2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2m0 18H4V8h16z"/></svg>
+                            Due date
+                          </div>
+                          <input type="date" value={detailDraft.dueDate} onChange={e => setDetailDraft(d => ({ ...d, dueDate: e.target.value }))} style={inputStyle} />
+                        </div>
+
+                        {/* Priority */}
+                        <div style={fieldRowStyle}>
+                          <div style={labelStyle}>
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="#9ca3af"><path d="M14.4 6 14 4H5v17h2v-7h5.6l.4 2h7V6z"/></svg>
+                            Priority
+                          </div>
+                          <div style={{ position: 'relative' }}>
+                            <select value={detailDraft.priority} onChange={e => setDetailDraft(d => ({ ...d, priority: e.target.value }))} style={{ ...inputStyle, paddingRight: 24, color: PRIORITY_C[detailDraft.priority] || NAVY, fontWeight: 600 }}>
+                              <option value="low">Low</option>
+                              <option value="medium">Medium</option>
+                              <option value="high">High</option>
+                            </select>
+                            {chevron}
+                          </div>
+                        </div>
+
+                        {/* Viewable By */}
+                        <div style={{ ...fieldRowStyle, borderBottom: 'none', marginBottom: 14 }}>
+                          <div style={labelStyle}>
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="#9ca3af"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5M12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5m0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3"/></svg>
+                            Viewable by
+                          </div>
+                          <div style={{ position: 'relative' }}>
+                            <select value={detailDraft.viewableBy} onChange={e => setDetailDraft(d => ({ ...d, viewableBy: e.target.value }))} style={{ ...inputStyle, paddingRight: 24 }}>
+                              <option value="all">Landlord and Tenants</option>
+                              <option value="landlord">Landlord only</option>
+                            </select>
+                            {chevron}
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
 
                   {/* Description */}
-                  <div>
-                    <label style={{
-                      display: 'block', fontFamily: FONT, fontSize: 11, fontWeight: 700,
-                      color: '#6b7c93', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 5,
-                    }}>Description</label>
+                  <div style={{ marginBottom: 14 }}>
+                    <label style={{ display: 'block', fontFamily: FONT, fontSize: 11, fontWeight: 700, color: '#6b7c93', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 5 }}>Description</label>
                     <textarea
-                      rows={4}
-                      value={detailDraft.description}
+                      rows={4} value={detailDraft.description}
                       onChange={e => setDetailDraft(d => ({ ...d, description: e.target.value }))}
-                      style={{
-                        width: '100%', boxSizing: 'border-box',
-                        padding: '8px 10px', fontFamily: FONT, fontSize: 14, color: NAVY,
-                        border: '1px solid #dde3ec', borderRadius: 6, outline: 'none',
-                        background: '#fff', resize: 'vertical', lineHeight: 1.55,
-                      }}
+                      style={{ width: '100%', boxSizing: 'border-box', padding: '8px 10px', fontFamily: FONT, fontSize: 14, color: NAVY, border: '1px solid #dde3ec', borderRadius: 6, outline: 'none', background: '#fff', resize: 'vertical', lineHeight: 1.55 }}
                     />
                   </div>
 
-                  {/* Preferred Time */}
-                  <div>
-                    <label style={{
-                      display: 'block', fontFamily: FONT, fontSize: 11, fontWeight: 700,
-                      color: '#6b7c93', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8,
-                    }}>Preferred Time to Enter</label>
-                    <div style={{ display: 'flex', gap: 10 }}>
-                      {[
-                        { value: 'ANYTIME', label: 'Anytime' },
-                        { value: 'COORDINATE', label: 'Call first to coordinate' },
-                      ].map(opt => (
-                        <label
-                          key={opt.value}
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: 6,
-                            fontFamily: FONT, fontSize: 13, color: NAVY,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          <input
-                            type="radio"
-                            name="preferredTime"
-                            value={opt.value}
-                            checked={detailDraft.preferredTime === opt.value}
-                            onChange={() => setDetailDraft(d => ({ ...d, preferredTime: opt.value }))}
-                            style={{ accentColor: BLUE }}
-                          />
-                          {opt.label}
-                        </label>
-                      ))}
-                    </div>
-                  </div>
+                  {/* Images */}
+                  <div style={{ marginBottom: 10 }}>
+                    <label style={{ display: 'block', fontFamily: FONT, fontSize: 11, fontWeight: 700, color: '#6b7c93', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>Images</label>
 
                   {/* Existing photos */}
                   {detailDraft.existingPhotos.length > 0 && (
@@ -653,19 +672,19 @@ const MaintenanceDetail = () => {
                     )}
                   </div>
 
+                  </div>{/* end Images */}
+
                   {/* Save / Cancel */}
                   <div style={{ display: 'flex', gap: 10, paddingTop: 4 }}>
                     <button
                       onClick={saveDetail}
-                      disabled={detailSaving || !detailDraft.title.trim() || !detailDraft.category}
+                      disabled={detailSaving || !detailDraft.title.trim()}
                       style={{
                         flex: 1, padding: '9px 0',
-                        background: detailSaving || !detailDraft.title.trim() || !detailDraft.category
-                          ? '#8a9ab0' : NAVY,
+                        background: detailSaving || !detailDraft.title.trim() ? '#8a9ab0' : NAVY,
                         color: '#fff', border: 'none', borderRadius: 6,
                         fontFamily: FONT, fontSize: 13, fontWeight: 700,
-                        cursor: detailSaving || !detailDraft.title.trim() || !detailDraft.category
-                          ? 'not-allowed' : 'pointer',
+                        cursor: detailSaving || !detailDraft.title.trim() ? 'not-allowed' : 'pointer',
                         letterSpacing: '0.04em',
                       }}
                     >
@@ -730,6 +749,26 @@ const MaintenanceDetail = () => {
                     <span>
                       {request.preferredTime === 'ANYTIME' ? 'Anytime' : 'Call first to coordinate'}
                     </span>
+                  </p>
+
+                  {/* Due Date */}
+                  {request.dueDate && (
+                    <p style={{ margin: '0 0 9px', fontFamily: FONT, fontSize: 14, color: NAVY, lineHeight: 1.55 }}>
+                      <strong style={{ fontWeight: 700 }}>Due Date: </strong>
+                      <span style={{ color: TEAL }}>{new Date(request.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                    </p>
+                  )}
+
+                  {/* Priority */}
+                  <p style={{ margin: '0 0 9px', fontFamily: FONT, fontSize: 14, color: NAVY, lineHeight: 1.55 }}>
+                    <strong style={{ fontWeight: 700 }}>Priority: </strong>
+                    <span style={{ color: { low: '#16a34a', medium: '#d97706', high: '#dc2626' }[request.priority] || NAVY, fontWeight: 600, textTransform: 'capitalize' }}>{request.priority || 'Medium'}</span>
+                  </p>
+
+                  {/* Viewable By */}
+                  <p style={{ margin: '0 0 9px', fontFamily: FONT, fontSize: 14, color: NAVY, lineHeight: 1.55 }}>
+                    <strong style={{ fontWeight: 700 }}>Viewable By: </strong>
+                    <span>{request.viewableBy === 'landlord' ? 'Landlord only' : 'Landlord and Tenants'}</span>
                   </p>
 
                   {/* Category */}

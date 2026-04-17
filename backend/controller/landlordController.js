@@ -11,6 +11,9 @@ import MaintenanceRequest from "../models/MaintenanceRequest.js";
 import Lease from "../models/Lease.js";
 import Document from "../models/Document.js";
 import Reminder from "../models/Reminder.js";
+import OrgPayment from "../models/OrgPayment.js";
+import Expense from "../models/Expense.js";
+import Supplier from "../models/Supplier.js";
 import { sendEmail } from "../config/nodemailer.js";
 import { getTenantWelcomeTemplate, getTenantInviteTemplate } from "../utils/emailTemplates.js";
 
@@ -21,6 +24,33 @@ if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 // ─── Multer setup for documents ─────────────────────────────────────────────
 const docUploadDir = path.resolve("uploads/documents");
 if (!fs.existsSync(docUploadDir)) fs.mkdirSync(docUploadDir, { recursive: true });
+
+// ─── Multer setup for receipts ───────────────────────────────────────────────
+const receiptUploadDir = path.resolve("uploads/receipts");
+if (!fs.existsSync(receiptUploadDir)) fs.mkdirSync(receiptUploadDir, { recursive: true });
+const receiptStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, receiptUploadDir),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `${Date.now()}-${Math.round(Math.random() * 1e6)}${ext}`);
+  },
+});
+const ALLOWED_RECEIPT_TYPES = new Set([
+  "image/jpeg", "image/png", "image/gif", "image/webp", "image/bmp",
+  "application/pdf",
+  "application/msword",                                                        // .doc
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  // .docx
+  "application/vnd.ms-excel",                                                  // .xls
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",        // .xlsx
+]);
+export const uploadReceiptFile = multer({
+  storage: receiptStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_RECEIPT_TYPES.has(file.mimetype)) return cb(null, true);
+    cb(new Error("Only images and documents (PDF, Word, Excel) are allowed"));
+  },
+}).single("receiptImage");
 
 const docStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, docUploadDir),
@@ -451,7 +481,7 @@ export const uploadMaintenancePhotos = multer({
 
 export const createMaintenanceRequest = async (req, res) => {
   try {
-    const { houseId, category, title, description, preferredTime } = req.body;
+    const { houseId, category, title, description, preferredTime, dueDate, viewableBy, priority } = req.body;
 
     const house = await House.findOne({ _id: houseId, landlord: req.user._id });
     if (!house) return res.status(404).json({ success: false, message: "House not found" });
@@ -466,6 +496,9 @@ export const createMaintenanceRequest = async (req, res) => {
       description,
       photos,
       preferredTime: preferredTime || "ANYTIME",
+      dueDate: dueDate || undefined,
+      priority: priority || "medium",
+      viewableBy: viewableBy || "all",
       submittedBy: "landlord",
       activityLog: [{ entryType: "created", addedBy: "landlord", timestamp: new Date() }],
     });
@@ -506,7 +539,7 @@ export const getMaintenanceRequest = async (req, res) => {
 
 export const updateMaintenanceRequest = async (req, res) => {
   try {
-    const { category, title, description, preferredTime, existingPhotos } = req.body;
+    const { category, title, description, preferredTime, existingPhotos, dueDate, viewableBy, priority, status: bodyStatus } = req.body;
 
     const request = await MaintenanceRequest.findOne({ _id: req.params.id, landlord: req.user._id });
     if (!request) return res.status(404).json({ success: false, message: "Request not found" });
@@ -530,6 +563,10 @@ export const updateMaintenanceRequest = async (req, res) => {
     if (title) updates.title = title;
     if (description !== undefined) updates.description = description;
     if (preferredTime) updates.preferredTime = preferredTime;
+    if (dueDate !== undefined) updates.dueDate = dueDate || null;
+    if (priority) updates.priority = priority;
+    if (viewableBy) updates.viewableBy = viewableBy;
+    if (bodyStatus) updates.status = bodyStatus;
 
     const updated = await MaintenanceRequest.findOneAndUpdate(
       { _id: req.params.id, landlord: req.user._id },
@@ -1227,6 +1264,227 @@ export const createCharge = async (req, res) => {
     await User.findByIdAndUpdate(tenant._id, { $inc: { balance: -chargeAmt } });
 
     res.status(201).json({ success: true, message: "Charge created", data: record });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+// ─── Org Payments ────────────────────────────────────────────────────────────
+
+export const getOrgPayments = async (req, res) => {
+  try {
+    // Exclude the large base64 receiptImage from the list — fetched individually on edit
+    const payments = await OrgPayment.find({ landlord: req.user._id })
+      .select("-receiptImage")
+      .sort({ date: -1 })
+      .lean();
+    res.json({ success: true, data: payments });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const getOrgPayment = async (req, res) => {
+  try {
+    const payment = await OrgPayment.findOne({ _id: req.params.id, landlord: req.user._id }).lean();
+    if (!payment) return res.status(404).json({ success: false, message: "Payment not found" });
+    res.json({ success: true, data: payment });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+// Helper: read an uploaded file into a base64 data URL, then delete it from disk
+const fileToDataUrl = (file) => {
+  const buf = fs.readFileSync(file.path);
+  const dataUrl = `data:${file.mimetype};base64,${buf.toString("base64")}`;
+  fs.unlinkSync(file.path); // remove temp file — stored in MongoDB now
+  return dataUrl;
+};
+
+export const createOrgPayment = async (req, res) => {
+  try {
+    const { date, category, notes, amount } = req.body;
+    if (!date || amount === undefined) return res.status(400).json({ success: false, message: "date and amount are required" });
+    const receiptImage = req.file ? fileToDataUrl(req.file) : undefined;
+    const receiptName  = req.file ? req.file.originalname : undefined;
+    const payment = await OrgPayment.create({ landlord: req.user._id, date, category: category || "Other", notes, amount: Number(amount), receiptImage, receiptName });
+    const { receiptImage: _img, ...safe } = payment.toObject();
+    res.status(201).json({ success: true, data: safe });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const updateOrgPayment = async (req, res) => {
+  try {
+    const payment = await OrgPayment.findOne({ _id: req.params.id, landlord: req.user._id });
+    if (!payment) return res.status(404).json({ success: false, message: "Payment not found" });
+
+    const { date, category, notes, amount, removeReceipt } = req.body;
+    if (date)     payment.date     = date;
+    if (category) payment.category = category;
+    if (notes !== undefined) payment.notes = notes;
+    if (amount !== undefined) payment.amount = Number(amount);
+
+    if (req.file) {
+      // New file — encode as base64 and store in MongoDB, delete temp file
+      payment.receiptImage = fileToDataUrl(req.file);
+      payment.receiptName  = req.file.originalname;
+    } else if (removeReceipt === 'true') {
+      payment.receiptImage = undefined;
+      payment.receiptName  = undefined;
+    }
+
+    await payment.save();
+    const { receiptImage: _img, ...safe } = payment.toObject();
+    res.json({ success: true, data: safe });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const deleteOrgPayment = async (req, res) => {
+  try {
+    const payment = await OrgPayment.findOneAndDelete({ _id: req.params.id, landlord: req.user._id });
+    if (!payment) return res.status(404).json({ success: false, message: "Payment not found" });
+    res.json({ success: true, message: "Payment deleted" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+// ─── Expenses ────────────────────────────────────────────────────────────────
+
+export const getExpenses = async (req, res) => {
+  try {
+    // Only return expenses NOT assigned to any property
+    const expenses = await Expense.find({ landlord: req.user._id, house: { $in: [null, undefined] } })
+      .select("-receiptImage")
+      .sort({ dueDate: -1 })
+      .lean();
+    res.json({ success: true, data: expenses });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const getExpense = async (req, res) => {
+  try {
+    const expense = await Expense.findOne({ _id: req.params.id, landlord: req.user._id }).lean();
+    if (!expense) return res.status(404).json({ success: false, message: "Expense not found" });
+    res.json({ success: true, data: expense });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const getHouseExpenses = async (req, res) => {
+  try {
+    const expenses = await Expense.find({ landlord: req.user._id, house: req.params.houseId })
+      .select("-receiptImage")
+      .sort({ dueDate: -1 })
+      .lean();
+    res.json({ success: true, data: expenses });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const createExpense = async (req, res) => {
+  try {
+    const { dueDate, category, description, amount, status, paymentDate, payableByTenant, capitalExpense, notes, supplier } = req.body;
+    if (!dueDate || amount === undefined) return res.status(400).json({ success: false, message: "dueDate and amount are required" });
+    const receiptImage = req.file ? fileToDataUrl(req.file) : undefined;
+    const receiptName  = req.file ? req.file.originalname : undefined;
+    const expense = await Expense.create({
+      landlord: req.user._id, dueDate, category: category || "Other", description, notes,
+      amount: Number(amount),
+      status: status || "unpaid", paymentDate: paymentDate || null,
+      payableByTenant: payableByTenant === 'true' || payableByTenant === true,
+      capitalExpense:  capitalExpense  === 'true' || capitalExpense  === true,
+      receiptImage, receiptName,
+      supplier: supplier || undefined,
+    });
+    res.status(201).json({ success: true, data: expense });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const updateExpense = async (req, res) => {
+  try {
+    const expense = await Expense.findOne({ _id: req.params.id, landlord: req.user._id });
+    if (!expense) return res.status(404).json({ success: false, message: "Expense not found" });
+
+    const { dueDate, category, description, amount, status, paymentDate,
+            payableByTenant, capitalExpense, notes, supplier, house, removeReceipt } = req.body;
+
+    if (dueDate     !== undefined) expense.dueDate     = dueDate;
+    if (category    !== undefined) expense.category    = category;
+    if (description !== undefined) expense.description = description;
+    if (amount      !== undefined) expense.amount      = Number(amount);
+    if (status      !== undefined) expense.status      = status;
+    if (paymentDate !== undefined) expense.paymentDate = paymentDate || null;
+    if (payableByTenant !== undefined) expense.payableByTenant = payableByTenant === 'true' || payableByTenant === true;
+    if (capitalExpense  !== undefined) expense.capitalExpense  = capitalExpense  === 'true' || capitalExpense  === true;
+    if (notes       !== undefined) expense.notes       = notes;
+    if (supplier    !== undefined) expense.supplier    = supplier || undefined;
+    if (house       !== undefined) expense.house       = house    || undefined;
+
+    if (req.file) {
+      expense.receiptImage = fileToDataUrl(req.file);
+      expense.receiptName  = req.file.originalname;
+    } else if (removeReceipt === 'true') {
+      expense.receiptImage = undefined;
+      expense.receiptName  = undefined;
+    }
+
+    await expense.save();
+    const { receiptImage: _img, ...safe } = expense.toObject();
+    res.json({ success: true, data: safe });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const deleteExpense = async (req, res) => {
+  try {
+    const expense = await Expense.findOneAndDelete({ _id: req.params.id, landlord: req.user._id });
+    if (!expense) return res.status(404).json({ success: false, message: "Expense not found" });
+    res.json({ success: true, message: "Expense deleted" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+// ─── Suppliers ───────────────────────────────────────────────────────────────
+
+export const getSuppliers = async (req, res) => {
+  try {
+    const suppliers = await Supplier.find({ landlord: req.user._id }).sort({ name: 1 }).lean();
+    res.json({ success: true, data: suppliers });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const createSupplier = async (req, res) => {
+  try {
+    const { name, profession, email, phone, mobile } = req.body;
+    if (!name) return res.status(400).json({ success: false, message: "Name is required" });
+    const supplier = await Supplier.create({ landlord: req.user._id, name, profession, email, phone, mobile });
+    res.status(201).json({ success: true, data: supplier });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const deleteSupplier = async (req, res) => {
+  try {
+    const supplier = await Supplier.findOneAndDelete({ _id: req.params.id, landlord: req.user._id });
+    if (!supplier) return res.status(404).json({ success: false, message: "Supplier not found" });
+    res.json({ success: true, message: "Supplier deleted" });
   } catch (error) {
     res.status(500).json({ success: false, message: "Server error", error: error.message });
   }

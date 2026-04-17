@@ -25,6 +25,12 @@ export const API = {
   charges: '/api/landlord/charges',
   cashflow: '/api/landlord/cashflow',
   org: '/api/landlord/org',
+  orgPayments: '/api/landlord/org-payments',
+  orgPayment:  (id) => `/api/landlord/org-payments/${id}`,
+  expenses:      '/api/landlord/expenses',
+  expense:       (id) => `/api/landlord/expenses/${id}`,
+  houseExpenses: (houseId) => `/api/landlord/houses/${houseId}/expenses`,
+  suppliers: '/api/landlord/suppliers',
   tenant: {
     me: '/api/tenant/me',
     status: '/api/tenant/rent-status',

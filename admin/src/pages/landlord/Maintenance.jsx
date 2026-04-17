@@ -22,14 +22,18 @@ const fmtDate = d => new Date(d).toLocaleDateString('en-US', { month: 'short', d
 const fmtTime = d => new Date(d).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }).toLowerCase().replace(' ', '');
 
 /* ── Create Request Modal ──────────────────────────────────── */
+const PRIORITY_COLORS = { low: '#16a34a', medium: '#d97706', high: '#dc2626' };
+
 const CreateModal = ({ houses, onClose, onCreated }) => {
   const [houseId, setHouseId]         = useState('');
-  const [category, setCategory]       = useState('');
   const [title, setTitle]             = useState('');
   const [description, setDescription] = useState('');
+  const [status, setStatus]           = useState('open');
+  const [dueDate, setDueDate]         = useState('');
+  const [priority, setPriority]       = useState('medium');
+  const [viewableBy, setViewableBy]   = useState('all');
   const [photos, setPhotos]           = useState([]);
   const [photoPreviews, setPhotoPreviews] = useState([]);
-  const [preferredTime, setPreferredTime] = useState('ANYTIME');
   const [submitting, setSubmitting]   = useState(false);
   const [submitted, setSubmitted]     = useState(false);
 
@@ -50,15 +54,18 @@ const CreateModal = ({ houses, onClose, onCreated }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!houseId) return;
+    if (!houseId || !title.trim()) return;
     setSubmitting(true);
     try {
       const fd = new FormData();
       fd.append('houseId', houseId);
-      fd.append('category', category);
+      fd.append('category', 'General');
       fd.append('title', title);
       fd.append('description', description);
-      fd.append('preferredTime', preferredTime);
+      fd.append('status', status);
+      fd.append('priority', priority);
+      if (dueDate) fd.append('dueDate', dueDate);
+      fd.append('viewableBy', viewableBy);
       photos.forEach(f => fd.append('photos', f));
       await axios.post(`${backendUrl}${API.maintenance}`, fd);
       setSubmitted(true);
@@ -70,12 +77,28 @@ const CreateModal = ({ houses, onClose, onCreated }) => {
     }
   };
 
-  const s = {
-    label: { display: 'block', fontSize: 13, fontWeight: 600, color: '#042238', marginBottom: 6 },
-    input: { width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 4, fontSize: 14, color: '#042238', background: '#fff', boxSizing: 'border-box', outline: 'none', fontFamily: '"Inter", sans-serif' },
-    select: { width: '100%', appearance: 'none', padding: '8px 36px 8px 12px', border: '1px solid #d1d5db', borderRadius: 4, background: '#fff', fontSize: 14, cursor: 'pointer', boxSizing: 'border-box', outline: 'none', fontFamily: '"Inter", sans-serif' },
-    chevron: { position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' },
+  const fieldInput = {
+    width: '100%', boxSizing: 'border-box',
+    padding: '7px 10px', border: '1px solid #e5e7eb', borderRadius: 6,
+    fontSize: 13, color: '#042238', background: '#fff', outline: 'none',
+    fontFamily: '"Inter", sans-serif', appearance: 'none',
   };
+
+  const FieldRow = ({ icon, label, children }) => (
+    <div style={{ display: 'grid', gridTemplateColumns: '5fr 7fr', alignItems: 'center', borderBottom: '1px solid #f3f4f6', padding: '9px 0', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: '#374151', fontWeight: 500 }}>
+        {icon}
+        {label}
+      </div>
+      <div>{children}</div>
+    </div>
+  );
+
+  const chevronSvg = (
+    <svg width="13" height="13" viewBox="0 0 14 14" style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+      <path d="M2 4l5 5 5-5" stroke="#9ca3af" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
 
   return (
     <div
@@ -83,156 +106,147 @@ const CreateModal = ({ houses, onClose, onCreated }) => {
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
-        style={{ background: '#fff', border: '2px solid #e6e9f0', borderRadius: 4, minWidth: 0, maxWidth: 600, width: '100%', padding: 32, boxSizing: 'border-box', maxHeight: '90vh', overflowY: 'auto', fontFamily: '"Inter", sans-serif', fontSize: 14, color: '#042238' }}
+        style={{ background: '#fff', borderRadius: 12, minWidth: 0, maxWidth: 600, width: '100%', boxSizing: 'border-box', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.25)', fontFamily: '"Inter", sans-serif', color: '#042238' }}
         onClick={e => e.stopPropagation()}
       >
 
         {submitted ? (
-          /* ── Success screen ───────────────────────────────── */
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ background: '#042238', borderRadius: '2px 2px 0 0', padding: '32px 32px 40px', position: 'relative', overflow: 'hidden', margin: '-32px -32px 0' }}>
-              <svg style={{ position: 'absolute', left: -10, top: -10, opacity: 0.18 }} width="200" height="180" viewBox="0 0 200 180" fill="none">
-                {[30,50,70,90,110,130].map((r, i) => (
-                  <path key={i} d={`M ${100-r} 180 A ${r} ${r} 0 0 1 ${100+r} 180`} stroke="#4da6d0" strokeWidth="1.5" fill="none" strokeDasharray="4 4"/>
-                ))}
+          /* ── Success screen ── */
+          <div style={{ textAlign: 'center', padding: 40 }}>
+            <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#10B981', margin: '0 auto 20px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 0 8px rgba(16,185,129,0.15)' }}>
+              <svg width="26" height="20" viewBox="0 0 26 20" fill="none">
+                <path d="M2 10L9.5 17.5L24 2" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-              <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#10B981', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 0 6px rgba(16,185,129,0.25)', position: 'relative', zIndex: 1 }}>
-                <svg width="26" height="20" viewBox="0 0 26 20" fill="none">
-                  <path d="M2 10L9.5 17.5L24 2" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </div>
             </div>
-            <div style={{ padding: '28px 16px 24px' }}>
-              <h2 style={{ fontSize: 20, fontWeight: 700, color: '#042238', margin: '0 0 20px', lineHeight: 1.3 }}>Maintenance request<br/>submitted!</h2>
-              <button
-                onClick={onClose}
-                style={{ background: '#033A6D', color: '#fff', border: 'none', borderRadius: 24, padding: '11px 36px', fontSize: 13, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', fontFamily: '"Inter", sans-serif' }}
-                onMouseEnter={e => e.currentTarget.style.background = '#022a52'}
-                onMouseLeave={e => e.currentTarget.style.background = '#033A6D'}
-              >
-                Sounds good
-              </button>
-            </div>
+            <h2 style={{ fontSize: 20, fontWeight: 700, color: '#042238', margin: '0 0 8px' }}>Request submitted!</h2>
+            <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 24px' }}>The maintenance request has been created.</p>
+            <button onClick={onClose} style={{ background: '#033A6D', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 32px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: '"Inter", sans-serif' }}>
+              Done
+            </button>
           </div>
         ) : (
           <>
-            {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4 }}>
-              <div>
-                <h2 style={{ fontSize: 20, fontWeight: 700, color: '#042238', margin: 0 }}>Create Maintenance Request</h2>
-                <p style={{ fontSize: 13, color: '#6b7280', margin: '6px 0 0' }}>Create a new maintenance request for your property.</p>
+            {/* ── Header ── */}
+            <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #f3f4f6', flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em' }}>New Maintenance Request</span>
+                <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#9ca3af', borderRadius: 4, display: 'flex', alignItems: 'center' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                  </svg>
+                </button>
               </div>
-              <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', color: '#9ca3af', fontSize: 20, lineHeight: 1 }}>×</button>
+              <input
+                required maxLength={50} value={title} onChange={e => setTitle(e.target.value)}
+                placeholder="Enter title"
+                style={{ width: '100%', boxSizing: 'border-box', border: 'none', outline: 'none', fontSize: 18, fontWeight: 700, color: '#042238', fontFamily: '"Inter", sans-serif', background: 'transparent', padding: 0 }}
+              />
             </div>
 
-            <form onSubmit={handleSubmit} style={{ marginTop: 20 }}>
-              {/* Property selector */}
-              <div style={{ marginBottom: 20 }}>
-                <label style={s.label}>Property<span style={{ color: '#e53e3e', marginLeft: 2 }}>*</span></label>
-                <div style={{ position: 'relative' }}>
-                  <select required value={houseId} onChange={e => setHouseId(e.target.value)}
-                    style={{ ...s.select, color: houseId ? '#042238' : '#9ca3af' }}>
-                    <option value="" disabled>Select a property</option>
-                    {houses.map(h => <option key={h._id} value={h._id}>{h.address}{h.city ? `, ${h.city}` : ''}</option>)}
-                  </select>
-                  <svg width="14" height="14" viewBox="0 0 14 14" style={s.chevron}>
-                    <path d="M2 4l5 5 5-5" stroke="#9ca3af" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </div>
-              </div>
+            {/* ── Scrollable body ── */}
+            <div style={{ overflowY: 'auto', flex: 1, padding: '0 24px' }}>
+              <form id="createMaintForm" onSubmit={handleSubmit}>
 
-              {/* Section: Details */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-                <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#e6e9f0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="#042238">
-                    <path d="M14.595 11.36l3.21 3.234.265-.066a4.731 4.731 0 014.138 1.085l.224.211a4.813 4.813 0 011.015 5.255.9.9 0 01-1.334.402l-.11-.088-1.816-1.69h-.672v.666l1.708 1.783a.914.914 0 01-.172 1.403l-.127.066a4.735 4.735 0 01-5.219-1.022 4.807 4.807 0 01-1.287-4.393l.065-.268-3.21-3.234 1.277-1.286 3.61 3.636c.26.262.336.657.193.998a2.985 2.985 0 00.63 3.26 2.93 2.93 0 001.64.835l.096.01-.757-.79a.912.912 0 01-.242-.492l-.01-.14v-1.94c0-.457.334-.835.77-.9l.133-.01h1.927c.181 0 .358.055.507.157l.106.084.848.789-.017-.152a2.972 2.972 0 00-.666-1.475l-.163-.178a2.935 2.935 0 00-3.238-.634.898.898 0 01-.888-.105l-.103-.09-3.608-3.635 1.277-1.286zM21.136.163a.899.899 0 011.154.103l1.445 1.456c.318.32.354.825.085 1.188l-2.472 3.33a.9.9 0 01-1.362.1l-.502-.506-9.011 9.074 1.404 1.415a.914.914 0 010 1.286.899.899 0 01-1.153.105l-.125-.105-.383-.387-5.69 5.734a2.334 2.334 0 01-3.193.121l-.128-.12a2.375 2.375 0 01-.001-3.344l5.692-5.736-.382-.384a.914.914 0 010-1.286.899.899 0 011.153-.105l.125.105 1.404 1.415 9.01-9.074-.604-.608a.914.914 0 01.03-1.316l.093-.075zM8.172 15.166l-5.69 5.733a.547.547 0 00.001.773c.21.212.553.212.765-.002l5.69-5.733-.766-.771zM8.119 1.409a4.809 4.809 0 011.287 4.394l-.067.267 3.21 3.232-1.277 1.286-3.608-3.632a.914.914 0 01-.193-.998 2.986 2.986 0 00-.63-3.262 2.887 2.887 0 00-1.605-.835l-.163-.02.727.827a.912.912 0 01.218.471l.01.133v1.94a.908.908 0 01-.77.9l-.134.01H3.198a.899.899 0 01-.508-.158l-.107-.085-.758-.71.015.13c.08.526.304 1.03.666 1.457l.164.179a2.926 2.926 0 003.237.614.898.898 0 01.887.104l.103.09 3.61 3.627-1.277 1.287-3.21-3.225-.267.067a4.71 4.71 0 01-4.138-1.068l-.223-.21A4.757 4.757 0 01.377 3a.9.9 0 011.335-.402l.111.089 1.729 1.613h.669v-.685L2.648 1.829a.914.914 0 01.2-1.377l.124-.064C4.739-.365 6.735.017 8.119 1.409zm13.426.68l-1.903 1.332.883.888 1.379-1.859-.359-.36z"/>
-                  </svg>
-                </div>
-                <h4 style={{ fontSize: 15, fontWeight: 700, color: '#042238', margin: 0 }}>Details</h4>
-              </div>
-
-              {/* Category */}
-              <div style={{ marginBottom: 20 }}>
-                <label style={s.label}>Category<span style={{ color: '#e53e3e', marginLeft: 2 }}>*</span></label>
-                <div style={{ position: 'relative' }}>
-                  <select required value={category} onChange={e => setCategory(e.target.value)}
-                    style={{ ...s.select, color: category ? '#042238' : '#9ca3af' }}>
-                    <option value="" disabled>Select an option</option>
-                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                  <svg width="14" height="14" viewBox="0 0 14 14" style={s.chevron}>
-                    <path d="M2 4l5 5 5-5" stroke="#9ca3af" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </div>
-              </div>
-
-              {/* Title */}
-              <div style={{ marginBottom: 20 }}>
-                <label style={s.label}>
-                  Title<span style={{ color: '#e53e3e', marginLeft: 2 }}>*</span>
-                  <span style={{ fontWeight: 400, fontStyle: 'italic', color: '#9ca3af', marginLeft: 8, fontSize: 12 }}>e.g. "Leaky Kitchen Faucet"</span>
-                </label>
-                <input required maxLength={50} value={title} onChange={e => setTitle(e.target.value)}
-                  style={s.input} placeholder="Enter a title" />
-              </div>
-
-              {/* Description */}
-              <div style={{ marginBottom: 20 }}>
-                <label style={s.label}>Description<span style={{ color: '#e53e3e', marginLeft: 2 }}>*</span></label>
-                <textarea required rows={4} value={description} onChange={e => setDescription(e.target.value)}
-                  style={{ ...s.input, resize: 'vertical' }} placeholder="Describe the issue..." />
-              </div>
-
-              {/* Preferred time */}
-              <div style={{ marginBottom: 20 }}>
-                <label style={{ ...s.label, marginBottom: 10 }}>Preferred Entry Time</label>
-                <div style={{ display: 'flex', gap: 12 }}>
-                  {[['ANYTIME', 'Anytime'], ['COORDINATE', 'Call first to coordinate']].map(([val, lbl]) => (
-                    <button key={val} type="button" onClick={() => setPreferredTime(val)}
-                      style={{ flex: 1, padding: '9px 12px', border: `2px solid ${preferredTime === val ? '#033A6D' : '#e5e7eb'}`, borderRadius: 6, background: preferredTime === val ? '#EEF3FA' : '#fff', color: preferredTime === val ? '#033A6D' : '#6b7280', fontSize: 13, fontWeight: preferredTime === val ? 700 : 400, cursor: 'pointer', textAlign: 'center', transition: 'all 0.15s', fontFamily: '"Inter", sans-serif' }}>
-                      {lbl}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Photos */}
-              <div style={{ marginBottom: 24 }}>
-                <label style={s.label}>Photos</label>
-                {photoPreviews.length > 0 && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
-                    {photoPreviews.map((p, i) => (
-                      <div key={i} style={{ position: 'relative', width: 88, height: 88, borderRadius: 4, overflow: 'hidden', border: '1px solid #e5e7eb' }}>
-                        <img src={p.url} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        <button type="button" onClick={() => removePhoto(i)}
-                          style={{ position: 'absolute', top: 3, right: 3, width: 18, height: 18, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', border: 'none', color: '#fff', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', lineHeight: 1 }}>
-                          ×
-                        </button>
-                      </div>
-                    ))}
+                {/* Field rows */}
+                <FieldRow icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="#9ca3af"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>} label="Property">
+                  <div style={{ position: 'relative' }}>
+                    <select required value={houseId} onChange={e => setHouseId(e.target.value)} style={{ ...fieldInput, color: houseId ? '#042238' : '#9ca3af', paddingRight: 28 }}>
+                      <option value="" disabled>Select property</option>
+                      {houses.map(h => <option key={h._id} value={h._id}>{h.address}{h.city ? `, ${h.city}` : ''}</option>)}
+                    </select>
+                    {chevronSvg}
                   </div>
-                )}
-                <label
-                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, border: '2px dashed #c5d6e8', borderRadius: 6, background: '#f8fbff', padding: '20px 16px', cursor: 'pointer', minHeight: 90 }}
-                  onDragOver={e => e.preventDefault()}
-                  onDrop={e => { e.preventDefault(); addFiles(e.dataTransfer.files); }}
-                >
-                  <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#e8f1fb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4a90c4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="2" y="3" width="20" height="14" rx="2"/><polyline points="8 21 12 17 16 21"/><line x1="12" y1="17" x2="12" y2="3"/>
+                </FieldRow>
+
+                <FieldRow icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="#9ca3af"><path d="M5.33 20H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2h1.33c1.1 0 2 .9 2 2v12c0 1.1-.89 2-2 2M22 18V6c0-1.1-.9-2-2-2h-1.33c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2H20c1.11 0 2-.9 2-2m-7.33 0V6c0-1.1-.9-2-2-2h-1.33c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h1.33c1.1 0 2-.9 2-2"/></svg>} label="Status">
+                  <div style={{ position: 'relative' }}>
+                    <select value={status} onChange={e => setStatus(e.target.value)} style={{ ...fieldInput, paddingRight: 28 }}>
+                      <option value="open">New</option>
+                      <option value="in_progress">In Progress</option>
+                      <option value="resolved">Resolved</option>
+                      <option value="closed">Closed</option>
+                    </select>
+                    {chevronSvg}
+                  </div>
+                </FieldRow>
+
+                <FieldRow icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="#9ca3af"><path d="M20 3h-1V1h-2v2H7V1H5v2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2m0 18H4V8h16z"/></svg>} label="Due date">
+                  <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} style={fieldInput} />
+                </FieldRow>
+
+                <FieldRow icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="#9ca3af"><path d="M14.4 6 14 4H5v17h2v-7h5.6l.4 2h7V6z"/></svg>} label="Priority">
+                  <div style={{ position: 'relative' }}>
+                    <select value={priority} onChange={e => setPriority(e.target.value)} style={{ ...fieldInput, paddingRight: 28, color: PRIORITY_COLORS[priority] || '#042238', fontWeight: 600 }}>
+                      <option value="low">Low</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High</option>
+                    </select>
+                    {chevronSvg}
+                  </div>
+                </FieldRow>
+
+                <FieldRow icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="#9ca3af"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5M12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5m0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3"/></svg>} label="Viewable by">
+                  <div style={{ position: 'relative' }}>
+                    <select value={viewableBy} onChange={e => setViewableBy(e.target.value)} style={{ ...fieldInput, paddingRight: 28 }}>
+                      <option value="all">Landlord and Tenants</option>
+                      <option value="landlord">Landlord only</option>
+                    </select>
+                    {chevronSvg}
+                  </div>
+                </FieldRow>
+
+                {/* Description */}
+                <div style={{ padding: '14px 0 10px' }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 8px' }}>Description</p>
+                  <textarea rows={4} value={description} onChange={e => setDescription(e.target.value)}
+                    placeholder="Enter description..."
+                    style={{ width: '100%', boxSizing: 'border-box', padding: '8px 10px', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, color: '#042238', background: '#fff', outline: 'none', fontFamily: '"Inter", sans-serif', resize: 'vertical', lineHeight: 1.55 }}
+                  />
+                </div>
+
+                {/* Images */}
+                <div style={{ paddingBottom: 16 }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 8px' }}>Images</p>
+                  {photoPreviews.length > 0 && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4, marginBottom: 8 }}>
+                      {photoPreviews.map((p, i) => (
+                        <div key={i} style={{ position: 'relative', borderRadius: 6, overflow: 'hidden', height: 100 }}>
+                          <img src={p.url} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <button type="button" onClick={() => removePhoto(i)}
+                            style={{ position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', border: 'none', color: '#fff', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <label
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, border: '2px dashed #c5d6e8', borderRadius: 6, background: '#f8fbff', padding: '14px 16px', cursor: 'pointer', height: 80, boxSizing: 'border-box' }}
+                    onDragOver={e => e.preventDefault()}
+                    onDrop={e => { e.preventDefault(); addFiles(e.dataTransfer.files); }}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="#4a90c4">
+                      <path d="M11 10V0H5v10H2l6 6 6-6h-3zm0 0" fillRule="evenodd"/>
                     </svg>
-                  </div>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: '#4a90c4', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Click or drag to upload</span>
-                  <input type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={e => { addFiles(e.target.files); e.target.value = ''; }} />
-                </label>
-              </div>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: '#4a90c4' }}>Browse or drag and drop files</span>
+                    <input type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={e => { addFiles(e.target.files); e.target.value = ''; }} />
+                  </label>
+                </div>
 
-              {/* Submit */}
-              <button type="submit" disabled={submitting}
-                style={{ width: '100%', padding: '12px', background: submitting ? '#93c5fd' : '#033A6D', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 700, cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: '"Inter", sans-serif', letterSpacing: '0.04em', transition: 'background 0.15s' }}>
-                {submitting ? 'Submitting…' : 'Submit Request'}
+              </form>
+            </div>
+
+            {/* ── Footer ── */}
+            <div style={{ padding: '14px 24px', borderTop: '1px solid #f3f4f6', display: 'flex', gap: 10, flexShrink: 0 }}>
+              <button type="submit" form="createMaintForm" disabled={submitting}
+                style={{ padding: '9px 24px', background: submitting ? '#93c5fd' : '#033A6D', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: '"Inter", sans-serif' }}>
+                {submitting ? 'Saving…' : 'Save'}
               </button>
-            </form>
+              <button type="button" onClick={onClose}
+                style={{ padding: '9px 24px', background: 'none', color: '#6b7280', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: '"Inter", sans-serif' }}>
+                Cancel
+              </button>
+            </div>
           </>
         )}
       </div>
