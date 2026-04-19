@@ -141,103 +141,90 @@ const Tenants = () => {
 
         {/* ── Main content ── */}
         <div style={{ padding: '26px 32px 48px' }}>
-          <div style={{ maxWidth: 900, margin: '0 auto' }}>
+          <div style={{ maxWidth: 960, margin: '0 auto' }}>
 
-          {/* ── Toolbar ── */}
-          <div style={{
-            display: 'flex', alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: 20, gap: 12, flexWrap: 'wrap',
-          }}>
-            {/* Title */}
-            <h2 style={{
-              margin: 0, fontFamily: FONT, fontSize: 19, fontWeight: 700, color: NAVY,
-              letterSpacing: '-0.01em',
-            }}>
-              {filter === 'active' ? 'Active' : filter === 'past' ? 'Past' : 'Archived'} Tenants
-              <span style={{ fontWeight: 400, color: '#8a9ab0', fontSize: 16, marginLeft: 6 }}>
-                ({shown.length})
-              </span>
-            </h2>
-
-            {/* Right controls */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              {/* Segment pills */}
-              <div style={{
-                display: 'flex',
-                border: `1.5px solid #d1dce8`,
-                borderRadius: 100, overflow: 'hidden',
-                background: '#f4f7fb',
-                padding: 2,
-                gap: 1,
-              }}>
-                {TABS.map((tab) => (
-                  <button
-                    key={tab.key}
-                    onClick={() => setFilter(tab.key)}
-                    style={{
-                      padding: '6px 16px',
-                      fontFamily: FONT, fontSize: 12, fontWeight: 600,
-                      background: filter === tab.key ? NAVY : 'transparent',
-                      color: filter === tab.key ? '#fff' : '#8a9ab0',
-                      border: 'none',
-                      borderRadius: 100,
-                      cursor: 'pointer',
-                      letterSpacing: '0.01em',
-                      boxShadow: filter === tab.key ? '0 1px 4px rgba(4,34,56,0.25)' : 'none',
-                      transition: 'all 0.15s',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {tab.label}
-                    {tab.count > 0 && (
-                      <span style={{
-                        marginLeft: 5, fontSize: 10, fontWeight: 700,
-                        background: filter === tab.key ? 'rgba(255,255,255,0.2)' : 'transparent',
-                        color: filter === tab.key ? '#fff' : '#b0bfcc',
-                        borderRadius: 10, padding: '1px 6px',
-                      }}>
-                        {tab.count}
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
-
-              {/* Add New button */}
-              <button
-                onClick={() => setModal(true)}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 7,
-                  background: NAVY, color: '#fff',
-                  border: 'none', borderRadius: 8,
-                  padding: '8px 18px',
-                  fontFamily: FONT, fontSize: 13, fontWeight: 700,
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 6px rgba(4,34,56,0.20)',
-                  letterSpacing: '0.02em',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                <span style={{
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  width: 16, height: 16, borderRadius: '50%',
-                  background: 'rgba(255,255,255,0.25)',
-                  fontSize: 14, fontWeight: 400, lineHeight: 1,
-                }}>+</span>
-                Add New
-              </button>
-            </div>
-          </div>
-
-          {/* ── Content card ── */}
+          {/* ── Unified card: toolbar + table + pagination ── */}
           <div style={{
             background: '#fff',
-            borderRadius: 12,
-            border: '1px solid #e4e9f0',
-            boxShadow: '0 2px 12px rgba(4,34,56,0.07), 0 1px 3px rgba(4,34,56,0.04)',
+            borderRadius: 8,
+            border: '1px solid #e0e4ea',
             overflow: 'hidden',
           }}>
+
+            {/* ── Card toolbar ── */}
+            <div style={{
+              display: 'flex', alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '16px 24px',
+              borderBottom: '1px solid #e4e9f0',
+              flexWrap: 'wrap', gap: 12,
+            }}>
+              {/* Title */}
+              <h2 style={{
+                margin: 0, fontFamily: FONT,
+                fontSize: 15, fontWeight: 700,
+                color: NAVY, letterSpacing: '-0.01em',
+              }}>
+                {filter === 'active' ? 'Active Tenants' : filter === 'past' ? 'Past Tenants' : 'Archived Tenants'}
+              </h2>
+
+              {/* Filter tabs + Add New */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {/* Tabs */}
+                <div style={{ display: 'inline-flex', background: '#f1f5f9', borderRadius: 8, padding: 3, gap: 2 }}>
+                  {TABS.map(tab => (
+                    <button
+                      key={tab.key}
+                      onClick={() => setFilter(tab.key)}
+                      style={{
+                        padding: '5px 14px',
+                        borderRadius: 6, border: 'none', cursor: 'pointer',
+                        fontFamily: FONT, fontSize: 12, fontWeight: 600,
+                        letterSpacing: '0.03em',
+                        background: filter === tab.key ? '#fff' : 'transparent',
+                        color: filter === tab.key ? NAVY : '#6b7280',
+                        boxShadow: filter === tab.key ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                        transition: 'all 0.15s',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {tab.label}
+                      {tab.count > 0 && (
+                        <span style={{
+                          marginLeft: 6, fontSize: 10, fontWeight: 700,
+                          background: filter === tab.key ? '#e8eef6' : 'transparent',
+                          color: filter === tab.key ? NAVY : '#9ca3af',
+                          padding: '1px 6px', borderRadius: 10,
+                        }}>
+                          {tab.count}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Add New */}
+                <button
+                  onClick={() => setModal(true)}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    background: NAVY, color: '#fff',
+                    border: 'none', borderRadius: 8,
+                    padding: '7px 16px',
+                    fontFamily: FONT, fontSize: 12, fontWeight: 700,
+                    letterSpacing: '0.06em', textTransform: 'uppercase',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 6px rgba(4,34,56,0.2)',
+                    whiteSpace: 'nowrap',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#022a52'}
+                  onMouseLeave={e => e.currentTarget.style.background = NAVY}
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  Add New
+                </button>
+              </div>
+            </div>
 
             {/* Loading */}
             {loading && (
@@ -327,142 +314,91 @@ const Tenants = () => {
               </div>
             )}
 
-            {/* Tenants table — TurboTenant layout */}
+            {/* Tenants table — DataGrid style */}
             {!loading && shown.length > 0 && (() => {
-              const allSelected = shown.length > 0 && shown.every(t => selected.has(t._id));
-              const toggleAll = () => {
-                if (allSelected) setSelected(new Set());
-                else setSelected(new Set(shown.map(t => t._id)));
+              const statusChip = (t) => {
+                if (t.isActive === false) {
+                  return { label: 'FORMER', color: '#374151', border: '#d1d5db', bg: '#f9fafb' };
+                }
+                if (t.portalActivated) {
+                  return { label: 'CURRENT', color: '#166534', border: '#86efac', bg: '#f0fdf4' };
+                }
+                if (t.house) {
+                  return { label: 'CURRENT', color: '#166534', border: '#86efac', bg: '#f0fdf4' };
+                }
+                return { label: 'NO LEASE', color: '#92400e', border: '#fcd34d', bg: '#fffbeb' };
               };
-              const toggleOne = (id) => {
-                const next = new Set(selected);
-                next.has(id) ? next.delete(id) : next.add(id);
-                setSelected(next);
-              };
-              const fmtInvited = (d) => {
-                if (!d) return null;
-                const dt = new Date(d);
-                const date = dt.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' });
-                const time = dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
-                  .replace(/^0/, '').toLowerCase().replace(' ', '');
-                return `Invited ${date} - ${time}`;
-              };
+
               return (
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: FONT, fontSize: 14 }}>
                     <thead>
-                      <tr style={{ borderBottom: '2px solid #e4e9f0' }}>
-                        {/* SELECT ALL */}
-                        <th style={TH}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <input
-                              type="checkbox" checked={allSelected} onChange={toggleAll}
-                              style={{ width: 16, height: 16, accentColor: NAVY, cursor: 'pointer', flexShrink: 0 }}
-                            />
-                            <span>Select All ({shown.length})</span>
-                          </div>
-                        </th>
-                        <th style={TH}>Contact Info</th>
-                        <th style={TH}>Lease</th>
-                        <th style={TH}>Tenant Portal Access</th>
-                        <th style={{ ...TH, textAlign: 'right' }}></th>
+                      <tr style={{ background: '#f5f6f8', borderBottom: '1px solid #e4e9f0' }}>
+                        <th style={{ ...DGH, width: 70 }}></th>
+                        <th style={DGH}>NAME</th>
+                        <th style={DGH}>EMAIL</th>
+                        <th style={DGH}>MOBILE</th>
+                        <th style={DGH}>STATUS</th>
                       </tr>
                     </thead>
                     <tbody>
                       {shown.map((t, idx) => {
-                        const invited = fmtInvited(t.createdAt);
-                        const isSelected = selected.has(t._id);
-                        const houseName = t.house ? `${t.house.name}${t.house.city ? ` — ${t.house.city}` : ''}` : null;
+                        const [bg, fg] = avatarColor(t.name);
+                        const chip = statusChip(t);
                         return (
                           <tr
                             key={t._id}
-                            style={{
-                              borderBottom: idx < shown.length - 1 ? '1px solid #f0f3f8' : 'none',
-                              background: isSelected ? '#f0f6ff' : 'transparent',
-                              transition: 'background 0.1s',
-                            }}
-                            onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#f8fafc'; }}
-                            onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}
+                            style={{ borderBottom: '1px solid #f0f3f8', background: 'transparent', transition: 'background 0.1s', cursor: 'pointer', minHeight: 70 }}
+                            onClick={() => window.location.href = `/tenants/${t._id}`}
+                            onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                           >
-                            {/* Name + lease + invited */}
-                            <td style={{ padding: '16px 16px', verticalAlign: 'top' }}>
-                              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                                <input
-                                  type="checkbox" checked={isSelected}
-                                  onChange={() => toggleOne(t._id)}
-                                  style={{ width: 16, height: 16, accentColor: NAVY, cursor: 'pointer', flexShrink: 0, marginTop: 3 }}
-                                />
-                                <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: NAVY }}>
-                                  {t.name}
-                                </div>
+                            {/* Avatar */}
+                            <td style={{ padding: '16px 12px', width: 70, textAlign: 'center', verticalAlign: 'middle' }}>
+                              <div style={{ width: 36, height: 36, borderRadius: '50%', background: bg, color: fg, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, letterSpacing: '0.02em' }}>
+                                {initials(t.name)}
                               </div>
                             </td>
-
-                            {/* Contact info */}
-                            <td style={{ padding: '16px 16px', verticalAlign: 'top' }}>
-                              {t.email && (
-                                <a href={`mailto:${t.email}`}
-                                  style={{ fontFamily: FONT, fontSize: 13, color: TEAL, textDecoration: 'none', display: 'block', marginBottom: 4 }}>
-                                  {t.email}
-                                </a>
-                              )}
-                              {t.phone && (
-                                <span style={{ fontFamily: FONT, fontSize: 13, color: '#6b7280' }}>
-                                  {t.phone}
-                                </span>
-                              )}
+                            {/* Name */}
+                            <td style={{ padding: '16px 12px', verticalAlign: 'middle', fontSize: 14, fontWeight: 500, color: NAVY }}>
+                              {t.name}
                             </td>
-
-                            {/* Lease */}
-                            <td style={{ padding: '16px 16px', verticalAlign: 'top' }}>
-                              {houseName ? (
-                                <Link
-                                  to={`/houses/${t.house._id}`}
-                                  style={{ fontFamily: FONT, fontSize: 13, color: TEAL, textDecoration: 'none', lineHeight: 1.4 }}>
-                                  {houseName}
-                                </Link>
-                              ) : (
-                                <span style={{ color: '#9ca3af', fontSize: 13 }}>—</span>
-                              )}
+                            {/* Email */}
+                            <td style={{ padding: '16px 12px', verticalAlign: 'middle', fontSize: 14, color: '#374151' }}>
+                              {t.email || ''}
                             </td>
-
-                            {/* Portal access */}
-                            <td style={{ padding: '16px 16px', verticalAlign: 'top' }}>
-                              <span style={{ fontFamily: FONT, fontSize: 13, color: '#6b7280' }}>
-                                {invited || '—'}
+                            {/* Mobile */}
+                            <td style={{ padding: '16px 12px', verticalAlign: 'middle', fontSize: 14, color: '#374151' }}>
+                              {t.phone || ''}
+                            </td>
+                            {/* Status chip */}
+                            <td style={{ padding: '16px 12px', verticalAlign: 'middle' }}>
+                              <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', padding: '3px 10px', borderRadius: 20, border: `1px solid ${chip.border}`, color: chip.color, background: chip.bg, whiteSpace: 'nowrap' }}>
+                                {chip.label}
                               </span>
-                            </td>
-
-                            {/* Actions */}
-                            <td style={{ padding: '16px 16px', textAlign: 'right', verticalAlign: 'top' }}>
-                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                                <Link
-                                  to={`/tenants/${t._id}`} title="View"
-                                  style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 4, color: BLUE, textDecoration: 'none', background: '#f0f4f8', border: '1px solid #dde3ec' }}
-                                  onMouseEnter={e => e.currentTarget.style.background = '#e2eaf4'}
-                                  onMouseLeave={e => e.currentTarget.style.background = '#f0f4f8'}
-                                >
-                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-                                  </svg>
-                                </Link>
-                                <button
-                                  onClick={() => handleDelete(t._id, t.name)} title="Remove"
-                                  style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 4, background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', cursor: 'pointer' }}
-                                  onMouseEnter={e => e.currentTarget.style.background = '#fee2e2'}
-                                  onMouseLeave={e => e.currentTarget.style.background = '#fef2f2'}
-                                >
-                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/>
-                                  </svg>
-                                </button>
-                              </div>
                             </td>
                           </tr>
                         );
                       })}
                     </tbody>
                   </table>
+                  {/* Pagination footer */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 16, padding: '12px 16px', borderTop: '1px solid #f0f3f8', fontFamily: FONT, fontSize: 13, color: '#6b7280' }}>
+                    <span>Rows per page:</span>
+                    <span style={{ fontWeight: 600, color: NAVY, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      100
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="#6b7280"><path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>
+                    </span>
+                    <span>1–{shown.length} of {shown.length}</span>
+                    <div style={{ display: 'inline-flex', gap: 4 }}>
+                      <button disabled style={{ background: 'none', border: 'none', cursor: 'not-allowed', color: '#d1d5db', padding: '2px 4px', lineHeight: 0 }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 16.59 10.83 12l4.58-4.59L14 6l-6 6 6 6z"/></svg>
+                      </button>
+                      <button disabled style={{ background: 'none', border: 'none', cursor: 'not-allowed', color: '#d1d5db', padding: '2px 4px', lineHeight: 0 }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               );
             })()}
@@ -664,14 +600,15 @@ const Tenants = () => {
   );
 };
 
-/* ─── table header style ──────────────────────────────────────── */
-const TH = {
-  padding: '11px 16px',
+/* ─── DataGrid column header style ───────────────────────────── */
+const DGH = {
+  padding: '10px 12px',
   fontFamily: '"Inter", sans-serif',
-  fontSize: 11, fontWeight: 700,
-  color: '#acb9c8', textTransform: 'uppercase',
-  letterSpacing: '0.09em', textAlign: 'left',
-  whiteSpace: 'nowrap', background: '#fff',
+  fontSize: 11, fontWeight: 500,
+  color: '#0f2e5a', textTransform: 'uppercase',
+  letterSpacing: '0.07em', textAlign: 'left',
+  whiteSpace: 'nowrap', background: '#f5f6f8',
+  borderRight: '1px solid #e4e9f0',
 };
 
 /* ─── modal input styles (TurboTenant pixel-perfect) ─────────── */

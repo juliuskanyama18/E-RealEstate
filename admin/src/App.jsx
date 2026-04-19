@@ -19,6 +19,9 @@ import Houses from './pages/landlord/Houses';
 import AddProperty from './pages/landlord/AddProperty';
 import HouseDetail from './pages/landlord/HouseDetail';
 import CreateLease from './pages/landlord/CreateLease';
+import RentChange from './pages/landlord/RentChange';
+import Leases from './pages/landlord/Leases';
+import EditProperty from './pages/landlord/EditProperty';
 import Tenants from './pages/landlord/Tenants';
 import TenantDetail from './pages/landlord/TenantDetail';
 import Payments from './pages/landlord/Payments';
@@ -61,6 +64,11 @@ const App = () => (
         <Route path="/houses/new" element={<ProtectedRoute roles={['landlord']}><AddProperty /></ProtectedRoute>} />
         <Route path="/houses/:id" element={<ProtectedRoute roles={['landlord']}><HouseDetail /></ProtectedRoute>} />
         <Route path="/houses/:id/create-lease" element={<ProtectedRoute roles={['landlord']}><CreateLease /></ProtectedRoute>} />
+        <Route path="/houses/:id/leases" element={<ProtectedRoute roles={['landlord']}><Leases /></ProtectedRoute>} />
+        <Route path="/houses/:id/edit" element={<ProtectedRoute roles={['landlord']}><EditProperty /></ProtectedRoute>} />
+        <Route path="/houses/:id/rent-change" element={<ProtectedRoute roles={['landlord']}><RentChange /></ProtectedRoute>} />
+        <Route path="/houses/:id/rent-change/create" element={<ProtectedRoute roles={['landlord']}><RentChange /></ProtectedRoute>} />
+        <Route path="/houses/:id/rent-change/:changeId/edit" element={<ProtectedRoute roles={['landlord']}><RentChange /></ProtectedRoute>} />
         <Route path="/tenants" element={<ProtectedRoute roles={['landlord']}><Tenants /></ProtectedRoute>} />
         <Route path="/tenants/:id" element={<ProtectedRoute roles={['landlord']}><TenantDetail /></ProtectedRoute>} />
         <Route path="/payments" element={<ProtectedRoute roles={['landlord']}><Payments /></ProtectedRoute>} />

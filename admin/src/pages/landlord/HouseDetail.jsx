@@ -968,8 +968,25 @@ const HouseDetail = () => {
   const [activeTab, setActiveTab]         = useState('Overview');
   const [paymentView, setPaymentView]     = useState('Month');
   const [payExpTab, setPayExpTab]         = useState('Payments');
+  const [housePayments,    setHousePayments]    = useState([]);
+  const [payLoading,       setPayLoading]       = useState(false);
+  const [paySearch,        setPaySearch]        = useState('');
   const [houseExpenses,    setHouseExpenses]    = useState([]);
   const [expLoading,       setExpLoading]       = useState(false);
+  const [expSearch,        setExpSearch]        = useState('');
+  const [paySubTab,        setPaySubTab]        = useState('Payments');
+  const [expSubTab,        setExpSubTab]        = useState('Expenses');
+  const [showLogPayment,   setShowLogPayment]   = useState(false);
+  const [showAddExpense,   setShowAddExpense]   = useState(false);
+  const [logPayForm,       setLogPayForm]       = useState({ paymentDate: new Date().toISOString().slice(0,10), category: 'Rent', month: '', status: 'Complete', amount: '', tenantId: '', sendReceipt: 'No', notes: '' });
+  const [addExpForm,       setAddExpForm]       = useState({ dueDate: new Date().toISOString().slice(0,10), category: 'Other', description: '', amount: '', status: 'unpaid', paymentDate: new Date().toISOString().slice(0,10), isPaid: true, payableByTenant: false, capitalExpense: false, notes: '', supplier: '' });
+  const [logPaySubmitting, setLogPaySubmitting] = useState(false);
+  const [addExpSubmitting, setAddExpSubmitting] = useState(false);
+  const [expandedPeriod,   setExpandedPeriod]   = useState(null);
+  const [showAddMenu,      setShowAddMenu]       = useState(false);
+  const addMenuRef = useRef(null);
+  const [showEditPropMenu, setShowEditPropMenu]  = useState(false);
+  const editPropMenuRef = useRef(null);
   const [showCreateRequest, setShowCreateRequest] = useState(false);
   const [maintenanceRequests, setMaintenanceRequests] = useState([]);
   const [loadingMaintenance, setLoadingMaintenance] = useState(false);
@@ -1165,6 +1182,15 @@ const HouseDetail = () => {
     if (id) fetchMaintenance();
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const fetchHousePayments = () => {
+    if (!id) return;
+    setPayLoading(true);
+    axios.get(`${backendUrl}${API.payments}?houseId=${id}`)
+      .then(r => setHousePayments(r.data.data || []))
+      .catch(() => {})
+      .finally(() => setPayLoading(false));
+  };
+
   const fetchHouseExpenses = () => {
     if (!id) return;
     setExpLoading(true);
@@ -1175,10 +1201,66 @@ const HouseDetail = () => {
   };
 
   useEffect(() => {
+    if (payExpTab === 'Payments') fetchHousePayments();
     if (payExpTab === 'Expenses') fetchHouseExpenses();
   }, [payExpTab, id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    const h1 = (e) => { if (addMenuRef.current && !addMenuRef.current.contains(e.target)) setShowAddMenu(false); };
+    const h2 = (e) => { if (editPropMenuRef.current && !editPropMenuRef.current.contains(e.target)) setShowEditPropMenu(false); };
+    document.addEventListener('mousedown', h1);
+    document.addEventListener('mousedown', h2);
+    return () => { document.removeEventListener('mousedown', h1); document.removeEventListener('mousedown', h2); };
+  }, []);
+
   const monthName = new Date().toLocaleString('default', { month: 'long' });
+
+  const handleLogPayment = async () => {
+    const { paymentDate, category, month, status, amount, tenantId, notes } = logPayForm;
+    if (!amount || !month || !tenantId) { toast.error('Amount, payment period, and tenant are required'); return; }
+    setLogPaySubmitting(true);
+    try {
+      const token = localStorage.getItem('rental_token');
+      await axios.post(`${backendUrl}${API.payments}`,
+        { tenantId, amount: Number(amount), month, datePaid: paymentDate, notes, status },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      toast.success('Payment recorded');
+      setShowLogPayment(false);
+      setLogPayForm({ paymentDate: new Date().toISOString().slice(0,10), category: 'Rent', month: '', status: 'Complete', amount: '', tenantId: '', sendReceipt: 'No', notes: '' });
+      fetchHousePayments();
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to record payment');
+    } finally { setLogPaySubmitting(false); }
+  };
+
+  const handleAddExpense = async () => {
+    const { dueDate, category, description, amount, isPaid, paymentDate, payableByTenant, capitalExpense, notes, supplier } = addExpForm;
+    if (!dueDate || !amount) { toast.error('Due date and amount are required'); return; }
+    setAddExpSubmitting(true);
+    try {
+      const token = localStorage.getItem('rental_token');
+      const fd = new FormData();
+      fd.append('dueDate', dueDate);
+      fd.append('category', category || 'Other');
+      fd.append('description', description);
+      fd.append('amount', amount);
+      fd.append('status', isPaid ? 'paid' : 'unpaid');
+      if (isPaid) fd.append('paymentDate', paymentDate);
+      fd.append('payableByTenant', payableByTenant);
+      fd.append('capitalExpense', capitalExpense);
+      fd.append('notes', notes);
+      fd.append('supplier', supplier);
+      fd.append('house', id);
+      await axios.post(`${backendUrl}${API.expenses}`, fd, { headers: { Authorization: `Bearer ${token}` } });
+      toast.success('Expense added');
+      setShowAddExpense(false);
+      setAddExpForm({ dueDate: new Date().toISOString().slice(0,10), category: 'Other', description: '', amount: '', status: 'unpaid', paymentDate: new Date().toISOString().slice(0,10), isPaid: true, payableByTenant: false, capitalExpense: false, notes: '', supplier: '' });
+      fetchHouseExpenses();
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to add expense');
+    } finally { setAddExpSubmitting(false); }
+  };
 
   const received = useMemo(() =>
     tenants.filter(t => (t.balance || 0) >= 0).reduce((s, t) => s + (t.rentAmount || 0), 0),
@@ -1256,49 +1338,106 @@ const HouseDetail = () => {
           </div>
 
           {/* Row 2 — property identity + actions */}
-          <div className="bg-white">
-            <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between gap-4 flex-wrap">
+          <div className="bg-white border-b border-gray-100">
+            <div className="max-w-4xl mx-auto px-6 py-3" style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
 
-              {/* Left: icon + name/meta */}
-              <div className="flex items-center gap-4 min-w-0">
-                <div className="w-14 h-14 rounded-2xl border border-gray-200 shadow-sm flex-shrink-0 overflow-hidden flex items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50">
+              {/* Left: circular avatar + name + edit + address */}
+              <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 16, minWidth: 0 }}>
+                <div style={{ width: 56, height: 56, borderRadius: '50%', flexShrink: 0, overflow: 'hidden', border: '1px solid #e5e7eb', background: 'linear-gradient(135deg,#f8fafc,#eff6ff)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {house.photo
-                    ? <img src={`${backendUrl}${house.photo}`} alt={house.name} className="w-full h-full object-cover" />
+                    ? <img src={`${backendUrl}${house.photo}`} alt={house.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     : typeSvg
                   }
                 </div>
-                <div className="min-w-0">
-                  <h1 className="text-base font-bold text-gray-900 leading-tight truncate">
-                    {house.address || house.name}
-                  </h1>
-                  {locationLine && (
-                    <p className="text-xs text-gray-400 mt-0.5 truncate">{locationLine}</p>
-                  )}
-                  <div className="flex items-center gap-3 mt-1.5">
-                    <span className="text-[11px] text-gray-400">
-                      ID: <span className="font-semibold text-gray-600">{shortId}</span>
-                    </span>
-                    <span className="w-px h-3 bg-gray-200" />
-                    <span className="text-[11px] text-gray-400">
-                      Rent: <span className="font-semibold text-gray-700">TZS {(house.rentAmount || 0).toLocaleString()}</span>
-                    </span>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <h1 style={{ fontSize: 18, fontWeight: 800, color: '#042238', lineHeight: 1.2, margin: 0, textTransform: 'uppercase', letterSpacing: '0.01em' }}>
+                      {house.address || house.name}
+                    </h1>
+                    <div ref={editPropMenuRef} style={{ position: 'relative' }}>
+                      <button
+                        onClick={() => setShowEditPropMenu(v => !v)}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', color: '#033A6D', fontSize: 13, fontWeight: 600, padding: '2px 6px', borderRadius: 4, fontFamily: 'inherit' }}
+                      >
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        Edit property
+                      </button>
+                      {showEditPropMenu && (
+                        <div style={{ position: 'absolute', left: 0, top: 'calc(100% + 6px)', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', zIndex: 300, minWidth: 220, padding: '4px 0' }}>
+                          <button
+                            onClick={() => { setShowEditPropMenu(false); navigate(`/houses/${id}/edit`); }}
+                            style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '11px 16px', background: 'none', border: 'none', fontSize: 14, color: '#374151', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}
+                          >
+                            <span style={{ width: 32, height: 32, borderRadius: 8, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1d4ed8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                            </span>
+                            Edit property
+                          </button>
+                          <button
+                            onClick={() => { setShowEditPropMenu(false); navigate(`/houses/${id}/edit#photo`); }}
+                            style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '11px 16px', background: 'none', border: 'none', fontSize: 14, color: '#374151', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}
+                          >
+                            <span style={{ width: 32, height: 32, borderRadius: 8, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="#1d4ed8"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+                            </span>
+                            Upload property images
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
+                  {locationLine && (
+                    <p style={{ fontSize: 13, color: '#6b7280', margin: '3px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{locationLine}</p>
+                  )}
                 </div>
               </div>
 
-              {/* Right: action buttons */}
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <button className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 bg-white border border-gray-200 px-3 py-2 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm">
-                  <Settings size={13} strokeWidth={2} />
-                  Settings
-                </button>
-                <Link
-                  to="/tenants"
-                  className="inline-flex items-center gap-1.5 text-xs font-bold bg-[#033A6D] text-white px-4 py-2 rounded-lg hover:bg-[#022a52] transition-colors shadow-sm"
-                >
-                  <Users size={13} strokeWidth={2} />
-                  Manage Tenants
-                </Link>
+              {/* Right: lease selector + Add button */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', border: '1px solid #d1d5db', borderRadius: 6, padding: '6px 10px', fontSize: 13, color: '#374151', background: '#fff', gap: 8, cursor: 'default', minWidth: 200 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.3 }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Lease</span>
+                    <span style={{ fontSize: 12, fontWeight: 500, color: '#374151' }}>
+                      {lease
+                        ? `${new Date(lease.startDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} – ${new Date(lease.endDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
+                        : 'No active lease'}
+                    </span>
+                  </div>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="#9ca3af" style={{ flexShrink: 0 }}><path d="M7 10l5 5 5-5z"/></svg>
+                </div>
+                <div ref={addMenuRef} style={{ position: 'relative' }}>
+                  <button
+                    onClick={() => setShowAddMenu(v => !v)}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#033A6D', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg>
+                    Add
+                  </button>
+                  {showAddMenu && (() => {
+                    const menuItems = [
+                      { label: 'Payment',  action: () => { setShowLogPayment(true);  setShowAddMenu(false); }, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2m0 14H4v-6h16zm0-10H4V6h16z"/></svg> },
+                      { label: 'Expense',  action: () => { setShowAddExpense(true);  setShowAddMenu(false); }, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M18 17H6v-2h12zm0-4H6v-2h12zm0-4H6V7h12zM3 22l1.5-1.5L6 22l1.5-1.5L9 22l1.5-1.5L12 22l1.5-1.5L15 22l1.5-1.5L18 22l1.5-1.5L21 22V2l-1.5 1.5L18 2l-1.5 1.5L15 2l-1.5 1.5L12 2l-1.5 1.5L9 2 7.5 3.5 6 2 4.5 3.5 3 2z"/></svg> },
+                      { label: 'Lease',    action: () => { navigate(`/houses/${id}/create-lease`); setShowAddMenu(false); }, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="m18.85 10.39 1.06-1.06c.78-.78.78-2.05 0-2.83L18.5 5.09c-.78-.78-2.05-.78-2.83 0l-1.06 1.06zm-5.66-2.83L4 16.76V21h4.24l9.19-9.19zM19 17.5c0 2.19-2.54 3.5-5 3.5-.55 0-1-.45-1-1s.45-1 1-1c1.54 0 3-.73 3-1.5 0-.47-.48-.87-1.23-1.2l1.48-1.48c1.07.63 1.75 1.47 1.75 2.68M4.58 13.35C3.61 12.79 3 12.06 3 11c0-1.8 1.89-2.63 3.56-3.36C7.59 7.18 9 6.56 9 6c0-.41-.78-1-2-1-1.26 0-1.8.61-1.83.64-.35.41-.98.46-1.4.12-.41-.34-.49-.95-.15-1.38C3.73 4.24 4.76 3 7 3s4 1.32 4 3c0 1.87-1.93 2.72-3.64 3.47C6.42 9.88 5 10.5 5 11c0 .31.43.6 1.07.86z"/></svg> },
+                      { label: 'Reminder', action: () => { setActiveTab('Reminders'); setShowAddMenu(false); }, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M9 11H7v2h2zm4 0h-2v2h2zm4 0h-2v2h2zm2-7h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2m0 16H5V9h14z"/></svg> },
+                      { label: 'Document', action: () => { setActiveTab('Documents'); setShowAddMenu(false); }, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8zm2 16H8v-2h8zm0-4H8v-2h8zm-3-5V3.5L18.5 9z"/></svg> },
+                    ];
+                    return (
+                      <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, background: '#fff', borderRadius: 10, boxShadow: '0 4px 24px rgba(0,0,0,0.14)', border: '1px solid #e5e7eb', zIndex: 300, minWidth: 180, overflow: 'hidden', paddingTop: 6, paddingBottom: 6 }}>
+                        {menuItems.map(item => (
+                          <button key={item.label} onClick={item.action} style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', padding: '10px 18px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}
+                            onMouseEnter={e => e.currentTarget.style.background = '#f5f8ff'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                          >
+                            <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#1d4ed8' }}>
+                              {item.icon}
+                            </div>
+                            <span style={{ fontSize: 14, fontWeight: 500, color: '#1a2e4a' }}>{item.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
               </div>
             </div>
           </div>
@@ -1364,7 +1503,11 @@ const HouseDetail = () => {
                           >
                             {['Schedule rent change', 'View lease history'].map(opt => (
                               <button key={opt}
-                                onClick={() => toast.info(`${opt} — coming soon`)}
+                                onClick={() => {
+                                  setEditLeaseDropdown(false);
+                                  if (opt === 'Schedule rent change') navigate(`/houses/${id}/rent-change`, { state: { leaseId: lease._id } });
+                                  else navigate(`/houses/${id}/leases`);
+                                }}
                                 style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 16px', background: 'none', border: 'none', fontSize: 14, color: '#374151', cursor: 'pointer', textAlign: 'left' }}
                               >
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="#042238">
@@ -1477,105 +1620,286 @@ const HouseDetail = () => {
             </div>
 
             {/* ── Payments / Expenses card ── */}
-            <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+            {(() => {
+              const noDataEmpty = (
+                <tr><td colSpan={8}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '52px 24px', gap: 8 }}>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="#9ca3af"><path d="M4 10.5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5m0-6c-.83 0-1.5.67-1.5 1.5S3.17 7.5 4 7.5 5.5 6.83 5.5 6 4.83 4.5 4 4.5m0 12c-.83 0-1.5.68-1.5 1.5s.68 1.5 1.5 1.5 1.5-.68 1.5-1.5-.67-1.5-1.5-1.5M7 19h14v-2H7zm0-6h14v-2H7zm0-8v2h14V5z"/></svg>
+                    <p style={{ fontSize: 13, color: '#6b7280', margin: 0 }}>No data to show</p>
+                  </div>
+                </td></tr>
+              );
 
-              {/* Sub-tabs */}
-              <div style={{ display: 'flex', borderBottom: '1px solid #e5e7eb' }}>
-                {['Payments', 'Expenses'].map(tab => (
-                  <button
-                    key={tab}
-                    onClick={() => setPayExpTab(tab)}
-                    style={{
-                      padding: '12px 20px',
-                      fontSize: 14,
-                      fontWeight: payExpTab === tab ? 600 : 400,
-                      color: payExpTab === tab ? '#042238' : '#6b7280',
-                      background: 'none',
-                      border: 'none',
-                      borderBottom: payExpTab === tab ? '2px solid #042238' : '2px solid transparent',
-                      cursor: 'pointer',
-                      marginBottom: -1,
-                    }}
-                  >{tab}</button>
-                ))}
-              </div>
+              const thStyle = { padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.06em', whiteSpace: 'nowrap', borderBottom: '1px solid #e5e7eb', background: '#f9fafb' };
+              const tdStyle = { padding: '11px 14px', fontSize: 13, color: '#374151', borderBottom: '1px solid #f3f4f6', whiteSpace: 'nowrap' };
 
-              {/* Payments tab – empty state */}
-              {payExpTab === 'Payments' && (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 24px', textAlign: 'center' }}>
-                  <svg width="56" height="64" viewBox="0 0 56 64" fill="none" style={{ marginBottom: 16 }}>
-                    <rect x="4" y="4" width="48" height="56" rx="5" fill="#e5e7eb"/>
-                    <rect x="12" y="16" width="22" height="3" rx="1.5" fill="#d1d5db"/>
-                    <rect x="12" y="24" width="32" height="3" rx="1.5" fill="#d1d5db"/>
-                    <rect x="12" y="32" width="28" height="3" rx="1.5" fill="#d1d5db"/>
-                    <circle cx="46" cy="48" r="13" fill="#9ca3af"/>
-                    <path d="M46 42v12M40 48h12" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"/>
-                  </svg>
-                  <p style={{ fontSize: 16, fontWeight: 700, color: '#1f2937', margin: '0 0 8px' }}>No payments logged</p>
-                  <p style={{ fontSize: 14, color: '#6b7280', maxWidth: 380, lineHeight: 1.5, margin: '0 0 20px' }}>
-                    You haven&apos;t added any payments to this property. Log payments to keep your records up to date.
-                  </p>
-                  <button
-                    onClick={() => navigate('/payments/record')}
-                    style={{ background: '#e5e7eb', color: '#374151', border: 'none', borderRadius: 6, padding: '8px 22px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
-                  >Log payment</button>
+              const StatusChip = ({ value }) => {
+                const cfg = {
+                  paid:    { label: 'PAID',    border: '#86efac', color: '#166534', bg: '#f0fdf4' },
+                  unpaid:  { label: 'UNPAID',  border: '#fcd34d', color: '#92400e', bg: '#fffbeb' },
+                  overdue: { label: 'OVERDUE', border: '#fca5a5', color: '#991b1b', bg: '#fef2f2' },
+                }[value] || { label: value?.toUpperCase() || '—', border: '#e5e7eb', color: '#6b7280', bg: '#f9fafb' };
+                return (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 10px', borderRadius: 100, fontSize: 11, fontWeight: 700, border: `1px solid ${cfg.border}`, color: cfg.color, background: cfg.bg, letterSpacing: '0.04em' }}>
+                    {cfg.label}
+                  </span>
+                );
+              };
+
+              const ToggleGroup = ({ options, value, onChange }) => (
+                <div style={{ display: 'inline-flex', background: '#f1f5f9', borderRadius: 6, padding: 2, gap: 2 }}>
+                  {options.map(opt => (
+                    <button key={opt.value} onClick={() => onChange(opt.value)} style={{ padding: '4px 12px', fontSize: 13, fontWeight: value === opt.value ? 600 : 400, color: value === opt.value ? '#042238' : '#6b7280', background: value === opt.value ? '#fff' : 'transparent', border: value === opt.value ? '1px solid #e2e8f0' : '1px solid transparent', borderRadius: 5, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>{opt.label}</button>
+                  ))}
                 </div>
-              )}
+              );
 
-              {/* Expenses tab */}
-              {payExpTab === 'Expenses' && (
-                <div style={{ padding: 16 }}>
-                  {expLoading ? (
-                    <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0', color: '#9ca3af', fontSize: 13 }}>Loading…</div>
-                  ) : houseExpenses.length === 0 ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 24px', textAlign: 'center' }}>
-                      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" style={{ marginBottom: 12 }}>
-                        <rect x="3" y="3" width="18" height="18" rx="3" stroke="#d1d5db" strokeWidth="1.5" fill="#f9fafb"/>
-                        <path d="M8 8h8M8 12h5" stroke="#d1d5db" strokeWidth="1.5" strokeLinecap="round"/>
-                      </svg>
-                      <p style={{ fontSize: 15, fontWeight: 700, color: '#374151', margin: '0 0 6px' }}>No expenses for this property</p>
-                      <p style={{ fontSize: 13, color: '#6b7280', margin: 0 }}>Expenses moved here from the Payments page will appear in this list.</p>
-                    </div>
-                  ) : (
-                    <div style={{ overflowX: 'auto' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                        <thead>
-                          <tr style={{ borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
-                            {['DATE', 'CATEGORY', 'DESCRIPTION', 'STATUS', 'AMOUNT'].map((col, i) => (
-                              <th key={col} style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>{col}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {houseExpenses.map(exp => (
-                            <tr key={exp._id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                              <td style={{ padding: '10px 12px', color: '#374151', whiteSpace: 'nowrap' }}>
-                                {new Date(exp.dueDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                              </td>
-                              <td style={{ padding: '10px 12px', color: '#374151' }}>{exp.category || '—'}</td>
-                              <td style={{ padding: '10px 12px', color: '#6b7280' }}>{exp.description || '—'}</td>
-                              <td style={{ padding: '10px 12px' }}>
-                                <span style={{
-                                  display: 'inline-block', padding: '2px 10px', borderRadius: 100,
-                                  fontSize: 11, fontWeight: 700,
-                                  background: exp.status === 'paid' ? '#d1fae5' : '#fee2e2',
-                                  color: exp.status === 'paid' ? '#065f46' : '#991b1b',
-                                }}>
-                                  {exp.status === 'paid' ? 'Paid' : 'Unpaid'}
-                                </span>
-                              </td>
-                              <td style={{ padding: '10px 12px', fontWeight: 600, color: '#374151', whiteSpace: 'nowrap' }}>
-                                TZS {Number(exp.amount || 0).toLocaleString()}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+              const Toolbar = ({ search, onSearch, onNew, toggleOptions, toggleValue, onToggle }) => (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderBottom: '1px solid #f3f4f6' }}>
+                  <div style={{ position: 'relative', width: 220 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="#9ca3af" style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"/></svg>
+                    <input value={search} onChange={e => onSearch(e.target.value)} placeholder="Search" style={{ width: '100%', boxSizing: 'border-box', paddingLeft: 30, paddingRight: 10, paddingTop: 6, paddingBottom: 6, border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, outline: 'none', color: '#042238', fontFamily: 'inherit' }} />
+                  </div>
+                  <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+                    {toggleOptions && <ToggleGroup options={toggleOptions} value={toggleValue} onChange={onToggle} />}
+                  </div>
+                  <button onClick={onNew} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#033A6D', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg>
+                    New
+                  </button>
+                </div>
+              );
+
+              const filtPay = housePayments.filter(p => {
+                const q = paySearch.toLowerCase();
+                return !q || (p.category || '').toLowerCase().includes(q) || (p.notes || '').toLowerCase().includes(q) || (p.tenant?.name || '').toLowerCase().includes(q);
+              });
+
+              const filtExp = houseExpenses.filter(e => {
+                const q = expSearch.toLowerCase();
+                return !q || (e.category || '').toLowerCase().includes(q) || (e.description || '').toLowerCase().includes(q);
+              });
+
+              return (
+                <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+
+                  {/* Tabs */}
+                  <div style={{ display: 'flex', borderBottom: '1px solid #e5e7eb' }}>
+                    {['Payments', 'Expenses'].map(tab => (
+                      <button key={tab} onClick={() => setPayExpTab(tab)} style={{ padding: '12px 20px', fontSize: 14, fontWeight: payExpTab === tab ? 600 : 400, color: payExpTab === tab ? '#033A6D' : '#6b7280', background: 'none', border: 'none', borderBottom: payExpTab === tab ? '2px solid #033A6D' : '2px solid transparent', cursor: 'pointer', marginBottom: -1, fontFamily: 'inherit' }}>{tab}</button>
+                    ))}
+                  </div>
+
+                  {/* ── Payments ── */}
+                  {payExpTab === 'Payments' && (
+                    <>
+                      <Toolbar search={paySearch} onSearch={setPaySearch} onNew={() => setShowLogPayment(true)} toggleOptions={[{ label: 'Payments', value: 'Payments' }, { label: 'Payment periods', value: 'PaymentPeriods' }]} toggleValue={paySubTab} onToggle={setPaySubTab} />
+
+                      {paySubTab === 'Payments' && (
+                        <div style={{ overflowX: 'auto' }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                            <thead>
+                              <tr>
+                                {['DATE', 'CATEGORY', 'PERIOD', 'TENANT', 'NOTES', 'STATUS', 'AMOUNT', ''].map(col => (
+                                  <th key={col} style={thStyle}>{col}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {payLoading ? (
+                                <tr><td colSpan={8} style={{ padding: '40px 0', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>Loading…</td></tr>
+                              ) : filtPay.length === 0 ? noDataEmpty
+                              : filtPay.map(p => (
+                                <tr key={p._id} style={{ cursor: 'pointer' }} onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'} onMouseLeave={e => e.currentTarget.style.background = ''}>
+                                  <td style={tdStyle}>{p.paidDate ? new Date(p.paidDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : p.paymentDate ? new Date(p.paymentDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
+                                  <td style={tdStyle}>{p.category || 'Rent'}</td>
+                                  <td style={tdStyle}>{p.month ? (() => { const [y,m] = p.month.split('-'); return new Date(y, m-1).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }); })() : '—'}</td>
+                                  <td style={tdStyle}>{p.tenant?.name || '—'}</td>
+                                  <td style={{ ...tdStyle, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', color: '#6b7280' }}>{p.notes || '—'}</td>
+                                  <td style={tdStyle}><StatusChip value={p.status} /></td>
+                                  <td style={{ ...tdStyle, fontWeight: 600 }}>TZS {Number(p.amount || 0).toLocaleString()}</td>
+                                  <td style={{ ...tdStyle, textAlign: 'center' }}>
+                                    <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 4 }}>
+                                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2m0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2m0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2"/></svg>
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+
+                      {paySubTab === 'PaymentPeriods' && (() => {
+                        const rentAmt = lease?.rentAmount || (tenants[0]?.rentAmount) || 0;
+                        const today = new Date();
+                        const start = lease?.startDate ? new Date(lease.startDate) : new Date(today.getFullYear(), today.getMonth() - 5, 1);
+                        const end   = lease?.endDate   ? new Date(lease.endDate)   : new Date(today.getFullYear(), today.getMonth() + 3, 1);
+                        const periods = [];
+                        let cur = new Date(start.getFullYear(), start.getMonth(), 1);
+                        while (cur <= end) {
+                          const monthKey = `${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}`;
+                          const dueDay = tenants[0]?.rentDueDate || 1;
+                          const dueDate = new Date(cur.getFullYear(), cur.getMonth(), dueDay);
+                          const rec = housePayments.find(p => p.month === monthKey);
+                          const isPaid = rec && rec.status === 'paid';
+                          const isUpcoming = dueDate > today;
+                          const status = isPaid ? 'paid' : isUpcoming ? 'upcoming' : 'overdue';
+                          const pct = isPaid ? 100 : 0;
+                          periods.push({ monthKey, dueDate, rec, status, pct, rentAmt });
+                          cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+                        }
+                        periods.reverse();
+
+                        const PeriodChip = ({ s }) => {
+                          const cfg = {
+                            paid:     { label: 'PAID',     border: '#86efac', color: '#166534', bg: '#f0fdf4' },
+                            upcoming: { label: 'UPCOMING', border: '#93c5fd', color: '#1d4ed8', bg: '#eff6ff' },
+                            overdue:  { label: 'OVERDUE',  border: '#fca5a5', color: '#991b1b', bg: '#fef2f2' },
+                          }[s] || { label: s.toUpperCase(), border: '#e5e7eb', color: '#6b7280', bg: '#f9fafb' };
+                          return <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 10px', borderRadius: 100, fontSize: 11, fontWeight: 700, border: `1px solid ${cfg.border}`, color: cfg.color, background: cfg.bg, letterSpacing: '0.04em' }}>{cfg.label}</span>;
+                        };
+
+                        const GaugeCircle = ({ pct }) => {
+                          const Ro = 23.5, Ri = 18.8;
+                          const refArc = `M0,-${Ro}A${Ro},${Ro},0,1,1,0,${Ro}A${Ro},${Ro},0,1,1,0,-${Ro}M0,-${Ri}A${Ri},${Ri},0,1,0,0,${Ri}A${Ri},${Ri},0,1,0,0,-${Ri}Z`;
+                          let valueArc;
+                          if (pct <= 0) {
+                            valueArc = `M0,-${Ro}L0,-${Ri}Z`;
+                          } else if (pct >= 100) {
+                            valueArc = `M0,-${Ro}A${Ro},${Ro},0,1,1,0,${Ro}A${Ro},${Ro},0,1,1,0,-${Ro}M0,-${Ri}A${Ri},${Ri},0,1,0,0,${Ri}A${Ri},${Ri},0,1,0,0,-${Ri}Z`;
+                          } else {
+                            const θ = (pct / 100) * 2 * Math.PI;
+                            const ex = +(Ro * Math.sin(θ)).toFixed(4), ey = +(-Ro * Math.cos(θ)).toFixed(4);
+                            const ix = +(Ri * Math.sin(θ)).toFixed(4), iy = +(-Ri * Math.cos(θ)).toFixed(4);
+                            const lg = θ > Math.PI ? 1 : 0;
+                            valueArc = `M0,-${Ro}A${Ro},${Ro},0,${lg},1,${ex},${ey}L${ix},${iy}A${Ri},${Ri},0,${lg},0,0,-${Ri}Z`;
+                          }
+                          const fillColor = pct >= 100 ? '#16a34a' : pct > 0 ? '#033A6D' : '#033A6D';
+                          return (
+                            <svg viewBox="0 0 67 67" width="67" height="67" role="meter" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+                              <g transform="translate(33.5, 33.5)">
+                                <path fill="#e5e7eb" d={refArc} />
+                                <path fill={fillColor} d={valueArc} opacity={pct > 0 ? 1 : 0} />
+                                <text x="0" y="0" textAnchor="middle" dominantBaseline="central" style={{ fontSize: 12, fill: '#374151', fontWeight: 700 }}>{pct}%</text>
+                              </g>
+                            </svg>
+                          );
+                        };
+
+                        const colW = ['140px', '140px', '120px', '1fr', '120px', '80px', '130px'];
+                        const hdrStyle = { fontSize: 11, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.06em', padding: '9px 14px' };
+                        return (
+                          <div>
+                            {/* Header */}
+                            <div style={{ display: 'grid', gridTemplateColumns: colW.join(' '), borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
+                              {['DUE DATE','PAYMENT DATE','STATUS','RENT','OUTSTANDING','',''].map((h,i) => <div key={i} style={hdrStyle}>{h}</div>)}
+                            </div>
+                            {periods.map(({ monthKey, dueDate, rec, status, pct, rentAmt: ra }) => {
+                              const isExp = expandedPeriod === monthKey;
+                              const dueFmt = dueDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+                              const paidFmt = rec?.paidDate ? new Date(rec.paidDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+                              const outstanding = status === 'paid' ? 0 : ra;
+                              const rowStyle = { display: 'grid', gridTemplateColumns: colW.join(' '), alignItems: 'center', borderBottom: '1px solid #f3f4f6', cursor: 'pointer', background: isExp ? '#f9fafb' : '#fff' };
+                              const tdP = { padding: '12px 14px', fontSize: 13, color: '#374151' };
+                              return (
+                                <div key={monthKey}>
+                                  <div style={rowStyle} onClick={() => setExpandedPeriod(isExp ? null : monthKey)} onMouseEnter={e => !isExp && (e.currentTarget.style.background='#f9fafb')} onMouseLeave={e => !isExp && (e.currentTarget.style.background='#fff')}>
+                                    <div style={tdP}>{dueFmt}</div>
+                                    <div style={{ ...tdP, color: paidFmt ? '#374151' : '#9ca3af' }}>{paidFmt || '—'}</div>
+                                    <div style={tdP}><PeriodChip s={status} /></div>
+                                    <div style={{ ...tdP, fontWeight: 500 }}>TZS {Number(ra).toLocaleString()}</div>
+                                    <div style={{ ...tdP, color: outstanding > 0 ? '#991b1b' : '#374151' }}>TZS {Number(outstanding).toLocaleString()}</div>
+                                    <div style={{ ...tdP, display: 'flex', justifyContent: 'center' }}><GaugeCircle pct={pct} /></div>
+                                    <div style={{ ...tdP, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                      <button onClick={e => { e.stopPropagation(); setLogPayForm(prev => ({ ...prev, month: monthKey })); setShowLogPayment(true); }} style={{ padding: '4px 10px', border: '1px solid #033A6D', borderRadius: 5, background: '#fff', color: '#033A6D', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>Log payment</button>
+                                      <svg width="16" height="16" viewBox="0 0 24 24" fill="#9ca3af" style={{ flexShrink: 0, transform: isExp ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}><path d="M16.59 8.59 12 13.17 7.41 8.59 6 10l6 6 6-6z"/></svg>
+                                    </div>
+                                  </div>
+                                  {isExp && (
+                                    <div style={{ background: '#fafafa', padding: '12px 14px', borderBottom: '1px solid #f3f4f6', fontSize: 13, color: '#6b7280' }}>
+                                      {rec ? (
+                                        <div style={{ display: 'flex', gap: 32 }}>
+                                          <span><b style={{ color: '#374151' }}>Amount paid:</b> TZS {Number(rec.amount).toLocaleString()}</span>
+                                          {rec.notes && <span><b style={{ color: '#374151' }}>Notes:</b> {rec.notes}</span>}
+                                          {rec.tenant?.name && <span><b style={{ color: '#374151' }}>Tenant:</b> {rec.tenant.name}</span>}
+                                        </div>
+                                      ) : <span>No payment recorded for this period.</span>}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                            {/* Pagination info */}
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '10px 16px', fontSize: 13, color: '#6b7280', borderTop: '1px solid #f3f4f6' }}>
+                              <span>1–{periods.length} of {periods.length}</span>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </>
                   )}
+
+                  {/* ── Expenses ── */}
+                  {payExpTab === 'Expenses' && (
+                    <>
+                      <Toolbar search={expSearch} onSearch={setExpSearch} onNew={() => setShowAddExpense(true)} toggleOptions={[{ label: 'Expenses', value: 'Expenses' }, { label: 'Recurring expenses', value: 'RecurringExpenses' }]} toggleValue={expSubTab} onToggle={setExpSubTab} />
+
+                      {expSubTab === 'RecurringExpenses' && (
+                        <div style={{ overflowX: 'auto' }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                            <thead>
+                              <tr>
+                                {['NEXT DUE DATE', 'CATEGORY', 'DESCRIPTION', 'STATUS', 'AMOUNT', ''].map(col => (
+                                  <th key={col} style={thStyle}>{col}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {noDataEmpty}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+
+                      {expSubTab === 'Expenses' && (
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                          <thead>
+                            <tr>
+                              {['DATE', 'CATEGORY', 'DESCRIPTION', 'STATUS', 'AMOUNT', ''].map(col => (
+                                <th key={col} style={thStyle}>{col}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {expLoading ? (
+                              <tr><td colSpan={6} style={{ padding: '40px 0', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>Loading…</td></tr>
+                            ) : filtExp.length === 0 ? noDataEmpty
+                            : filtExp.map(exp => (
+                              <tr key={exp._id} style={{ cursor: 'pointer' }} onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'} onMouseLeave={e => e.currentTarget.style.background = ''}>
+                                <td style={tdStyle}>{exp.dueDate ? new Date(exp.dueDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
+                                <td style={tdStyle}>{exp.category || '—'}</td>
+                                <td style={{ ...tdStyle, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', color: '#6b7280' }}>{exp.description || '—'}</td>
+                                <td style={tdStyle}><StatusChip value={exp.status} /></td>
+                                <td style={{ ...tdStyle, fontWeight: 600 }}>TZS {Number(exp.amount || 0).toLocaleString()}</td>
+                                <td style={{ ...tdStyle, textAlign: 'center' }}>
+                                  <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 4 }}>
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2m0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2m0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2"/></svg>
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      )}
+                    </>
+                  )}
+
                 </div>
-              )}
-            </div>
+              );
+            })()}
 
           </div>
         )}
@@ -1985,6 +2309,198 @@ const HouseDetail = () => {
           </div>
         </div>
       )}
+      {/* ── Log Payment Modal ── */}
+      {showLogPayment && (() => {
+        const now = new Date();
+        const months = Array.from({ length: 15 }, (_, i) => {
+          const d = new Date(now.getFullYear(), now.getMonth() - 12 + i, 1);
+          return { value: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`, label: d.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }) };
+        });
+        const PAYMENT_CATEGORIES = ['Rent', 'Deposit', 'Late Fee', 'Utilities', 'Other'];
+        const lf = logPayForm;
+        const set = (k, v) => setLogPayForm(prev => ({ ...prev, [k]: v }));
+        const lbl = { fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 4, display: 'block' };
+        const inp = { width: '100%', boxSizing: 'border-box', padding: '7px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, outline: 'none', fontFamily: 'inherit', color: '#042238' };
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ background: '#fff', borderRadius: 10, width: 540, maxWidth: '95vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 24px 14px', borderBottom: '1px solid #f3f4f6' }}>
+                <span style={{ fontSize: 17, fontWeight: 700, color: '#042238' }}>Log payment</span>
+                <button onClick={() => setShowLogPayment(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 4 }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+                </button>
+              </div>
+              <div style={{ overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                  <div>
+                    <label style={lbl}>Payment date</label>
+                    <input type="date" value={lf.paymentDate} onChange={e => set('paymentDate', e.target.value)} style={inp} />
+                  </div>
+                  <div>
+                    <label style={lbl}>Category</label>
+                    <select value={lf.category} onChange={e => set('category', e.target.value)} style={inp}>
+                      {PAYMENT_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={lbl}>Payment period</label>
+                    <select value={lf.month} onChange={e => set('month', e.target.value)} style={inp}>
+                      <option value="">Select period…</option>
+                      {months.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={lbl}>Status</label>
+                    <select value={lf.status} onChange={e => set('status', e.target.value)} style={inp}>
+                      {['Complete', 'Partial', 'Pending'].map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label style={lbl}>Amount</label>
+                  <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #d1d5db', borderRadius: 6, overflow: 'hidden' }}>
+                    <span style={{ padding: '7px 10px', background: '#f9fafb', borderRight: '1px solid #d1d5db', fontSize: 13, color: '#6b7280' }}>TZS</span>
+                    <input type="number" min="0" value={lf.amount} onChange={e => set('amount', e.target.value)} placeholder="0.00" style={{ flex: 1, padding: '7px 10px', border: 'none', outline: 'none', fontSize: 13, fontFamily: 'inherit', color: '#042238' }} />
+                  </div>
+                </div>
+                <div>
+                  <label style={lbl}>Tenant</label>
+                  <select value={lf.tenantId} onChange={e => set('tenantId', e.target.value)} style={inp}>
+                    <option value="">Select tenant…</option>
+                    {tenants.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={lbl}>Send receipt</label>
+                  <p style={{ fontSize: 12, color: '#6b7280', margin: '0 0 8px' }}>Select Yes to send your tenant an email receipt for this payment.</p>
+                  <div style={{ display: 'flex', gap: 20 }}>
+                    {['Yes', 'No'].map(v => (
+                      <label key={v} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, color: '#374151' }}>
+                        <input type="radio" name="sendReceipt" value={v} checked={lf.sendReceipt === v} onChange={() => set('sendReceipt', v)} />
+                        {v}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label style={lbl}>Notes</label>
+                  <textarea rows={3} value={lf.notes} onChange={e => set('notes', e.target.value)} style={{ ...inp, resize: 'vertical' }} />
+                </div>
+                <div style={{ background: '#f9fafb', borderRadius: 6, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#6b7280' }}><span>Amount</span><span>TZS {Number(lf.amount||0).toLocaleString()}</span></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#6b7280' }}><span>Late fees</span><span>TZS 0</span></div>
+                  <div style={{ borderTop: '1px solid #e5e7eb', marginTop: 4, paddingTop: 8, display: 'flex', justifyContent: 'space-between', fontSize: 14, fontWeight: 700, color: '#042238' }}><span>Total</span><span>TZS {Number(lf.amount||0).toLocaleString()}</span></div>
+                </div>
+              </div>
+              <div style={{ padding: '14px 24px', borderTop: '1px solid #f3f4f6', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                <button onClick={() => setShowLogPayment(false)} style={{ padding: '7px 18px', borderRadius: 6, border: '1px solid #d1d5db', background: '#fff', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', color: '#374151' }}>Cancel</button>
+                <button onClick={handleLogPayment} disabled={logPaySubmitting} style={{ padding: '7px 18px', borderRadius: 6, border: 'none', background: '#033A6D', color: '#fff', fontSize: 13, fontWeight: 600, cursor: logPaySubmitting ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: logPaySubmitting ? 0.7 : 1 }}>{logPaySubmitting ? 'Saving…' : 'Save'}</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Add Expense Modal ── */}
+      {showAddExpense && (() => {
+        const EXP_CATEGORIES = ["Accountant's Fees","Advertising","Agent Fees","Bank Fees","Cleaning Fees","Ground Rents","HOA","Insurance","Interest","Late Fees","Legal Fees","Maintenance and Repairs","Mortgage","Other","Property Tax","Rates","Rent Arrears","Utilities","Water"];
+        const ef = addExpForm;
+        const set = (k, v) => setAddExpForm(prev => ({ ...prev, [k]: v }));
+        const lbl = { fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 4, display: 'block' };
+        const inp = { width: '100%', boxSizing: 'border-box', padding: '7px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, outline: 'none', fontFamily: 'inherit', color: '#042238' };
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ background: '#fff', borderRadius: 10, width: 560, maxWidth: '95vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 24px 14px', borderBottom: '1px solid #f3f4f6' }}>
+                <span style={{ fontSize: 17, fontWeight: 700, color: '#042238' }}>Add New Expense</span>
+                <button onClick={() => setShowAddExpense(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 4 }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+                </button>
+              </div>
+              <div style={{ overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                  <div>
+                    <label style={lbl}>Due Date <span style={{ color: '#ef4444' }}>*</span></label>
+                    <input type="date" value={ef.dueDate} onChange={e => set('dueDate', e.target.value)} style={inp} />
+                  </div>
+                  <div>
+                    <label style={lbl}>Category <span style={{ color: '#ef4444' }}>*</span></label>
+                    <select value={ef.category} onChange={e => set('category', e.target.value)} style={inp}>
+                      {EXP_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label style={lbl}>Total Amount <span style={{ color: '#ef4444' }}>*</span></label>
+                  <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #d1d5db', borderRadius: 6, overflow: 'hidden' }}>
+                    <span style={{ padding: '7px 10px', background: '#f9fafb', borderRight: '1px solid #d1d5db', fontSize: 13, color: '#6b7280' }}>TZS</span>
+                    <input type="number" min="0" value={ef.amount} onChange={e => set('amount', e.target.value)} placeholder="0.00" style={{ flex: 1, padding: '7px 10px', border: 'none', outline: 'none', fontSize: 13, fontFamily: 'inherit', color: '#042238' }} />
+                  </div>
+                </div>
+                <div>
+                  <label style={lbl}>Description</label>
+                  <input type="text" value={ef.description} onChange={e => set('description', e.target.value)} style={inp} />
+                </div>
+                <div>
+                  <label style={lbl}>Supplier</label>
+                  <input type="text" value={ef.supplier} onChange={e => set('supplier', e.target.value)} placeholder="Supplier name" style={inp} />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                  <div>
+                    <label style={lbl}>Paid?</label>
+                    <div style={{ display: 'flex', gap: 20, paddingTop: 4 }}>
+                      {[['Yes', true], ['No', false]].map(([label, val]) => (
+                        <label key={label} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, color: '#374151' }}>
+                          <input type="radio" name="isPaid" checked={ef.isPaid === val} onChange={() => set('isPaid', val)} />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  {ef.isPaid && (
+                    <div>
+                      <label style={lbl}>Payment Date</label>
+                      <input type="date" value={ef.paymentDate} onChange={e => set('paymentDate', e.target.value)} style={inp} />
+                    </div>
+                  )}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                  <div>
+                    <label style={lbl}>Payable by Tenant?</label>
+                    <div style={{ display: 'flex', gap: 20, paddingTop: 4 }}>
+                      {[['Yes', true], ['No', false]].map(([label, val]) => (
+                        <label key={label} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, color: '#374151' }}>
+                          <input type="radio" name="payableByTenant" checked={ef.payableByTenant === val} onChange={() => set('payableByTenant', val)} />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label style={lbl}>Capital Expense?</label>
+                    <div style={{ display: 'flex', gap: 20, paddingTop: 4 }}>
+                      {[['Yes', true], ['No', false]].map(([label, val]) => (
+                        <label key={label} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, color: '#374151' }}>
+                          <input type="radio" name="capitalExpense" checked={ef.capitalExpense === val} onChange={() => set('capitalExpense', val)} />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <label style={lbl}>Notes</label>
+                  <textarea rows={3} value={ef.notes} onChange={e => set('notes', e.target.value)} style={{ ...inp, resize: 'vertical' }} />
+                </div>
+              </div>
+              <div style={{ padding: '14px 24px', borderTop: '1px solid #f3f4f6', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                <button onClick={() => setShowAddExpense(false)} style={{ padding: '7px 18px', borderRadius: 6, border: '1px solid #d1d5db', background: '#fff', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', color: '#374151' }}>Cancel</button>
+                <button onClick={handleAddExpense} disabled={addExpSubmitting} style={{ padding: '7px 18px', borderRadius: 6, border: 'none', background: '#033A6D', color: '#fff', fontSize: 13, fontWeight: 600, cursor: addExpSubmitting ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: addExpSubmitting ? 0.7 : 1 }}>{addExpSubmitting ? 'Saving…' : 'Save'}</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </Layout>
   );
 };

@@ -13,6 +13,7 @@ import Document from "../models/Document.js";
 import Reminder from "../models/Reminder.js";
 import OrgPayment from "../models/OrgPayment.js";
 import Expense from "../models/Expense.js";
+import RentHistory from "../models/RentHistory.js";
 import Supplier from "../models/Supplier.js";
 import { sendEmail } from "../config/nodemailer.js";
 import { getTenantWelcomeTemplate, getTenantInviteTemplate } from "../utils/emailTemplates.js";
@@ -184,7 +185,7 @@ export const getHouse = async (req, res) => {
 
 export const updateHouse = async (req, res) => {
   try {
-    const { name, address, city, rentAmount, bedrooms, bathrooms, description } = req.body;
+    const { name, address, city, rentAmount, bedrooms, bathrooms, description, isOccupied } = req.body;
     const updates = {};
     if (name) updates.name = name.trim();
     if (address) updates.address = address.trim();
@@ -196,6 +197,7 @@ export const updateHouse = async (req, res) => {
     if (bedrooms !== undefined) updates.bedrooms = Number(bedrooms);
     if (bathrooms !== undefined) updates.bathrooms = Number(bathrooms);
     if (description !== undefined) updates.description = description.trim();
+    if (isOccupied !== undefined) updates.isOccupied = isOccupied === true || isOccupied === 'true';
 
     const house = await House.findOneAndUpdate({ _id: req.params.id, landlord: req.user._id }, updates, { new: true, runValidators: true });
     if (!house) return res.status(404).json({ success: false, message: "House not found" });
@@ -740,7 +742,9 @@ export const recordPayment = async (req, res) => {
 // ─── Get all rent records for this landlord ──────────────────────────────────
 export const getPayments = async (req, res) => {
   try {
-    const records = await RentRecord.find({ landlord: req.user._id })
+    const filter = { landlord: req.user._id };
+    if (req.query.houseId) filter.house = req.query.houseId;
+    const records = await RentRecord.find(filter)
       .populate("tenant", "name email")
       .populate("house", "name address")
       .sort({ dueDate: -1 })
@@ -936,6 +940,21 @@ export const getHouseLease = async (req, res) => {
       .populate("tenant", "name email phone portalActivated");
 
     res.json({ success: true, data: lease || null });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const getHouseLeases = async (req, res) => {
+  try {
+    const house = await House.findOne({ _id: req.params.id, landlord: req.user._id });
+    if (!house) return res.status(404).json({ success: false, message: "House not found" });
+
+    const leases = await Lease.find({ house: req.params.id, landlord: req.user._id })
+      .sort({ startDate: -1 })
+      .lean();
+
+    res.json({ success: true, data: leases });
   } catch (error) {
     res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
@@ -1485,6 +1504,80 @@ export const deleteSupplier = async (req, res) => {
     const supplier = await Supplier.findOneAndDelete({ _id: req.params.id, landlord: req.user._id });
     if (!supplier) return res.status(404).json({ success: false, message: "Supplier not found" });
     res.json({ success: true, message: "Supplier deleted" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+// ─── Rent History ────────────────────────────────────────────────────────────
+export const getRentHistory = async (req, res) => {
+  try {
+    const lease = await Lease.findOne({ _id: req.params.leaseId, landlord: req.user._id });
+    if (!lease) return res.status(404).json({ success: false, message: "Lease not found" });
+    const history = await RentHistory.find({ lease: lease._id }).sort({ startDate: 1 });
+    res.json({ success: true, data: history });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const createRentHistory = async (req, res) => {
+  try {
+    const lease = await Lease.findOne({ _id: req.params.leaseId, landlord: req.user._id });
+    if (!lease) return res.status(404).json({ success: false, message: "Lease not found" });
+    const { startDate, amount } = req.body;
+    if (!startDate || amount === undefined) return res.status(400).json({ success: false, message: "startDate and amount are required" });
+    const existing = await RentHistory.countDocuments({ lease: lease._id });
+    // Prevent duplicate first entry (e.g. from concurrent requests / React Strict Mode)
+    if (existing === 0) {
+      const alreadyFirst = await RentHistory.findOne({ lease: lease._id, isFirst: true });
+      if (alreadyFirst) return res.json({ success: true, data: alreadyFirst });
+    }
+    const entry = await RentHistory.create({
+      lease: lease._id, landlord: req.user._id, house: lease.house,
+      startDate: new Date(startDate), amount: Number(amount),
+      isFirst: existing === 0,
+    });
+    // Update lease rent amount to latest
+    await Lease.findByIdAndUpdate(lease._id, { rentAmount: Number(amount) });
+    res.status(201).json({ success: true, data: entry });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const getRentHistoryEntry = async (req, res) => {
+  try {
+    const entry = await RentHistory.findOne({ _id: req.params.id, landlord: req.user._id });
+    if (!entry) return res.status(404).json({ success: false, message: "Not found" });
+    res.json({ success: true, data: entry });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const updateRentHistory = async (req, res) => {
+  try {
+    const entry = await RentHistory.findOne({ _id: req.params.id, landlord: req.user._id });
+    if (!entry) return res.status(404).json({ success: false, message: "Not found" });
+    if (entry.isFirst) return res.status(403).json({ success: false, message: "Cannot edit the first rent change" });
+    const { startDate, amount } = req.body;
+    if (startDate) entry.startDate = new Date(startDate);
+    if (amount !== undefined) entry.amount = Number(amount);
+    await entry.save();
+    res.json({ success: true, data: entry });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const deleteRentHistory = async (req, res) => {
+  try {
+    const entry = await RentHistory.findOne({ _id: req.params.id, landlord: req.user._id });
+    if (!entry) return res.status(404).json({ success: false, message: "Not found" });
+    if (entry.isFirst) return res.status(403).json({ success: false, message: "Cannot delete the first rent change" });
+    await entry.deleteOne();
+    res.json({ success: true, message: "Deleted" });
   } catch (error) {
     res.status(500).json({ success: false, message: "Server error", error: error.message });
   }

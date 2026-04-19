@@ -36,6 +36,7 @@ import {
   createLease,
   getAllActiveLeases,
   getHouseLease,
+  getHouseLeases,
   updateLease,
   linkTenantToLease,
   createAndLinkTenant,
@@ -65,6 +66,11 @@ import {
   getSuppliers,
   createSupplier,
   deleteSupplier,
+  getRentHistory,
+  createRentHistory,
+  getRentHistoryEntry,
+  updateRentHistory,
+  deleteRentHistory,
 } from "../controller/landlordController.js";
 import { protect, requireActive, requireRole } from "../middleware/auth.js";
 
@@ -103,6 +109,7 @@ router.get("/houses/:id/tenants", getHouseTenants);
 router.get("/leases", getAllActiveLeases);
 router.post("/houses/:id/leases", createLease);
 router.get("/houses/:id/lease", getHouseLease);
+router.get("/houses/:id/leases", getHouseLeases);
 router.put("/leases/:leaseId", updateLease);
 router.put("/leases/:leaseId/tenant", linkTenantToLease);
 router.post("/leases/:leaseId/tenant", createAndLinkTenant);
@@ -135,6 +142,12 @@ router.post("/maintenance/:id/note", addMaintenanceNote);
 router.put("/maintenance/:id/star", toggleMaintenanceStar);
 router.put("/maintenance/:id/pro", updateMaintenanceProContact);
 router.delete("/maintenance/:id", deleteMaintenanceRequest);
+
+router.get("/leases/:leaseId/rent-history", getRentHistory);
+router.post("/leases/:leaseId/rent-history", createRentHistory);
+router.get("/rent-history/:id", getRentHistoryEntry);
+router.put("/rent-history/:id", updateRentHistory);
+router.delete("/rent-history/:id", deleteRentHistory);
 
 router.get("/reminders", getAllReminders);
 router.post("/reminders", createAnyReminder);
