@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import Layout from '../../components/Layout';
+import ConfirmModal from '../../components/ConfirmModal';
 import { backendUrl, API } from '../../config/constants';
 
 const NAVY = '#042238';
@@ -101,6 +102,8 @@ const TenantDetail = () => {
   const [showEdit, setShowEdit] = useState(false);
   const [showActions, setShowActions] = useState(false);
   const [inviting, setInviting] = useState(false);
+  const [confirm, setConfirm]   = useState({ open: false });
+  const closeConfirm = () => setConfirm({ open: false });
   const actionsRef = useRef(null);
 
   const load = async () => {
@@ -133,16 +136,25 @@ const TenantDetail = () => {
     return () => document.removeEventListener('mousedown', h);
   }, []);
 
-  const handleDelete = async () => {
-    if (!window.confirm(`Remove ${tenant?.name}? This cannot be undone.`)) return;
+  const handleDelete = () => {
     setShowActions(false);
-    try {
-      await axios.delete(`${backendUrl}${API.tenants}/${id}`);
-      toast.success('Tenant removed');
-      navigate('/tenants');
-    } catch (err) {
-      toast.error(err?.response?.data?.message || 'Delete failed');
-    }
+    setConfirm({
+      open: true,
+      title: 'Remove Tenant',
+      message: `Remove ${tenant?.name}?\nThis will permanently delete their account and cannot be undone.`,
+      confirmLabel: 'Remove Tenant',
+      onConfirm: async () => {
+        setConfirm(c => ({ ...c, loading: true }));
+        try {
+          await axios.delete(`${backendUrl}${API.tenants}/${id}`);
+          toast.success('Tenant removed');
+          navigate('/tenants');
+        } catch (err) {
+          toast.error(err?.response?.data?.message || 'Delete failed');
+          setConfirm({ open: false });
+        }
+      },
+    });
   };
 
   const handleInvite = async () => {
@@ -376,6 +388,16 @@ const TenantDetail = () => {
           onSaved={load}
         />
       )}
+
+      <ConfirmModal
+        open={confirm.open}
+        title={confirm.title}
+        message={confirm.message}
+        confirmLabel={confirm.confirmLabel}
+        loading={confirm.loading}
+        onConfirm={confirm.onConfirm}
+        onCancel={closeConfirm}
+      />
     </Layout>
   );
 };

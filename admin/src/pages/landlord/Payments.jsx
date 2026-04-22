@@ -4,6 +4,7 @@ import axios from 'axios';
 import { X, Search, Pencil, Trash2, MoreVertical } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import Layout from '../../components/Layout';
+import ConfirmModal from '../../components/ConfirmModal';
 import { backendUrl, API } from '../../config/constants';
 
 const NAVY = '#042238';
@@ -1288,6 +1289,8 @@ const Payments = () => {
 
   // preview: { name, fetchUrl }
   const [preview, setPreview] = useState(null);
+  const [confirm, setConfirm] = useState({ open: false });
+  const closeConfirm = () => setConfirm({ open: false });
 
   const setTab = (t) => { setTabState(t); setSearchParams({ view: t }); };
 
@@ -1430,11 +1433,21 @@ const Payments = () => {
                       <td onClick={e => e.stopPropagation()} style={{ ...tdStyle, textAlign: 'right', padding: '4px 8px' }}>
                         <RowMenu
                           onEdit={() => { setEditingPayment(p); setPayModalOpen(true); }}
-                          onDelete={async () => {
-                            if (!window.confirm('Delete this payment?')) return;
-                            try { await axios.delete(`${backendUrl}${API.orgPayments}/${p._id}`); fetchOrgPayments(); toast.success('Deleted'); }
-                            catch { toast.error('Failed to delete'); }
-                          }}
+                          onDelete={() => setConfirm({
+                            open: true,
+                            title: 'Delete Payment',
+                            message: 'This payment record will be permanently deleted.\nThis action cannot be undone.',
+                            confirmLabel: 'Delete',
+                            onConfirm: async () => {
+                              setConfirm(c => ({ ...c, loading: true }));
+                              try {
+                                await axios.delete(`${backendUrl}${API.orgPayments}/${p._id}`);
+                                fetchOrgPayments();
+                                toast.success('Deleted');
+                              } catch { toast.error('Failed to delete'); }
+                              finally { setConfirm({ open: false }); }
+                            },
+                          })}
                         />
                       </td>
                     </tr>
@@ -1464,12 +1477,23 @@ const Payments = () => {
                 toast.success(`Marked as ${status}`); setSelectedExp(new Set()); fetchExpenses();
               } catch { toast.error('Failed to update'); }
             };
-            const bulkDelete = async () => {
-              if (!window.confirm(`Delete ${selectedExp.size} expense(s)?`)) return;
-              try {
-                await Promise.all([...selectedExp].map(id => axios.delete(`${backendUrl}${API.expenses}/${id}`)));
-                toast.success('Deleted'); setSelectedExp(new Set()); fetchExpenses();
-              } catch { toast.error('Failed to delete'); }
+            const bulkDelete = () => {
+              setConfirm({
+                open: true,
+                title: `Delete ${selectedExp.size} Expense${selectedExp.size > 1 ? 's' : ''}`,
+                message: `${selectedExp.size} expense record${selectedExp.size > 1 ? 's' : ''} will be permanently deleted.\nThis action cannot be undone.`,
+                confirmLabel: 'Delete All',
+                onConfirm: async () => {
+                  setConfirm(c => ({ ...c, loading: true }));
+                  try {
+                    await Promise.all([...selectedExp].map(id => axios.delete(`${backendUrl}${API.expenses}/${id}`)));
+                    toast.success('Deleted');
+                    setSelectedExp(new Set());
+                    fetchExpenses();
+                  } catch { toast.error('Failed to delete'); }
+                  finally { setConfirm({ open: false }); }
+                },
+              });
             };
             const chkStyle = { width: 15, height: 15, cursor: 'pointer', accentColor: TEAL };
             return (
@@ -1623,6 +1647,16 @@ const Payments = () => {
           onClose={() => setPreview(null)}
         />
       )}
+
+      <ConfirmModal
+        open={confirm.open}
+        title={confirm.title}
+        message={confirm.message}
+        confirmLabel={confirm.confirmLabel}
+        loading={confirm.loading}
+        onConfirm={confirm.onConfirm}
+        onCancel={closeConfirm}
+      />
     </Layout>
   );
 };

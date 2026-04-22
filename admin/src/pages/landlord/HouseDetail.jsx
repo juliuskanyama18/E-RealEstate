@@ -4,6 +4,7 @@ import axios from 'axios';
 import { ArrowLeft, Settings, Users, Home, DollarSign, FileText, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Layout from '../../components/Layout';
+import ConfirmModal from '../../components/ConfirmModal';
 import { backendUrl, API } from '../../config/constants';
 
 /* ── Property type SVGs ─────────────────────────────────────── */
@@ -498,6 +499,8 @@ const DocumentsTab = ({ houseId, backendUrl }) => {
   const [uploading, setUploading]     = useState(false);
   const [pickedFile, setPickedFile]   = useState(null);
   const [description, setDescription] = useState('');
+  const [confirm, setConfirm] = useState({ open: false });
+  const closeConfirm = () => setConfirm({ open: false });
   const fileInputRef = useRef(null);
 
   const fetchDocs = async (type) => {
@@ -538,14 +541,23 @@ const DocumentsTab = ({ houseId, backendUrl }) => {
     } finally { setUploading(false); }
   };
 
-  const handleDelete = async (docId) => {
-    if (!window.confirm('Delete this document?')) return;
-    try {
-      const token = localStorage.getItem('rental_token');
-      await axios.delete(`${backendUrl}/api/landlord/documents/${docId}`, { headers: { Authorization: `Bearer ${token}` } });
-      setDocs(prev => prev.filter(d => d._id !== docId));
-      toast.success('Deleted');
-    } catch { toast.error('Failed to delete'); }
+  const handleDelete = (docId) => {
+    setConfirm({
+      open: true,
+      title: 'Delete Document',
+      message: 'This document will be permanently deleted.\nThis action cannot be undone.',
+      confirmLabel: 'Delete',
+      onConfirm: async () => {
+        setConfirm(c => ({ ...c, loading: true }));
+        try {
+          const token = localStorage.getItem('rental_token');
+          await axios.delete(`${backendUrl}/api/landlord/documents/${docId}`, { headers: { Authorization: `Bearer ${token}` } });
+          setDocs(prev => prev.filter(d => d._id !== docId));
+          toast.success('Deleted');
+        } catch { toast.error('Failed to delete'); }
+        finally { setConfirm({ open: false }); }
+      },
+    });
   };
 
   const filtered = docs.filter(d => (d.originalName || d.fileName || '').toLowerCase().includes(search.toLowerCase()));
@@ -702,6 +714,16 @@ const DocumentsTab = ({ houseId, backendUrl }) => {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        open={confirm.open}
+        title={confirm.title}
+        message={confirm.message}
+        confirmLabel={confirm.confirmLabel}
+        loading={confirm.loading}
+        onConfirm={confirm.onConfirm}
+        onCancel={closeConfirm}
+      />
     </div>
   );
 };
@@ -1032,24 +1054,17 @@ const HouseDetail = () => {
   }, [id]);
 
   /* ── Due date helpers ── */
-  const getNextDueDate = (paymentDay) => {
+  const getCurrentDueDate = (paymentDay) => {
     const now = new Date();
-    let yr = now.getFullYear(), mo = now.getMonth();
-    const day = paymentDay === 31 ? new Date(yr, mo + 1, 0).getDate() : paymentDay;
-    let due = new Date(yr, mo, day);
-    if (due < now) {
-      const nm = mo + 1 > 11 ? 0 : mo + 1;
-      const ny = mo + 1 > 11 ? yr + 1 : yr;
-      const d2 = paymentDay === 31 ? new Date(ny, nm + 1, 0).getDate() : paymentDay;
-      due = new Date(ny, nm, d2);
-    }
-    return due;
+    const yr = now.getFullYear(), mo = now.getMonth();
+    const day = paymentDay === 31 ? new Date(yr, mo + 1, 0).getDate() : Math.min(paymentDay, new Date(yr, mo + 1, 0).getDate());
+    return new Date(yr, mo, day);
   };
   const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   const fmtDueDate = (d) => `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 
-  const nextDueDate = lease ? getNextDueDate(lease.paymentDay) : null;
-  const isOverdue   = nextDueDate ? new Date() > nextDueDate : false;
+  const currentDueDate = lease ? getCurrentDueDate(lease.paymentDay) : null;
+  const isOverdue      = currentDueDate ? new Date() > currentDueDate : false;
 
   /* ── Open link modal and fetch all tenants ── */
   const openLinkModal = async () => {
@@ -1300,7 +1315,7 @@ const HouseDetail = () => {
   }
 
   const typeSvg      = TYPE_SVG[house.propertyType] || TYPE_SVG.SINGLE_FAMILY;
-  const locationLine = [house.city, house.region, house.zipCode].filter(Boolean).join(', ');
+  const locationLine = [house.region, house.country || 'Tanzania', house.zipCode].filter(Boolean).join(', ');
   const shortId      = String(house._id).slice(-7).toUpperCase();
 
   return (
@@ -1528,7 +1543,7 @@ const HouseDetail = () => {
                       TZS {lease.rentAmount.toLocaleString()}
                     </p>
                     {/* Due date */}
-                    <span style={{ fontSize: 12, color: '#1565c0' }}>Due {fmtDueDate(nextDueDate)}</span>
+                    <span style={{ fontSize: 12, color: isOverdue ? '#ef4444' : '#1565c0' }}>Due {fmtDueDate(currentDueDate)}</span>
                   </>
                 ) : (
                   <>
@@ -1569,8 +1584,22 @@ const HouseDetail = () => {
 
                 {lease?.tenant ? (
                   <>
-                    {/* Tenant row */}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0' }}>
+                    {/* Tenant row — entire row clickable to open menu */}
+                    <div
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', cursor: 'pointer', borderRadius: 6 }}
+                      onClick={e => {
+                        const menuKey = `ov-${lease.tenant._id}`;
+                        if (tenantMenuOpenId === menuKey) { setTenantMenuOpenId(null); return; }
+                        const r = e.currentTarget.getBoundingClientRect();
+                        setTenantMenuPos({ top: r.bottom + 4, left: r.right - 168 });
+                        setTenantMenuItems([
+                          { icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="#6b7280"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2m0 4-8 5-8-5V6l8 5 8-5z"/></svg>, label: 'Send email', color: '#374151', onClick: () => { window.location.href = `mailto:${lease.tenant.email}`; setTenantMenuOpenId(null); } },
+                          { icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="#6b7280"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75z"/></svg>, label: 'Invite tenant', color: '#374151', onClick: () => { setTenantMenuOpenId(null); openExistingInviteModal(lease.tenant); } },
+                          { icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="#ef4444"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6zM8 9h8v10H8zm7.5-5-1-1h-5l-1 1H5v2h14V4z"/></svg>, label: 'Un-link tenant', color: '#ef4444', onClick: () => { setTenantMenuOpenId(null); handleUnlinkTenant(); } },
+                        ]);
+                        setTenantMenuOpenId(menuKey);
+                      }}
+                    >
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#fde8e0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                           <span style={{ fontSize: 12, fontWeight: 700, color: '#c05a3a' }}>
@@ -1587,33 +1616,24 @@ const HouseDetail = () => {
                           ? <span style={{ border: '1px solid #16a34a', color: '#16a34a', borderRadius: 20, padding: '2px 10px', fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>ACTIVE</span>
                           : <span style={{ border: '1px solid #f59e0b', color: '#d97706', borderRadius: 20, padding: '2px 10px', fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>NOT INVITED</span>
                         }
-                        <div>
-                          <button
-                            onClick={e => {
-                              const menuKey = `ov-${lease.tenant._id}`;
-                              if (tenantMenuOpenId === menuKey) { setTenantMenuOpenId(null); return; }
-                              const r = e.currentTarget.getBoundingClientRect();
-                              setTenantMenuPos({ top: r.bottom + 4, left: r.right - 168 });
-                              setTenantMenuItems([
-                                { icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="#6b7280"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2m0 4-8 5-8-5V6l8 5 8-5z"/></svg>, label: 'Send email', color: '#374151', onClick: () => { window.location.href = `mailto:${lease.tenant.email}`; setTenantMenuOpenId(null); } },
-                                { icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="#6b7280"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75z"/></svg>, label: 'Invite tenant', color: '#374151', onClick: () => { setTenantMenuOpenId(null); openExistingInviteModal(lease.tenant); } },
-                                { icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="#ef4444"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6zM8 9h8v10H8zm7.5-5-1-1h-5l-1 1H5v2h14V4z"/></svg>, label: 'Un-link tenant', color: '#ef4444', onClick: () => { setTenantMenuOpenId(null); handleUnlinkTenant(); } },
-                              ]);
-                              setTenantMenuOpenId(menuKey);
-                            }}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center', color: '#9ca3af', borderRadius: 4 }}
-                          >
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2m0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2m0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2"/></svg>
-                          </button>
-                        </div>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="#9ca3af"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2m0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2m0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2"/></svg>
                       </div>
                     </div>
                     <button onClick={() => setActiveTab('Tenants')} style={{ background: 'none', border: 'none', color: '#042238', fontSize: 13, fontWeight: 600, cursor: 'pointer', padding: '10px 0 0', display: 'block' }}>View all</button>
                   </>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '12px 0 4px', gap: 6 }}>
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="#d1d5db"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4m-9-2V7H4v3H1v2h3v3h2v-3h3v-2zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4"/></svg>
-                    <span style={{ fontSize: 12, color: '#9ca3af' }}>No tenant linked yet</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '8px 0 0', gap: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="#9ca3af"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4m-9-2V7H4v3H1v2h3v3h2v-3h3v-2zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4"/></svg>
+                      </div>
+                      <button
+                        disabled={!lease}
+                        onClick={lease ? openLinkModal : undefined}
+                        style={{ background: '#1976d2', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.01em' }}
+                      >Add tenant</button>
+                    </div>
+                    <span style={{ fontSize: 12, color: '#9ca3af' }}>Add a tenant to your lease.</span>
                   </div>
                 )}
               </div>
@@ -1947,16 +1967,17 @@ const HouseDetail = () => {
                         const menuKey = `tab-${t._id}`;
                         const addedDate = t.createdAt ? new Date(t.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
                         return (
-                          <tr key={t._id} style={{ borderBottom: '1px solid #f9fafb' }}
+                          <tr key={t._id} style={{ borderBottom: '1px solid #f9fafb', cursor: 'pointer' }}
                             onMouseEnter={e => e.currentTarget.style.background = '#fafafa'}
                             onMouseLeave={e => e.currentTarget.style.background = ''}
+                            onClick={() => window.location.href = `/tenants/${t._id}`}
                           >
                             <td style={{ padding: '14px 20px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                 <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#fde8e0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                   <span style={{ fontSize: 12, fontWeight: 700, color: '#c05a3a' }}>{initials}</span>
                                 </div>
-                                <Link to={`/tenants/${t._id}`} style={{ fontWeight: 700, color: '#042238', textDecoration: 'none' }}>{t.name}</Link>
+                                <span style={{ fontWeight: 700, color: '#042238' }}>{t.name}</span>
                               </div>
                             </td>
                             <td style={{ padding: '14px 20px', color: '#6b7280', fontSize: 13 }}>{t.email}</td>
@@ -1972,6 +1993,7 @@ const HouseDetail = () => {
                             <td style={{ padding: '14px 20px', textAlign: 'right' }}>
                               <button
                                 onClick={e => {
+                                  e.stopPropagation();
                                   if (tenantMenuOpenId === menuKey) { setTenantMenuOpenId(null); return; }
                                   const r = e.currentTarget.getBoundingClientRect();
                                   setTenantMenuPos({ top: r.bottom + 4, left: r.right - 168 });

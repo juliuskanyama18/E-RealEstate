@@ -4,6 +4,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { ChevronLeft } from 'lucide-react';
 import Layout from '../../components/Layout';
+import ConfirmModal from '../../components/ConfirmModal';
 import { backendUrl } from '../../config/constants';
 
 const INPUT  = 'w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white';
@@ -31,6 +32,8 @@ export default function EditProperty() {
   const [saving, setSaving]       = useState(false);
   const [photoSaving, setPhotoSaving] = useState(false);
   const [dragOver, setDragOver]   = useState(false);
+  const [confirm, setConfirm]     = useState({ open: false });
+  const closeConfirm = () => setConfirm({ open: false });
 
   /* form fields */
   const [name, setName]           = useState('');
@@ -92,6 +95,27 @@ export default function EditProperty() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleDelete = () => {
+    setConfirm({
+      open: true,
+      title: `Delete "${name}"`,
+      message: 'This will permanently remove the property and all associated data.\nThis action cannot be undone.',
+      confirmLabel: 'Delete Property',
+      onConfirm: async () => {
+        setConfirm(c => ({ ...c, loading: true }));
+        try {
+          const token = localStorage.getItem('rental_token');
+          await axios.delete(`${backendUrl}/api/landlord/houses/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+          toast.success('Property deleted');
+          navigate('/houses');
+        } catch (err) {
+          toast.error(err?.response?.data?.message || 'Failed to delete');
+          setConfirm({ open: false });
+        }
+      },
+    });
   };
 
   const handlePhotoSave = async () => {
@@ -214,10 +238,26 @@ export default function EditProperty() {
               </div>
             </div>
 
-            <button type="submit" disabled={saving}
-              className="w-full mt-6 bg-blue-900 hover:bg-blue-950 disabled:opacity-60 text-white font-bold py-3 rounded-xl text-sm tracking-widest uppercase transition-colors">
-              {saving ? 'Saving...' : 'Save Changes'}
-            </button>
+            {/* Footer bar: Delete ← → Save */}
+            <div className="mt-6 bg-white border border-gray-200 rounded-xl px-5 py-4 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={handleDelete}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+                </svg>
+                Delete Property
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="inline-flex items-center gap-2 px-8 py-2.5 rounded-lg bg-blue-900 hover:bg-blue-950 disabled:opacity-60 text-white text-sm font-bold tracking-widest uppercase transition-colors"
+              >
+                {saving ? 'Saving…' : 'Save Changes'}
+              </button>
+            </div>
           </form>
 
           {/* ── Property Photo ───────────────────────────────── */}
@@ -277,6 +317,16 @@ export default function EditProperty() {
 
         </div>
       </div>
+
+      <ConfirmModal
+        open={confirm.open}
+        title={confirm.title}
+        message={confirm.message}
+        confirmLabel={confirm.confirmLabel}
+        loading={confirm.loading}
+        onConfirm={confirm.onConfirm}
+        onCancel={closeConfirm}
+      />
     </Layout>
   );
 }

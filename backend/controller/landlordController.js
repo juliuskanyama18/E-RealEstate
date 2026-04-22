@@ -84,11 +84,11 @@ export const uploadHousePhoto = multer({
 
 export const createHouse = async (req, res) => {
   try {
-    const { name, address, city, rentAmount, bedrooms, bathrooms, description } = req.body;
-    if (!name || !address || !city || rentAmount === undefined) {
-      return res.status(400).json({ success: false, message: "name, address, city, and rentAmount are required" });
+    const { name, address, city, rentAmount, region, zipCode, country, bedrooms, bathrooms, description } = req.body;
+    if (!name || !address || !city) {
+      return res.status(400).json({ success: false, message: "name, address, and city are required" });
     }
-    if (Number(rentAmount) < 0) {
+    if (rentAmount !== undefined && Number(rentAmount) < 0) {
       return res.status(400).json({ success: false, message: "Rent amount cannot be negative" });
     }
 
@@ -97,7 +97,10 @@ export const createHouse = async (req, res) => {
       name: name.trim(),
       address: address.trim(),
       city: city.trim(),
-      rentAmount: Number(rentAmount),
+      region: region?.trim(),
+      zipCode: zipCode?.toString().trim(),
+      country: country?.trim(),
+      rentAmount: rentAmount !== undefined ? Number(rentAmount) : 0,
       bedrooms: bedrooms ? Number(bedrooms) : 1,
       bathrooms: bathrooms ? Number(bathrooms) : 1,
       description: description?.trim(),
@@ -185,11 +188,14 @@ export const getHouse = async (req, res) => {
 
 export const updateHouse = async (req, res) => {
   try {
-    const { name, address, city, rentAmount, bedrooms, bathrooms, description, isOccupied } = req.body;
+    const { name, address, city, rentAmount, region, zipCode, country, bedrooms, bathrooms, description, isOccupied } = req.body;
     const updates = {};
     if (name) updates.name = name.trim();
     if (address) updates.address = address.trim();
     if (city) updates.city = city.trim();
+    if (region !== undefined) updates.region = region?.trim();
+    if (zipCode !== undefined) updates.zipCode = zipCode?.toString().trim();
+    if (country !== undefined) updates.country = country?.trim();
     if (rentAmount !== undefined) {
       if (Number(rentAmount) < 0) return res.status(400).json({ success: false, message: "Rent amount cannot be negative" });
       updates.rentAmount = Number(rentAmount);

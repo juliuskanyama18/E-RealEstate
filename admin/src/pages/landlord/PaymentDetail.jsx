@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import Layout from '../../components/Layout';
+import ConfirmModal from '../../components/ConfirmModal';
 import { backendUrl, API } from '../../config/constants';
 
 const NAVY = '#042238';
@@ -52,6 +53,8 @@ const PaymentDetail = () => {
   const [editing, setEditing] = useState(false);
   const [saving,  setSaving]  = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [confirm, setConfirm] = useState({ open: false });
+  const closeConfirm = () => setConfirm({ open: false });
 
   /* draft state for the edit form */
   const [draft, setDraft] = useState(null);
@@ -98,18 +101,26 @@ const PaymentDetail = () => {
     }
   };
 
-  const deleteRecord = async () => {
-    if (!window.confirm('Delete this payment record? This cannot be undone.')) return;
-    setDeleting(true);
-    try {
-      await axios.delete(`${backendUrl}${API.payments}/${id}`);
-      toast.success('Payment record deleted');
-      navigate('/payments');
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to delete');
-    } finally {
-      setDeleting(false);
-    }
+  const deleteRecord = () => {
+    setConfirm({
+      open: true,
+      title: 'Delete Payment Record',
+      message: 'This payment record will be permanently deleted.\nThis action cannot be undone.',
+      confirmLabel: 'Delete Record',
+      onConfirm: async () => {
+        setConfirm(c => ({ ...c, loading: true }));
+        setDeleting(true);
+        try {
+          await axios.delete(`${backendUrl}${API.payments}/${id}`);
+          toast.success('Payment record deleted');
+          navigate('/payments');
+        } catch (err) {
+          toast.error(err.response?.data?.message || 'Failed to delete');
+          setDeleting(false);
+          setConfirm({ open: false });
+        }
+      },
+    });
   };
 
   /* ── Loading spinner ── */
@@ -366,6 +377,16 @@ const PaymentDetail = () => {
 
         </div>
       </div>
+
+      <ConfirmModal
+        open={confirm.open}
+        title={confirm.title}
+        message={confirm.message}
+        confirmLabel={confirm.confirmLabel}
+        loading={confirm.loading}
+        onConfirm={confirm.onConfirm}
+        onCancel={closeConfirm}
+      />
     </Layout>
   );
 };

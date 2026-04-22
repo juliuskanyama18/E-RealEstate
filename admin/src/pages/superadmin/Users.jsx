@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Layout from '../../components/Layout';
+import ConfirmModal from '../../components/ConfirmModal';
 import { backendUrl, API } from '../../config/constants';
 
 /* ── Role badge ── */
@@ -162,6 +163,8 @@ const Users = () => {
   const [hardDeleting,      setHardDeleting]      = useState(false);
   const [resetTarget,       setResetTarget]       = useState(null);
   const [resetting,         setResetting]         = useState(false);
+  const [confirm, setConfirm] = useState({ open: false });
+  const closeConfirm = () => setConfirm({ open: false });
 
   const fetchUsers = useCallback(() => {
     setLoading(true);
@@ -250,18 +253,29 @@ const Users = () => {
     }
   };
 
-  const handleSoftDelete = async (user) => {
-    if (!window.confirm(`Archive "${user.name}"?\n\nTheir data will be preserved and the account can be restored later.`)) return;
-    setRowActing(user._id, 'soft-delete');
-    try {
-      await axios.patch(`${backendUrl}${API.admin.users}/${user._id}/soft-delete`);
-      toast.success(`${user.name} archived`);
-      setUsers(prev => prev.map(u => u._id === user._id ? { ...u, isDeleted: true, isActive: false } : u));
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Action failed');
-    } finally {
-      clearRowActing(user._id);
-    }
+  const handleSoftDelete = (user) => {
+    setConfirm({
+      open: true,
+      title: `Archive "${user.name}"`,
+      message: `Their data will be preserved and the account can be restored later.`,
+      confirmLabel: 'Archive Account',
+      danger: false,
+      onConfirm: async () => {
+        setConfirm(c => ({ ...c, loading: true }));
+        setRowActing(user._id, 'soft-delete');
+        try {
+          await axios.patch(`${backendUrl}${API.admin.users}/${user._id}/soft-delete`);
+          toast.success(`${user.name} archived`);
+          setUsers(prev => prev.map(u => u._id === user._id ? { ...u, isDeleted: true, isActive: false } : u));
+          setConfirm({ open: false });
+        } catch (err) {
+          toast.error(err.response?.data?.message || 'Action failed');
+          setConfirm({ open: false });
+        } finally {
+          clearRowActing(user._id);
+        }
+      },
+    });
   };
 
   const handleRestore = async (user) => {
@@ -615,6 +629,17 @@ const Users = () => {
           loading={resetting}
         />
       )}
+
+      <ConfirmModal
+        open={confirm.open}
+        title={confirm.title}
+        message={confirm.message}
+        confirmLabel={confirm.confirmLabel}
+        danger={confirm.danger !== false}
+        loading={confirm.loading}
+        onConfirm={confirm.onConfirm}
+        onCancel={closeConfirm}
+      />
     </Layout>
   );
 };

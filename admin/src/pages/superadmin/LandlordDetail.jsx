@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Layout from '../../components/Layout';
+import ConfirmModal from '../../components/ConfirmModal';
 import { backendUrl, API } from '../../config/constants';
 
 /* ── Small info row ── */
@@ -47,6 +48,8 @@ const LandlordDetail = () => {
   const [loading,   setLoading]  = useState(true);
   const [toggling,  setToggling] = useState(false);
   const [deleting,  setDeleting] = useState(false);
+  const [confirm, setConfirm] = useState({ open: false });
+  const closeConfirm = () => setConfirm({ open: false });
 
   useEffect(() => {
     axios.get(`${backendUrl}${API.admin.landlords}/${id}`)
@@ -70,18 +73,27 @@ const LandlordDetail = () => {
     }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!data) return;
-    if (!window.confirm(`Delete "${data.landlord.name}"?\n\nThis will permanently remove all their houses, tenants, and rent records. This cannot be undone.`)) return;
-    setDeleting(true);
-    try {
-      await axios.delete(`${backendUrl}${API.admin.landlords}/${id}`);
-      toast.success('Landlord deleted');
-      navigate('/admin/landlords', { replace: true });
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Delete failed');
-      setDeleting(false);
-    }
+    setConfirm({
+      open: true,
+      title: `Delete "${data.landlord.name}"`,
+      message: `This will permanently remove all their properties, tenants, and rent records.\nThis action cannot be undone.`,
+      confirmLabel: 'Delete Landlord',
+      onConfirm: async () => {
+        setConfirm(c => ({ ...c, loading: true }));
+        setDeleting(true);
+        try {
+          await axios.delete(`${backendUrl}${API.admin.landlords}/${id}`);
+          toast.success('Landlord deleted');
+          navigate('/admin/landlords', { replace: true });
+        } catch (err) {
+          toast.error(err.response?.data?.message || 'Delete failed');
+          setDeleting(false);
+          setConfirm({ open: false });
+        }
+      },
+    });
   };
 
   if (loading) {
@@ -313,6 +325,16 @@ const LandlordDetail = () => {
 
         </div>
       </main>
+
+      <ConfirmModal
+        open={confirm.open}
+        title={confirm.title}
+        message={confirm.message}
+        confirmLabel={confirm.confirmLabel}
+        loading={confirm.loading}
+        onConfirm={confirm.onConfirm}
+        onCancel={closeConfirm}
+      />
     </Layout>
   );
 };

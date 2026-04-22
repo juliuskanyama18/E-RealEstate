@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { ToggleLeft, ToggleRight, Trash2, Eye, Search, Users, Building2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Layout from '../../components/Layout';
+import ConfirmModal from '../../components/ConfirmModal';
 import { backendUrl, API } from '../../config/constants';
 
 const Landlords = () => {
@@ -13,6 +14,8 @@ const Landlords = () => {
   const [deleting,  setDeleting]  = useState(null);
   const [search,    setSearch]    = useState('');
   const [filter,    setFilter]    = useState('all');
+  const [confirm, setConfirm] = useState({ open: false });
+  const closeConfirm = () => setConfirm({ open: false });
 
   const fetchLandlords = async () => {
     try {
@@ -40,18 +43,28 @@ const Landlords = () => {
     }
   };
 
-  const handleDelete = async (id, name) => {
-    if (!window.confirm(`Delete "${name}"?\n\nThis will permanently remove all their houses, tenants, and rent records. This cannot be undone.`)) return;
-    setDeleting(id);
-    try {
-      await axios.delete(`${backendUrl}${API.admin.landlords}/${id}`);
-      toast.success(`${name} deleted`);
-      setLandlords(prev => prev.filter(l => l._id !== id));
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Delete failed');
-    } finally {
-      setDeleting(null);
-    }
+  const handleDelete = (id, name) => {
+    setConfirm({
+      open: true,
+      title: `Delete "${name}"`,
+      message: `This will permanently remove all their properties, tenants, and rent records.\nThis action cannot be undone.`,
+      confirmLabel: 'Delete Landlord',
+      onConfirm: async () => {
+        setConfirm(c => ({ ...c, loading: true }));
+        setDeleting(id);
+        try {
+          await axios.delete(`${backendUrl}${API.admin.landlords}/${id}`);
+          toast.success(`${name} deleted`);
+          setLandlords(prev => prev.filter(l => l._id !== id));
+          setConfirm({ open: false });
+        } catch (err) {
+          toast.error(err.response?.data?.message || 'Delete failed');
+          setConfirm({ open: false });
+        } finally {
+          setDeleting(null);
+        }
+      },
+    });
   };
 
   const filtered = useMemo(() =>
@@ -235,6 +248,16 @@ const Landlords = () => {
 
         </div>
       </main>
+
+      <ConfirmModal
+        open={confirm.open}
+        title={confirm.title}
+        message={confirm.message}
+        confirmLabel={confirm.confirmLabel}
+        loading={confirm.loading}
+        onConfirm={confirm.onConfirm}
+        onCancel={closeConfirm}
+      />
     </Layout>
   );
 };

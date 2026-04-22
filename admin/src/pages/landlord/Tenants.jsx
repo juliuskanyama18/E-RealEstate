@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import Layout from '../../components/Layout';
+import ConfirmModal from '../../components/ConfirmModal';
 import { backendUrl, API } from '../../config/constants';
 
 /* ─── design tokens ───────────────────────────────────────────── */
@@ -36,6 +37,8 @@ const Tenants = () => {
   const [form, setForm]         = useState(emptyForm);
   const [saving, setSaving]     = useState(false);
   const [selected, setSelected] = useState(new Set());
+  const [confirm, setConfirm]   = useState({ open: false });
+  const closeConfirm = () => setConfirm({ open: false });
 
   const fetchAll = async () => {
     try {
@@ -83,15 +86,25 @@ const Tenants = () => {
     }
   };
 
-  const handleDelete = async (id, name) => {
-    if (!window.confirm(`Remove ${name}? This will delete their account.`)) return;
-    try {
-      await axios.delete(`${backendUrl}${API.tenants}/${id}`);
-      toast.success('Tenant removed');
-      fetchAll();
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Delete failed');
-    }
+  const handleDelete = (id, name) => {
+    setConfirm({
+      open: true,
+      title: 'Remove Tenant',
+      message: `Remove ${name}?\nThis will permanently delete their account and cannot be undone.`,
+      confirmLabel: 'Remove Tenant',
+      onConfirm: async () => {
+        setConfirm(c => ({ ...c, loading: true }));
+        try {
+          await axios.delete(`${backendUrl}${API.tenants}/${id}`);
+          toast.success('Tenant removed');
+          fetchAll();
+          setConfirm({ open: false });
+        } catch (err) {
+          toast.error(err.response?.data?.message || 'Delete failed');
+          setConfirm({ open: false });
+        }
+      },
+    });
   };
 
   const field = (key, val) => setForm(f => ({ ...f, [key]: val }));
@@ -406,6 +419,16 @@ const Tenants = () => {
           </div>{/* /maxWidth wrapper */}
         </div>
       </div>
+
+      <ConfirmModal
+        open={confirm.open}
+        title={confirm.title}
+        message={confirm.message}
+        confirmLabel={confirm.confirmLabel}
+        loading={confirm.loading}
+        onConfirm={confirm.onConfirm}
+        onCancel={closeConfirm}
+      />
 
       {/* ── Add Tenant Modal ── */}
       {modal && (

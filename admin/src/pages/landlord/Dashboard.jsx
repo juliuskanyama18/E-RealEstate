@@ -141,7 +141,7 @@ const buildEvents = (leases, calYear, calMonth) => {
 };
 
 /* ── Calendar Events List ───────────────────────────────────── */
-const CalendarEvents = ({ events, calYear, calMonth, selectedDate = null, onClearDate }) => {
+const CalendarEvents = ({ events, calYear, calMonth, selectedDate = null, onClearDate, hideOpenLink = false }) => {
   const fmtDayHeader = (day) => {
     const d = new Date(calYear, calMonth, day);
     const weekday   = d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
@@ -217,9 +217,11 @@ const CalendarEvents = ({ events, calYear, calMonth, selectedDate = null, onClea
               </div>
             );
           })}
-          <div className="pt-1 text-center">
-            <Link to="/houses" className="text-xs text-blue-600 hover:underline">Open calendar</Link>
-          </div>
+          {!hideOpenLink && (
+            <div className="pt-1 text-center">
+              <button onClick={() => setCalDrawerOpen(true)} className="text-xs text-blue-600 hover:underline bg-transparent border-none cursor-pointer p-0">Open calendar</button>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -352,18 +354,56 @@ const AlarmClockIcon = ({ size = 18, className = '' }) => (
 );
 
 /* ── Payment Tile ───────────────────────────────────────────── */
-const PaymentTile = ({ title, amount, icon: Icon, iconBg, iconColor, sub }) => (
-  <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 flex flex-col gap-3">
-    <span className="text-sm font-semibold text-gray-700">{title}</span>
-    <div className="flex items-center gap-3">
-      <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${iconBg}`}>
-        <Icon size={18} className={iconColor} />
+const PaymentTile = ({ title, amount, icon: Icon, iconBg, iconColor, sub, due, lastMonth }) => {
+  const hasDue = due !== undefined;
+  const pct    = hasDue && due > 0 ? Math.min(100, Math.round((amount / due) * 100)) : 0;
+  const fmt    = (n) => `TZS ${Number(n || 0).toLocaleString()}`;
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 flex flex-col justify-between h-full" style={{ minHeight: 130 }}>
+      {/* Top: title */}
+      <span className="text-sm font-semibold text-gray-700">{title}</span>
+
+      {/* Middle: icon + amount + optional due + optional progress bar */}
+      <div className="my-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${iconBg}`}>
+              <Icon size={18} className={iconColor} />
+            </div>
+            <p className="text-xl font-bold text-gray-900">{fmt(amount)}</p>
+          </div>
+          {hasDue && (
+            <div className="text-right flex-shrink-0">
+              <p className="text-sm font-bold text-gray-700">{fmt(due)}</p>
+              <p className="text-[10px] text-gray-400 whitespace-nowrap">Due this month</p>
+            </div>
+          )}
+        </div>
+        {hasDue && (
+          <div className="w-full h-1.5 rounded-full bg-gray-100 overflow-hidden mt-3">
+            <div
+              className="h-full rounded-full bg-blue-500 transition-all duration-500"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+        )}
       </div>
-      <p className="text-xl font-bold text-gray-900">TZS {amount.toLocaleString()}</p>
+
+      {/* Bottom: sub text — always pinned to bottom */}
+      {hasDue ? (
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-semibold text-gray-600">{fmt(amount)} / {fmt(due)}</span>
+          <span className="text-[10px] text-gray-400 whitespace-nowrap">
+            Last month: <span className="font-semibold text-gray-500">{fmt(lastMonth)}</span>
+          </span>
+        </div>
+      ) : (
+        <p className="text-xs text-gray-400">{sub}</p>
+      )}
     </div>
-    <p className="text-xs text-gray-400">{sub}</p>
-  </div>
-);
+  );
+};
 
 /* ── Maintenance Tool Icon ──────────────────────────────────── */
 const MaintenanceToolIcon = () => (
@@ -499,6 +539,7 @@ const LandlordDashboard = () => {
   const [loading,          setLoading]          = useState(true);
   const [calCurrent,       setCalCurrent]       = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [selectedCalDate,  setSelectedCalDate]  = useState(null);
+  const [calDrawerOpen,    setCalDrawerOpen]    = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -540,8 +581,9 @@ const LandlordDashboard = () => {
 
   // "Rent Received" = actual money received this month from paid RentRecords
   const rentReceived   = monthlyIncome[currentMonthIdx] || 0;
+  const rentLastMonth  = monthlyIncome[currentMonthIdx > 0 ? currentMonthIdx - 1 : 11] || 0;
+  const totalDueThisMonth = tenants.filter(t => t.isActive !== false).reduce((s, t) => s + (t.rentAmount || 0), 0);
 
-  const overdueTenants = tenants.filter((t) => (t.balance || 0) < 0);
   const upcomingTenants = tenants.filter((t) => {
     const due = t.rentDueDate;
     if (!due) return false;
@@ -550,7 +592,11 @@ const LandlordDashboard = () => {
   });
 
   const upcomingAmount = upcomingTenants.reduce((s, t) => s + (t.rentAmount || 0), 0);
-  const overdueAmount  = overdueTenants.reduce((s, t) => s + Math.abs(t.balance || 0), 0);
+
+  // Overdue: houses where payment day passed this month and no paid RentRecord exists
+  const overdueHouses = houses.filter((h) => h.rentStatus === 'overdue');
+  const overdueAmount  = overdueHouses.reduce((s, h) => s + (h.lease?.rentAmount || h.rentAmount || 0), 0);
+  const overdueCount   = overdueHouses.length;
 
   const firstName = user?.name?.split(' ')[0] || 'there';
 
@@ -604,36 +650,50 @@ const LandlordDashboard = () => {
                 ))}
               </div>
 
-              {/* ── Two-column layout ────────────────────────────── */}
-              <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-start">
+              {/* ── Unified 10-col grid — tiles align exactly with cards below ── */}
+              <div className="grid grid-cols-1 lg:grid-cols-10 gap-4">
 
-                {/* ── Left column (3/5) ── */}
-                <div className="lg:col-span-3 space-y-4">
-
-                  {/* Rent Received + Upcoming Payments side by side */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <PaymentTile
-                      title="Rent Received"
-                      amount={rentReceived}
-                      icon={HouseIcon}
-                      iconBg="bg-green-100"
-                      iconColor="text-green-600"
-                      sub={`${paidThisMonth} tenant${paidThisMonth !== 1 ? 's' : ''} paid this month`}
-                    />
-                    <PaymentTile
-                      title="Upcoming Payments"
-                      amount={upcomingAmount}
-                      icon={Calendar}
-                      iconBg="bg-blue-100"
-                      iconColor="text-blue-600"
-                      sub={`${upcomingTenants.length} payment${upcomingTenants.length !== 1 ? 's' : ''} due within 7 days`}
-                    />
+                {/* Row 1 — Payment tiles (3+3+4 = 10 cols) */}
+                <div className="lg:col-span-3">
+                  <PaymentTile
+                    title="Rent Received"
+                    amount={rentReceived}
+                    icon={HouseIcon}
+                    iconBg="bg-green-100"
+                    iconColor="text-green-600"
+                    sub={`${paidThisMonth} tenant${paidThisMonth !== 1 ? 's' : ''} paid this month`}
+                    due={totalDueThisMonth}
+                    lastMonth={rentLastMonth}
+                  />
+                </div>
+                <div className="lg:col-span-3">
+                  <PaymentTile
+                    title="Upcoming Payments"
+                    amount={upcomingAmount}
+                    icon={Calendar}
+                    iconBg="bg-blue-100"
+                    iconColor="text-blue-600"
+                    sub={`${upcomingTenants.length} payment${upcomingTenants.length !== 1 ? 's' : ''} due within 7 days`}
+                  />
+                </div>
+                <div className="lg:col-span-4">
+                  <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 flex flex-col justify-between h-full" style={{ minHeight: 130 }}>
+                    <span className="text-sm font-semibold text-gray-700">Rent Overdue</span>
+                    <div className="my-3 flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                        <AlarmClockIcon size={18} className="text-red-500" />
+                      </div>
+                      <p className="text-xl font-bold text-gray-900">TZS {overdueAmount.toLocaleString()}</p>
+                    </div>
+                    <span className="text-xs text-gray-500">
+                      {overdueCount === 0 ? 'No overdue tenants' : `${overdueCount} overdue`}
+                    </span>
                   </div>
+                </div>
 
-                  {/* Cashflow chart */}
+                {/* Left column (6 cols) — Cashflow then Properties stacked */}
+                <div className="lg:col-span-6 flex flex-col gap-4">
                   <CashflowChart monthlyIncome={monthlyIncome} />
-
-                  {/* Properties & Tenants */}
                   <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
                     <div className="flex items-center justify-between mb-4">
                       <p className="text-sm font-semibold text-gray-700">Properties</p>
@@ -643,8 +703,6 @@ const LandlordDashboard = () => {
                     <StatPill label="Total Tenants"    value={totalTenants}    color="bg-green-500" />
                     <StatPill label="Occupied Houses"  value={occupiedHouses}  color="bg-purple-500" />
                     <StatPill label="Vacant Houses"    value={vacantHouses}    color="bg-orange-400" />
-
-                    {/* Occupancy rate */}
                     <div className="mt-4 pt-3 border-t border-gray-50 space-y-3">
                       <div>
                         <div className="flex items-center justify-between text-xs text-gray-500 mb-1.5">
@@ -655,8 +713,6 @@ const LandlordDashboard = () => {
                           <div className="h-2 rounded-full bg-green-500 transition-all duration-500" style={{ width: `${occupancyRate}%` }} />
                         </div>
                       </div>
-
-                      {/* Rent collection rate */}
                       <div>
                         <div className="flex items-center justify-between text-xs text-gray-500 mb-1.5">
                           <span>Rent collected this month</span>
@@ -673,62 +729,8 @@ const LandlordDashboard = () => {
                   </div>
                 </div>
 
-                {/* ── Right column (2/5) ── */}
-                <div className="lg:col-span-2 space-y-4">
-
-                  {/* Rent Overdue — expanded with tenant list */}
-                  <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm font-semibold text-gray-700">Rent Overdue</span>
-                      {overdueTenants.length > 0 && (
-                        <span className="text-xs bg-red-100 text-red-600 font-semibold px-2 py-0.5 rounded-full">
-                          {overdueTenants.length}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
-                        <AlarmClockIcon size={18} className="text-red-500" />
-                      </div>
-                      <p className="text-xl font-bold text-gray-900">TZS {overdueAmount.toLocaleString()}</p>
-                    </div>
-                    {overdueTenants.length === 0 ? (
-                      <p className="text-xs text-gray-400">No overdue tenants.</p>
-                    ) : (
-                      <div className="space-y-1.5">
-                        {overdueTenants.slice(0, 4).map((t) => {
-                          const daysLate = today - (t.rentDueDate || today);
-                          return (
-                            <Link
-                              key={t._id}
-                              to={`/tenants/${t._id}`}
-                              className="flex items-center justify-between p-2.5 rounded-lg bg-red-50 hover:bg-red-100 transition-colors"
-                            >
-                              <div className="min-w-0">
-                                <p className="text-xs font-medium text-red-700 truncate">{t.name}</p>
-                                <p className="text-[10px] text-red-400">
-                                  {t.house?.name || 'No house'} · {daysLate > 0 ? `${daysLate}d overdue` : 'Overdue'}
-                                </p>
-                              </div>
-                              <p className="text-xs font-semibold text-red-600 flex-shrink-0 ml-2">
-                                TZS {Math.abs(t.balance || 0).toLocaleString()}
-                              </p>
-                            </Link>
-                          );
-                        })}
-                        {overdueTenants.length > 4 && (
-                          <Link to="/tenants" className="block text-center text-xs text-blue-600 hover:underline pt-1">
-                            +{overdueTenants.length - 4} more
-                          </Link>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Maintenance Card */}
-                  <MaintenanceDashboardCard requests={maintenance} />
-
-                  {/* Mini Calendar with event dots and date selection */}
+                {/* Right column (4 cols) — Calendar+Events then Maintenance stacked */}
+                <div className="lg:col-span-4 flex flex-col gap-4">
                   <MiniCalendar
                     current={calCurrent}
                     onPrev={() => { setCalCurrent(new Date(calYear, calMonth - 1, 1)); setSelectedCalDate(null); }}
@@ -738,8 +740,6 @@ const LandlordDashboard = () => {
                     selectedDate={selectedCalDate}
                     onSelectDate={setSelectedCalDate}
                   />
-
-                  {/* Calendar Events List */}
                   <CalendarEvents
                     events={calEvents}
                     calYear={calYear}
@@ -747,12 +747,65 @@ const LandlordDashboard = () => {
                     selectedDate={selectedCalDate}
                     onClearDate={() => setSelectedCalDate(null)}
                   />
+                  <MaintenanceDashboardCard requests={maintenance} />
                 </div>
+
               </div>
             </>
           )}
         </div>
       </main>
+
+      {/* ── Calendar Side Drawer ─────────────────────────────── */}
+      {calDrawerOpen && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/30 z-40"
+            onClick={() => setCalDrawerOpen(false)}
+          />
+          <div className="fixed top-0 right-0 h-screen w-full sm:w-[480px] bg-white shadow-2xl z-50 flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3.5 flex-shrink-0">
+              <div className="flex items-center gap-2 text-gray-800">
+                <Calendar size={18} />
+                <span className="text-sm font-semibold">Calendar</span>
+              </div>
+              <button
+                onClick={() => setCalDrawerOpen(false)}
+                className="p-1.5 rounded-md text-gray-500 hover:bg-gray-100 transition-colors"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+                </svg>
+              </button>
+            </div>
+            <hr className="border-gray-200 flex-shrink-0" />
+            <div className="flex-1 overflow-y-auto">
+              <div className="mx-4 mt-4 mb-2 bg-gray-50 rounded-xl p-4">
+                <MiniCalendar
+                  current={calCurrent}
+                  onPrev={() => { setCalCurrent(new Date(calYear, calMonth - 1, 1)); setSelectedCalDate(null); }}
+                  onNext={() => { setCalCurrent(new Date(calYear, calMonth + 1, 1)); setSelectedCalDate(null); }}
+                  rentDueDays={rentDueDays}
+                  leaseExpiryDays={leaseExpiryDays}
+                  selectedDate={selectedCalDate}
+                  onSelectDate={setSelectedCalDate}
+                />
+              </div>
+              <div className="px-4 py-4">
+                <CalendarEvents
+                  events={calEvents}
+                  calYear={calYear}
+                  calMonth={calMonth}
+                  selectedDate={selectedCalDate}
+                  onClearDate={() => setSelectedCalDate(null)}
+                  hideOpenLink
+                />
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </Layout>
   );
 };

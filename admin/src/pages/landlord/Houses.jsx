@@ -4,9 +4,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Search, Pencil, Trash2, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Layout from '../../components/Layout';
+import ConfirmModal from '../../components/ConfirmModal';
 import { backendUrl, API } from '../../config/constants';
 
-const emptyForm = { name: '', address: '', city: '', rentAmount: '', bedrooms: 1, bathrooms: 1, description: '' };
+const emptyForm = { name: '', address: '', city: '', bedrooms: 1, bathrooms: 1, description: '' };
 
 /* ── Property type SVGs ───────────────────────────────────── */
 const TYPE_SVG = {
@@ -161,6 +162,8 @@ const Houses = () => {
   const [photoRotation, setPhotoRotation] = useState(0);
   const [photoDeleted, setPhotoDeleted]   = useState(false);
   const [photoSaving, setPhotoSaving]     = useState(false);
+  const [confirm, setConfirm] = useState({ open: false });
+  const closeConfirm = () => setConfirm({ open: false });
 
   const fetchHouses = async () => {
     try {
@@ -211,7 +214,7 @@ const Houses = () => {
 
   const openAdd  = () => { setForm(emptyForm); setEditId(null); setModal(true); };
   const openEdit = (h) => {
-    setForm({ name: h.name, address: h.address, city: h.city, rentAmount: h.rentAmount, bedrooms: h.bedrooms, bathrooms: h.bathrooms, description: h.description || '' });
+    setForm({ name: h.name, address: h.address, city: h.city, bedrooms: h.bedrooms, bathrooms: h.bathrooms, description: h.description || '' });
     setEditId(h._id); setModal(true);
   };
   const closeModal = () => { setModal(false); setEditId(null); setForm(emptyForm); };
@@ -232,14 +235,25 @@ const Houses = () => {
     } finally { setSaving(false); }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Delete this property? This cannot be undone.')) return;
-    try {
-      await axios.delete(`${backendUrl}${API.houses}/${id}`);
-      toast.success('Property deleted'); fetchHouses();
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Delete failed');
-    }
+  const handleDelete = (id) => {
+    setConfirm({
+      open: true,
+      title: 'Delete Property',
+      message: 'This property will be permanently deleted.\nThis action cannot be undone.',
+      confirmLabel: 'Delete Property',
+      onConfirm: async () => {
+        setConfirm(c => ({ ...c, loading: true }));
+        try {
+          await axios.delete(`${backendUrl}${API.houses}/${id}`);
+          toast.success('Property deleted');
+          fetchHouses();
+          setConfirm({ open: false });
+        } catch (err) {
+          toast.error(err.response?.data?.message || 'Delete failed');
+          setConfirm({ open: false });
+        }
+      },
+    });
   };
 
   const field = (key, val) => setForm((f) => ({ ...f, [key]: val }));
@@ -408,7 +422,7 @@ const Houses = () => {
 
                   {/* Table rows */}
                   {pageRows.map((h, idx) => {
-                    const locationLine = [h.city, h.region, h.zipCode].filter(Boolean).join(', ');
+                    const locationLine = h.address || '';
                     const lease = h.lease;
                     const tenantName = lease?.tenant?.name || tenantMap[h._id] || null;
                     const status = getRentStatus(h);
@@ -417,8 +431,12 @@ const Houses = () => {
                     let dueDateStr = '—';
                     if (lease?.paymentDay) {
                       const now = new Date();
-                      let due = new Date(now.getFullYear(), now.getMonth(), lease.paymentDay);
-                      if (due < now) due = new Date(now.getFullYear(), now.getMonth() + 1, lease.paymentDay);
+                      const currentMonthDue = new Date(now.getFullYear(), now.getMonth(), lease.paymentDay);
+                      // Advance to next month only if current month's due date has passed AND rent is paid (not overdue)
+                      const isPaid = currentMonthDue < now && h.rentStatus !== 'overdue';
+                      const due = isPaid
+                        ? new Date(now.getFullYear(), now.getMonth() + 1, lease.paymentDay)
+                        : currentMonthDue;
                       dueDateStr = due.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase();
                     }
 
@@ -452,7 +470,7 @@ const Houses = () => {
                         <div style={{ flex: '1 1 0', minWidth: 0, paddingRight: 16 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                             <p style={{ fontSize: 13, fontWeight: 700, color: '#042238', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
-                              {h.nickname || h.address || h.name}
+                              {h.nickname || h.name || h.address}
                             </p>
                             <button onClick={e => { e.stopPropagation(); openEdit(h); }} className="flex-shrink-0 opacity-0 hover:opacity-100 group-hover:opacity-100">
                               <Pencil size={10} color="#9CA3AF" />
@@ -528,13 +546,9 @@ const Houses = () => {
                     <label className="block text-xs font-medium text-gray-700 mb-1">Address *</label>
                     <input required value={form.address} onChange={e => field('address', e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="123 Main Street" />
                   </div>
-                  <div>
+                  <div className="col-span-2">
                     <label className="block text-xs font-medium text-gray-700 mb-1">City *</label>
                     <input required value={form.city} onChange={e => field('city', e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Dar es Salaam" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Rent (TZS) *</label>
-                    <input required type="number" min="0" value={form.rentAmount} onChange={e => field('rentAmount', e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="150000" />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Bedrooms</label>
@@ -755,6 +769,16 @@ const Houses = () => {
         )}
 
       </main>
+
+      <ConfirmModal
+        open={confirm.open}
+        title={confirm.title}
+        message={confirm.message}
+        confirmLabel={confirm.confirmLabel}
+        loading={confirm.loading}
+        onConfirm={confirm.onConfirm}
+        onCancel={closeConfirm}
+      />
     </Layout>
   );
 };

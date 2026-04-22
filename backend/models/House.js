@@ -23,9 +23,22 @@ const houseSchema = new mongoose.Schema(
       required: [true, "City is required"],
       trim: true,
     },
+    region: {
+      type: String,
+      trim: true,
+    },
+    zipCode: {
+      type: String,
+      trim: true,
+    },
+    country: {
+      type: String,
+      trim: true,
+      default: 'Tanzania',
+    },
     rentAmount: {
       type: Number,
-      required: [true, "Rent amount is required"],
+      default: 0,
       min: [0, "Rent amount cannot be negative"],
     },
     bedrooms: {

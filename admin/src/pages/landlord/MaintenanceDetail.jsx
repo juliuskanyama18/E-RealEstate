@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import Layout from '../../components/Layout';
+import ConfirmModal from '../../components/ConfirmModal';
 import { backendUrl, API } from '../../config/constants';
 
 /* ─── categories (matches create form) ───────────────────────── */
@@ -96,6 +97,8 @@ const MaintenanceDetail = () => {
   const [detailDraft, setDetailDraft] = useState(null);
   const [detailSaving, setDetailSaving] = useState(false);
   const [deleting, setDeleting]       = useState(false);
+  const [confirm, setConfirm]         = useState({ open: false });
+  const closeConfirm = () => setConfirm({ open: false });
 
   // Activity info tooltip
   const [infoTooltip, setInfoTooltip] = useState(false);
@@ -211,18 +214,26 @@ const MaintenanceDetail = () => {
     finally { setDetailSaving(false); }
   };
 
-  const deleteRequest = async () => {
-    if (!window.confirm('Delete this maintenance request? This cannot be undone.')) return;
-    setDeleting(true);
-    try {
-      await axios.delete(`${backendUrl}${API.maintenance}/${id}`);
-      toast.success('Maintenance request deleted');
-      navigate('/maintenance');
-    } catch {
-      toast.error('Failed to delete. Please try again.');
-    } finally {
-      setDeleting(false);
-    }
+  const deleteRequest = () => {
+    setConfirm({
+      open: true,
+      title: 'Delete Maintenance Request',
+      message: 'This maintenance request will be permanently deleted.\nThis action cannot be undone.',
+      confirmLabel: 'Delete',
+      onConfirm: async () => {
+        setConfirm(c => ({ ...c, loading: true }));
+        setDeleting(true);
+        try {
+          await axios.delete(`${backendUrl}${API.maintenance}/${id}`);
+          toast.success('Maintenance request deleted');
+          navigate('/maintenance');
+        } catch {
+          toast.error('Failed to delete. Please try again.');
+          setDeleting(false);
+          setConfirm({ open: false });
+        }
+      },
+    });
   };
 
   const addNote = async () => {
@@ -1416,6 +1427,16 @@ const MaintenanceDetail = () => {
         </div>{/* end two-column */}
         </div>{/* /maxWidth wrapper */}
       </div>
+
+      <ConfirmModal
+        open={confirm.open}
+        title={confirm.title}
+        message={confirm.message}
+        confirmLabel={confirm.confirmLabel}
+        loading={confirm.loading}
+        onConfirm={confirm.onConfirm}
+        onCancel={closeConfirm}
+      />
     </Layout>
   );
 };
