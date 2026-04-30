@@ -15,7 +15,7 @@ const FONT = '"Inter", sans-serif';
 /* ─── helpers ─────────────────────────────────────────────────── */
 const emptyForm = {
   firstName: '', lastName: '', email: '', phone: '',
-  houseId: '', invitePortal: true,
+  houseId: '', notes: '', invitePortal: true,
 };
 
 const initials = name =>
@@ -32,7 +32,7 @@ const Tenants = () => {
   const [tenants, setTenants]   = useState([]);
   const [houses, setHouses]     = useState([]);
   const [loading, setLoading]   = useState(true);
-  const [filter, setFilter]     = useState('active'); // active | past
+  const [filter, setFilter]     = useState('all'); // all | current | past | prospective
   const [modal, setModal]       = useState(false);
   const [form, setForm]         = useState(emptyForm);
   const [saving, setSaving]     = useState(false);
@@ -69,7 +69,8 @@ const Tenants = () => {
         name: `${form.firstName} ${form.lastName}`.trim(),
         email: form.email || undefined,
         phone: form.phone || undefined,
-        houseId: form.houseId,
+        houseId: form.houseId || undefined,
+        notes: form.notes || undefined,
         rentAmount: 0,
         rentDueDate: 1,
         sendInvitation: form.invitePortal,
@@ -110,15 +111,22 @@ const Tenants = () => {
   const field = (key, val) => setForm(f => ({ ...f, [key]: val }));
 
   /* ── filter lists ── */
-  const active   = tenants.filter(t => t.isActive !== false);
-  const past     = tenants.filter(t => t.isActive === false);
-  const shown    = filter === 'active' ? active : filter === 'past' ? past : [];
+  const all         = tenants;
+  const current     = tenants.filter(t => t.tenantStatus === 'current');
+  const past        = tenants.filter(t => t.tenantStatus === 'past');
+  const prospective = tenants.filter(t => t.tenantStatus === 'prospect');
+
+  const shown =
+    filter === 'current'     ? current     :
+    filter === 'past'        ? past        :
+    filter === 'prospective' ? prospective : all;
 
   /* ── segment tab config ── */
   const TABS = [
-    { key: 'active',   label: 'Active',   count: active.length },
-    { key: 'past',     label: 'Past',     count: past.length   },
-    { key: 'archived', label: 'Archived', count: 0             },
+    { key: 'all',         label: 'All',          count: all.length         },
+    { key: 'current',     label: 'Current',      count: current.length     },
+    { key: 'past',        label: 'Past Tenants', count: past.length        },
+    { key: 'prospective', label: 'Prospective',  count: prospective.length },
   ];
 
   return (
@@ -132,29 +140,27 @@ const Tenants = () => {
       }}>
 
         {/* ── Page tab bar ── */}
-        <div style={{
-          background: '#fff',
-          borderBottom: '1px solid #e4e9f0',
-          padding: '0 32px',
-        }}>
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: 4,
-            borderBottom: `3px solid ${NAVY}`,
-            padding: '15px 0 12px',
-            marginBottom: '-1px',
-          }}>
-            <span style={{
-              fontFamily: FONT, fontSize: 11, fontWeight: 700,
-              color: NAVY, letterSpacing: '0.12em', textTransform: 'uppercase',
+        <div style={{ background: '#fff', borderBottom: '1px solid #e4e9f0' }}>
+          <div className="page-content">
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              borderBottom: `3px solid ${NAVY}`,
+              padding: '15px 0 12px',
+              marginBottom: '-1px',
             }}>
-              Tenants ({tenants.length})
-            </span>
+              <span style={{
+                fontFamily: FONT, fontSize: 11, fontWeight: 700,
+                color: NAVY, letterSpacing: '0.12em', textTransform: 'uppercase',
+              }}>
+                Tenants ({tenants.length})
+              </span>
+            </div>
           </div>
         </div>
 
         {/* ── Main content ── */}
-        <div style={{ padding: '26px 32px 48px' }}>
-          <div style={{ maxWidth: 960, margin: '0 auto' }}>
+        <div className="page-content" style={{ paddingTop: 20, paddingBottom: 40 }}>
+          <div>
 
           {/* ── Unified card: toolbar + table + pagination ── */}
           <div style={{
@@ -178,7 +184,7 @@ const Tenants = () => {
                 fontSize: 15, fontWeight: 700,
                 color: NAVY, letterSpacing: '-0.01em',
               }}>
-                {filter === 'active' ? 'Active Tenants' : filter === 'past' ? 'Past Tenants' : 'Archived Tenants'}
+                {filter === 'all' ? 'All Tenants' : filter === 'current' ? 'Current Tenants' : filter === 'past' ? 'Past Tenants' : 'Prospective Tenants'}
               </h2>
 
               {/* Filter tabs + Add New */}
@@ -270,25 +276,29 @@ const Tenants = () => {
                   fontSize: 17, fontWeight: 700, color: NAVY,
                   letterSpacing: '-0.01em',
                 }}>
-                  {filter === 'active'
-                    ? "You don't have any active tenants"
-                    : filter === 'past'
-                      ? "No past tenants"
-                      : "No archived tenants"}
+                  {filter === 'all'
+                    ? "You don't have any tenants yet"
+                    : filter === 'current'
+                      ? "No current tenants"
+                      : filter === 'past'
+                        ? "No past tenants"
+                        : "No prospective tenants"}
                 </h3>
                 <p style={{
                   margin: '0 0 28px', fontFamily: FONT,
                   fontSize: 13, color: '#69809a', lineHeight: 1.65,
                   maxWidth: 380,
                 }}>
-                  {filter === 'active'
-                    ? "If you're not seeing a specific tenant here, try looking under past tenants, or you can always add a new tenant."
-                    : filter === 'past'
-                      ? "Suspended tenant accounts will appear here."
-                      : "Archived tenants will appear here."}
+                  {filter === 'all'
+                    ? "Add your first tenant to get started."
+                    : filter === 'current'
+                      ? "Tenants linked to a property will appear here."
+                      : filter === 'past'
+                        ? "Deactivated tenant accounts will appear here."
+                        : "Tenants added without a property will appear here. You can link them to a property at any time."}
                 </p>
 
-                {filter === 'active' && (
+                {(filter === 'all' || filter === 'prospective') && (
                   <>
                     <button
                       onClick={() => setModal(true)}
@@ -330,16 +340,13 @@ const Tenants = () => {
             {/* Tenants table — DataGrid style */}
             {!loading && shown.length > 0 && (() => {
               const statusChip = (t) => {
-                if (t.isActive === false) {
-                  return { label: 'FORMER', color: '#374151', border: '#d1d5db', bg: '#f9fafb' };
+                if (t.tenantStatus === 'current') {
+                  return { label: 'CURRENT',    color: '#166534', border: '#86efac', bg: '#f0fdf4' };
                 }
-                if (t.portalActivated) {
-                  return { label: 'CURRENT', color: '#166534', border: '#86efac', bg: '#f0fdf4' };
+                if (t.tenantStatus === 'past') {
+                  return { label: 'PAST',       color: '#374151', border: '#d1d5db', bg: '#f9fafb' };
                 }
-                if (t.house) {
-                  return { label: 'CURRENT', color: '#166534', border: '#86efac', bg: '#f0fdf4' };
-                }
-                return { label: 'NO LEASE', color: '#92400e', border: '#fcd34d', bg: '#fffbeb' };
+                return   { label: 'PROSPECT',   color: '#92400e', border: '#fcd34d', bg: '#fffbeb' };
               };
 
               return (
@@ -509,39 +516,6 @@ const Tenants = () => {
                 </div>
               </div>
 
-              {/* Lease (House) */}
-              <div style={{ marginBottom: 16 }}>
-                <label style={mLabel}>Lease</label>
-                <div style={{ position: 'relative' }}>
-                  <select
-                    required value={form.houseId}
-                    onChange={e => field('houseId', e.target.value)}
-                    style={{
-                      ...mInput, appearance: 'none', WebkitAppearance: 'none',
-                      paddingRight: 36, cursor: 'pointer', background: '#fff',
-                      color: form.houseId ? NAVY : '#9ca3af',
-                    }}
-                  >
-                    <option value="" disabled>Select a lease</option>
-                    {houses.map(h => (
-                      <option key={h._id} value={h._id}>{h.name}{h.city ? ` — ${h.city}` : ''}</option>
-                    ))}
-                  </select>
-                  <svg width="10" height="6" viewBox="0 0 10 6" fill={NAVY}
-                    style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
-                    <path d="M9.792 0H.208a.233.233 0 00-.181.076.113.113 0 00.003.15l4.792 5.702A.234.234 0 005 6c.073 0 .14-.027.178-.072L9.97.226a.113.113 0 00.003-.15A.233.233 0 009.792 0z" fillRule="evenodd"/>
-                  </svg>
-                </div>
-              </div>
-
-              {/* Contact info heading */}
-              <p style={{
-                margin: '8px 0 16px', fontFamily: FONT, fontSize: 14,
-                fontWeight: 700, color: NAVY, lineHeight: 1.42857,
-              }}>
-                Provide at least one form of contact information:
-              </p>
-
               {/* Email */}
               <div style={{ marginBottom: 16 }}>
                 <label style={mLabel}>Email</label>
@@ -555,12 +529,36 @@ const Tenants = () => {
               </div>
 
               {/* Phone */}
-              <div style={{ marginBottom: 20 }}>
+              <div style={{ marginBottom: 16 }}>
                 <label style={mLabel}>Phone</label>
                 <input
                   type="tel" value={form.phone}
                   onChange={e => field('phone', e.target.value)}
                   style={mInput}
+                  onFocus={e => e.target.style.borderColor = '#4a90c4'}
+                  onBlur={e => e.target.style.borderColor = '#d1d5db'}
+                />
+              </div>
+
+              {/* Notes */}
+              <div style={{ marginBottom: 20 }}>
+                <label style={mLabel}>
+                  Notes <span style={{ fontWeight: 400, color: '#9ca3af', fontSize: 12 }}>(optional)</span>
+                </label>
+                <textarea
+                  value={form.notes}
+                  onChange={e => field('notes', e.target.value)}
+                  rows={4}
+                  maxLength={1000}
+                  placeholder="Any notes about this tenant..."
+                  style={{
+                    ...mInput,
+                    height: 'auto',
+                    resize: 'vertical',
+                    paddingTop: 10,
+                    paddingBottom: 10,
+                    lineHeight: 1.5,
+                  }}
                   onFocus={e => e.target.style.borderColor = '#4a90c4'}
                   onBlur={e => e.target.style.borderColor = '#d1d5db'}
                 />

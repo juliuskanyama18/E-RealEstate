@@ -729,10 +729,11 @@ const DocumentsTab = ({ houseId, backendUrl }) => {
 };
 
 /* ── Reminders Section ───────────────────────────────────────────────────── */
-const REMINDER_CATEGORIES = ['Rent'];
+const REMINDER_CATEGORIES = ['Rent', 'Maintenance', 'Inspection', 'Lease Renewal', 'Other'];
 
 const RemindersSection = ({ houseId, houseName, backendUrl: bUrl }) => {
   const [reminders, setReminders]         = useState([]);
+  const [houseTenants, setHouseTenants]   = useState([]);
   const [loading, setLoading]             = useState(true);
   const [reminderTab, setReminderTab]     = useState('Reminders');
   const [filterOpen, setFilterOpen]       = useState(false);
@@ -740,7 +741,7 @@ const RemindersSection = ({ houseId, houseName, backendUrl: bUrl }) => {
   const [statusFilters, setStatusFilters] = useState({ complete: true, upcoming: true, overdue: true });
   const [addOpen, setAddOpen]             = useState(false);
   const [saving, setSaving]               = useState(false);
-  const [form, setForm]                   = useState({ dateTime: '', category: 'Rent', notes: '' });
+  const [form, setForm]                   = useState({ dateTime: '', category: 'Rent', notes: '', notifyWho: 'landlord', tenantId: '', recurring: false, repeatInterval: 'monthly' });
 
   const fetchReminders = async () => {
     try {
@@ -752,7 +753,16 @@ const RemindersSection = ({ houseId, houseName, backendUrl: bUrl }) => {
 
   useEffect(() => { fetchReminders(); }, [houseId]);
 
-  const filtered = reminders.filter(r => statusFilters[r.status]);
+  useEffect(() => {
+    axios.get(`${bUrl}/api/landlord/tenants`, { params: { houseId } })
+      .then(r => setHouseTenants((r.data.data || []).filter(t => t.house?._id === houseId || t.house === houseId)))
+      .catch(() => {});
+  }, [houseId]);
+
+  const tabReminders = reminderTab === 'Recurring reminders'
+    ? reminders.filter(r => r.recurring)
+    : reminders.filter(r => !r.recurring);
+  const filtered = tabReminders.filter(r => statusFilters[r.status]);
 
   const toggleFilter = (key) => setStatusFilters(p => ({ ...p, [key]: !p[key] }));
   const allSelected = Object.values(statusFilters).every(Boolean);
@@ -763,12 +773,21 @@ const RemindersSection = ({ houseId, houseName, backendUrl: bUrl }) => {
 
   const handleSave = async () => {
     if (!form.dateTime) return toast.error('Date & Time is required');
+    if (form.notifyWho === 'tenant' && !form.tenantId) return toast.error('Please select a tenant to notify');
     try {
       setSaving(true);
-      await axios.post(`${bUrl}/api/landlord/houses/${houseId}/reminders`, form);
+      await axios.post(`${bUrl}/api/landlord/houses/${houseId}/reminders`, {
+        dateTime: form.dateTime,
+        category: form.category,
+        notes: form.notes,
+        notifyTenant: form.notifyWho === 'tenant',
+        tenantId: form.notifyWho === 'tenant' ? form.tenantId : undefined,
+        recurring: form.recurring,
+        repeatInterval: form.recurring ? form.repeatInterval : undefined,
+      });
       toast.success('Reminder added');
       setAddOpen(false);
-      setForm({ dateTime: '', category: 'Rent', notes: '' });
+      setForm({ dateTime: '', category: 'Rent', notes: '', notifyWho: 'landlord', tenantId: '', recurring: false, repeatInterval: 'monthly' });
       fetchReminders();
     } catch (e) {
       toast.error(e.response?.data?.message || 'Failed to save');
@@ -854,7 +873,14 @@ const RemindersSection = ({ houseId, houseName, backendUrl: bUrl }) => {
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="#9ca3af"><path d="M20 3h-1V1h-2v2H7V1H5v2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 18H4V8h16v13z"/></svg>
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#042238' }}>{r.category}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#042238', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {r.category}
+                      {r.recurring && (
+                        <span style={{ fontSize: 10, fontWeight: 700, background: '#eff6ff', color: '#3b82f6', border: '1px solid #bfdbfe', borderRadius: 10, padding: '1px 7px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                          {r.repeatInterval}
+                        </span>
+                      )}
+                    </div>
                     <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>{dateStr} · {timeStr}{r.notes ? ` · ${r.notes}` : ''}</div>
                   </div>
                   <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: chip.bg, color: chip.color, border: `1px solid ${chip.border}` }}>{chip.label}</span>
@@ -949,21 +975,67 @@ const RemindersSection = ({ houseId, houseName, backendUrl: bUrl }) => {
                   style={{ width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, outline: 'none', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }}
                 />
               </div>
-              {/* Recurring (PRO) */}
+              {/* Notify who */}
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 8 }}>Notify</label>
+                <div style={{ display: 'flex', gap: 0, border: '1px solid #e5e7eb', borderRadius: 6, overflow: 'hidden' }}>
+                  {[['landlord', 'Landlord Only'], ['tenant', 'Tenant']].map(([val, label]) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setForm(p => ({ ...p, notifyWho: val, tenantId: '' }))}
+                      style={{ flex: 1, padding: '8px 12px', fontSize: 13, fontWeight: form.notifyWho === val ? 700 : 400, background: form.notifyWho === val ? '#042238' : '#fff', color: form.notifyWho === val ? '#fff' : '#6b7280', border: 'none', cursor: 'pointer' }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {form.notifyWho === 'tenant' && (
+                  <div style={{ marginTop: 10 }}>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 5 }}>Select Tenant</label>
+                    <select
+                      value={form.tenantId}
+                      onChange={e => setForm(p => ({ ...p, tenantId: e.target.value }))}
+                      style={{ width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, outline: 'none', boxSizing: 'border-box', background: '#fff' }}
+                    >
+                      <option value="">Select tenant…</option>
+                      {houseTenants.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
+                    </select>
+                    <p style={{ margin: '6px 0 0', fontSize: 11, color: '#6b7280' }}>The tenant will receive an email notification immediately.</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Recurring */}
               <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: '12px 14px' }}>
                 <div style={{ marginBottom: 10 }}>
                   <span style={{ fontSize: 13, fontWeight: 600, color: '#042238' }}>Is this a recurring reminder?</span>
                 </div>
                 <div style={{ display: 'flex', gap: 20 }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#374151', cursor: 'pointer' }}>
-                    <input type="radio" name="recurring" value="yes" style={{ accentColor: '#042238' }} />
+                    <input type="radio" name="recurring" value="yes" checked={form.recurring === true} onChange={() => setForm(p => ({ ...p, recurring: true }))} style={{ accentColor: '#042238' }} />
                     Yes
                   </label>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#374151', cursor: 'pointer' }}>
-                    <input type="radio" name="recurring" value="no" defaultChecked style={{ accentColor: '#042238' }} />
+                    <input type="radio" name="recurring" value="no" checked={form.recurring === false} onChange={() => setForm(p => ({ ...p, recurring: false }))} style={{ accentColor: '#042238' }} />
                     No
                   </label>
                 </div>
+                {form.recurring && (
+                  <div style={{ marginTop: 12 }}>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 5 }}>Repeat every</label>
+                    <select
+                      value={form.repeatInterval}
+                      onChange={e => setForm(p => ({ ...p, repeatInterval: e.target.value }))}
+                      style={{ width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, outline: 'none', background: '#fff', boxSizing: 'border-box' }}
+                    >
+                      <option value="daily">Day</option>
+                      <option value="weekly">Week</option>
+                      <option value="monthly">Month</option>
+                      <option value="yearly">Year</option>
+                    </select>
+                  </div>
+                )}
               </div>
             </div>
             {/* Modal footer */}
@@ -1000,10 +1072,23 @@ const HouseDetail = () => {
   const [expSubTab,        setExpSubTab]        = useState('Expenses');
   const [showLogPayment,   setShowLogPayment]   = useState(false);
   const [showAddExpense,   setShowAddExpense]   = useState(false);
-  const [logPayForm,       setLogPayForm]       = useState({ paymentDate: new Date().toISOString().slice(0,10), category: 'Rent', month: '', status: 'Complete', amount: '', tenantId: '', sendReceipt: 'No', notes: '' });
+  const [editingPayment,   setEditingPayment]   = useState(null);
+  const [payMenuId,        setPayMenuId]        = useState(null);
+  const [payMenuPos,       setPayMenuPos]       = useState({ top: 0, right: 0 });
+  const [confirmDeletePay, setConfirmDeletePay] = useState(null); // holds payment object
+  const [deletingPay,      setDeletingPay]      = useState(false);
+  const [logPayForm,       setLogPayForm]       = useState(() => ({ paymentDate: new Date().toISOString().slice(0,10), category: 'Rent', month: '', status: 'Complete', amount: '', tenantId: '', sendReceipt: 'No', notes: '' }));
   const [addExpForm,       setAddExpForm]       = useState({ dueDate: new Date().toISOString().slice(0,10), category: 'Other', description: '', amount: '', status: 'unpaid', paymentDate: new Date().toISOString().slice(0,10), isPaid: true, payableByTenant: false, capitalExpense: false, notes: '', supplier: '' });
+  const [receiptFile,      setReceiptFile]      = useState(null);
   const [logPaySubmitting, setLogPaySubmitting] = useState(false);
   const [addExpSubmitting, setAddExpSubmitting] = useState(false);
+  const [editingExpense,   setEditingExpense]   = useState(null);
+  const [editExpForm,      setEditExpForm]      = useState(null);
+  const [editExpSubmitting,setEditExpSubmitting]= useState(false);
+  const [confirmDeleteExp, setConfirmDeleteExp] = useState(null);
+  const [deletingExp,      setDeletingExp]      = useState(false);
+  const [expMenuId,        setExpMenuId]        = useState(null);
+  const [expMenuPos,       setExpMenuPos]       = useState({ top: 0, right: 0 });
   const [expandedPeriod,   setExpandedPeriod]   = useState(null);
   const [showAddMenu,      setShowAddMenu]       = useState(false);
   const addMenuRef = useRef(null);
@@ -1032,6 +1117,7 @@ const HouseDetail = () => {
   const [tenantMenuPos, setTenantMenuPos] = useState({ top: 0, left: 0 });
   const [tenantMenuItems, setTenantMenuItems] = useState([]);
   const [invitingExistingTenant, setInvitingExistingTenant] = useState(null);
+  const [linkInviteMode, setLinkInviteMode] = useState(false);
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -1064,7 +1150,24 @@ const HouseDetail = () => {
   const fmtDueDate = (d) => `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 
   const currentDueDate = lease ? getCurrentDueDate(lease.paymentDay) : null;
-  const isOverdue      = currentDueDate ? new Date() > currentDueDate : false;
+
+  // Check if the current month's rent is already paid
+  const currentMonthKey = currentDueDate
+    ? `${currentDueDate.getFullYear()}-${String(currentDueDate.getMonth() + 1).padStart(2, '0')}`
+    : null;
+  const currentMonthPaid = currentMonthKey
+    ? housePayments.some(p => p.month === currentMonthKey && p.status === 'paid')
+    : false;
+
+  // If paid this month, show next month's due date instead
+  const getNextDueDate = (paymentDay) => {
+    const now = new Date();
+    const yr = now.getFullYear(), mo = now.getMonth() + 1; // next month
+    const day = paymentDay === 31 ? new Date(yr, mo + 1, 0).getDate() : Math.min(paymentDay, new Date(yr, mo + 1, 0).getDate());
+    return new Date(yr, mo, day);
+  };
+  const displayDueDate = currentMonthPaid && currentDueDate ? getNextDueDate(lease.paymentDay) : currentDueDate;
+  const isOverdue      = !currentMonthPaid && currentDueDate ? new Date() > currentDueDate : false;
 
   /* ── Open link modal and fetch all tenants ── */
   const openLinkModal = async () => {
@@ -1093,6 +1196,12 @@ const HouseDetail = () => {
       setLease(res.data.data);
       toast.success('Tenant linked to lease');
       closeLinkModal();
+      const linked = allTenants.find(t => t._id === selectedTenantId);
+      if (linked && !linked.portalActivated && !linked.portalInviteSent) {
+        setInvitingExistingTenant(linked);
+        setLinkInviteMode(true);
+        setInviteModalOpen(true);
+      }
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Failed to link tenant');
     } finally { setSavingLink(false); }
@@ -1166,6 +1275,7 @@ const HouseDetail = () => {
       toast.success('Invite sent');
       setInviteModalOpen(false);
       setInvitingExistingTenant(null);
+      setLinkInviteMode(false);
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Failed to send invite');
     } finally { setSavingLink(false); }
@@ -1216,6 +1326,20 @@ const HouseDetail = () => {
   };
 
   useEffect(() => {
+    if (!payMenuId) return;
+    const close = () => setPayMenuId(null);
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [payMenuId]);
+
+  useEffect(() => {
+    if (!expMenuId) return;
+    const close = () => setExpMenuId(null);
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [expMenuId]);
+
+  useEffect(() => {
     if (payExpTab === 'Payments') fetchHousePayments();
     if (payExpTab === 'Expenses') fetchHouseExpenses();
   }, [payExpTab, id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1230,22 +1354,88 @@ const HouseDetail = () => {
 
   const monthName = new Date().toLocaleString('default', { month: 'long' });
 
+  const EMPTY_PAY_FORM = { paymentDate: new Date().toISOString().slice(0,10), category: 'Rent', month: '', status: 'Complete', amount: '', tenantId: '', sendReceipt: 'No', notes: '' };
+
+  const openEditPayment = (p) => {
+    const dateVal = p.paidDate
+      ? new Date(p.paidDate).toISOString().slice(0, 10)
+      : p.paymentDate
+        ? new Date(p.paymentDate).toISOString().slice(0, 10)
+        : new Date().toISOString().slice(0, 10);
+    setEditingPayment(p);
+    setLogPayForm({
+      paymentDate: dateVal,
+      category: p.category || 'Rent',
+      month: p.month || '',
+      status: p.status || 'Complete',
+      amount: String(p.amount || ''),
+      tenantId: p.tenant?._id || '',
+      sendReceipt: 'No',
+      notes: p.notes || '',
+    });
+    setShowLogPayment(true);
+  };
+
+  const handleEmailReceipt = async (paymentId) => {
+    try {
+      const token = localStorage.getItem('rental_token');
+      await axios.put(`${backendUrl}${API.payments}/${paymentId}`, { sendReceipt: 'Yes' }, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      toast.success('Receipt emailed to tenant');
+    } catch {
+      toast.error('Failed to send receipt email');
+    }
+  };
+
+  const handleDeletePayment = async () => {
+    if (!confirmDeletePay) return;
+    setDeletingPay(true);
+    try {
+      const token = localStorage.getItem('rental_token');
+      await axios.delete(`${backendUrl}${API.payments}/${confirmDeletePay._id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      toast.success('Payment deleted');
+      setConfirmDeletePay(null);
+      fetchHousePayments();
+    } catch {
+      toast.error('Failed to delete payment');
+    } finally { setDeletingPay(false); }
+  };
+
   const handleLogPayment = async () => {
-    const { paymentDate, category, month, status, amount, tenantId, notes } = logPayForm;
+    const { paymentDate, category, month, status, amount, tenantId, notes, sendReceipt } = logPayForm;
     if (!amount || !month || !tenantId) { toast.error('Amount, payment period, and tenant are required'); return; }
     setLogPaySubmitting(true);
     try {
       const token = localStorage.getItem('rental_token');
-      await axios.post(`${backendUrl}${API.payments}`,
-        { tenantId, amount: Number(amount), month, datePaid: paymentDate, notes, status },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      toast.success('Payment recorded');
+      if (editingPayment) {
+        await axios.put(`${backendUrl}${API.payments}/${editingPayment._id}`, {
+          amount: Number(amount), status, notes: notes || '', paidDate: paymentDate, category, sendReceipt,
+        }, { headers: { Authorization: `Bearer ${token}` } });
+        toast.success('Payment updated');
+      } else {
+        const fd = new FormData();
+        fd.append('tenantId',    tenantId);
+        fd.append('amount',      Number(amount));
+        fd.append('month',       month);
+        fd.append('datePaid',    paymentDate);
+        fd.append('notes',       notes || '');
+        fd.append('status',      status);
+        fd.append('category',    category);
+        fd.append('sendReceipt', sendReceipt);
+        if (receiptFile) fd.append('receiptImage', receiptFile);
+        await axios.post(`${backendUrl}${API.payments}`, fd, { headers: { Authorization: `Bearer ${token}` } });
+        toast.success('Payment recorded');
+      }
       setShowLogPayment(false);
-      setLogPayForm({ paymentDate: new Date().toISOString().slice(0,10), category: 'Rent', month: '', status: 'Complete', amount: '', tenantId: '', sendReceipt: 'No', notes: '' });
+      setEditingPayment(null);
+      setLogPayForm(EMPTY_PAY_FORM);
+      setReceiptFile(null);
       fetchHousePayments();
     } catch (err) {
-      toast.error(err?.response?.data?.message || 'Failed to record payment');
+      toast.error(err?.response?.data?.message || 'Failed to save payment');
     } finally { setLogPaySubmitting(false); }
   };
 
@@ -1275,6 +1465,62 @@ const HouseDetail = () => {
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Failed to add expense');
     } finally { setAddExpSubmitting(false); }
+  };
+
+  const openEditExpense = (exp) => {
+    setEditingExpense(exp);
+    setEditExpForm({
+      dueDate:         exp.dueDate ? new Date(exp.dueDate).toISOString().slice(0, 10) : '',
+      category:        exp.category || 'Other',
+      description:     exp.description || '',
+      amount:          exp.amount != null ? String(exp.amount) : '',
+      isPaid:          exp.status === 'paid',
+      paymentDate:     exp.paymentDate ? new Date(exp.paymentDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+      payableByTenant: !!exp.payableByTenant,
+      capitalExpense:  !!exp.capitalExpense,
+      notes:           exp.notes || '',
+      supplier:        exp.supplier || '',
+    });
+  };
+
+  const handleUpdateExpense = async () => {
+    if (!editExpForm.dueDate || !editExpForm.amount) { toast.error('Due date and amount are required'); return; }
+    setEditExpSubmitting(true);
+    try {
+      const token = localStorage.getItem('rental_token');
+      const fd = new FormData();
+      fd.append('dueDate', editExpForm.dueDate);
+      fd.append('category', editExpForm.category || 'Other');
+      fd.append('description', editExpForm.description);
+      fd.append('amount', editExpForm.amount);
+      fd.append('status', editExpForm.isPaid ? 'paid' : 'unpaid');
+      if (editExpForm.isPaid) fd.append('paymentDate', editExpForm.paymentDate);
+      fd.append('payableByTenant', editExpForm.payableByTenant);
+      fd.append('capitalExpense', editExpForm.capitalExpense);
+      fd.append('notes', editExpForm.notes);
+      fd.append('supplier', editExpForm.supplier);
+      fd.append('house', id);
+      await axios.put(`${backendUrl}${API.expenses}/${editingExpense._id}`, fd, { headers: { Authorization: `Bearer ${localStorage.getItem('rental_token')}` } });
+      toast.success('Expense updated');
+      setEditingExpense(null);
+      setEditExpForm(null);
+      fetchHouseExpenses();
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to update expense');
+    } finally { setEditExpSubmitting(false); }
+  };
+
+  const handleDeleteExpense = async () => {
+    if (!confirmDeleteExp) return;
+    setDeletingExp(true);
+    try {
+      await axios.delete(`${backendUrl}${API.expenses}/${confirmDeleteExp._id}`, { headers: { Authorization: `Bearer ${localStorage.getItem('rental_token')}` } });
+      toast.success('Expense deleted');
+      setConfirmDeleteExp(null);
+      fetchHouseExpenses();
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to delete expense');
+    } finally { setDeletingExp(false); }
   };
 
   const received = useMemo(() =>
@@ -1430,7 +1676,7 @@ const HouseDetail = () => {
                   </button>
                   {showAddMenu && (() => {
                     const menuItems = [
-                      { label: 'Payment',  action: () => { setShowLogPayment(true);  setShowAddMenu(false); }, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2m0 14H4v-6h16zm0-10H4V6h16z"/></svg> },
+                      { label: 'Payment',  action: () => { setEditingPayment(null); setLogPayForm({ paymentDate: new Date().toISOString().slice(0,10), category: 'Rent', month: '', status: 'Complete', amount: '', tenantId: '', sendReceipt: 'No', notes: '' }); setShowLogPayment(true);  setShowAddMenu(false); }, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2m0 14H4v-6h16zm0-10H4V6h16z"/></svg> },
                       { label: 'Expense',  action: () => { setShowAddExpense(true);  setShowAddMenu(false); }, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M18 17H6v-2h12zm0-4H6v-2h12zm0-4H6V7h12zM3 22l1.5-1.5L6 22l1.5-1.5L9 22l1.5-1.5L12 22l1.5-1.5L15 22l1.5-1.5L18 22l1.5-1.5L21 22V2l-1.5 1.5L18 2l-1.5 1.5L15 2l-1.5 1.5L12 2l-1.5 1.5L9 2 7.5 3.5 6 2 4.5 3.5 3 2z"/></svg> },
                       { label: 'Lease',    action: () => { navigate(`/houses/${id}/create-lease`); setShowAddMenu(false); }, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="m18.85 10.39 1.06-1.06c.78-.78.78-2.05 0-2.83L18.5 5.09c-.78-.78-2.05-.78-2.83 0l-1.06 1.06zm-5.66-2.83L4 16.76V21h4.24l9.19-9.19zM19 17.5c0 2.19-2.54 3.5-5 3.5-.55 0-1-.45-1-1s.45-1 1-1c1.54 0 3-.73 3-1.5 0-.47-.48-.87-1.23-1.2l1.48-1.48c1.07.63 1.75 1.47 1.75 2.68M4.58 13.35C3.61 12.79 3 12.06 3 11c0-1.8 1.89-2.63 3.56-3.36C7.59 7.18 9 6.56 9 6c0-.41-.78-1-2-1-1.26 0-1.8.61-1.83.64-.35.41-.98.46-1.4.12-.41-.34-.49-.95-.15-1.38C3.73 4.24 4.76 3 7 3s4 1.32 4 3c0 1.87-1.93 2.72-3.64 3.47C6.42 9.88 5 10.5 5 11c0 .31.43.6 1.07.86z"/></svg> },
                       { label: 'Reminder', action: () => { setActiveTab('Reminders'); setShowAddMenu(false); }, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M9 11H7v2h2zm4 0h-2v2h2zm4 0h-2v2h2zm2-7h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2m0 16H5V9h14z"/></svg> },
@@ -1543,7 +1789,9 @@ const HouseDetail = () => {
                       TZS {lease.rentAmount.toLocaleString()}
                     </p>
                     {/* Due date */}
-                    <span style={{ fontSize: 12, color: isOverdue ? '#ef4444' : '#1565c0' }}>Due {fmtDueDate(currentDueDate)}</span>
+                    <span style={{ fontSize: 12, color: isOverdue ? '#ef4444' : currentMonthPaid ? '#16a34a' : '#1565c0' }}>
+                      {currentMonthPaid ? `Next due ${fmtDueDate(displayDueDate)}` : `Due ${fmtDueDate(displayDueDate)}`}
+                    </span>
                   </>
                 ) : (
                   <>
@@ -1614,7 +1862,9 @@ const HouseDetail = () => {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         {lease.tenant.portalActivated
                           ? <span style={{ border: '1px solid #16a34a', color: '#16a34a', borderRadius: 20, padding: '2px 10px', fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>ACTIVE</span>
-                          : <span style={{ border: '1px solid #f59e0b', color: '#d97706', borderRadius: 20, padding: '2px 10px', fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>NOT INVITED</span>
+                          : lease.tenant.portalInviteSent
+                            ? <span style={{ border: '1px solid #7dd3fc', color: '#0369a1', borderRadius: 20, padding: '2px 10px', fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>INVITED</span>
+                            : <span style={{ border: '1px solid #f59e0b', color: '#d97706', borderRadius: 20, padding: '2px 10px', fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>NOT INVITED</span>
                         }
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="#9ca3af"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2m0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2m0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2"/></svg>
                       </div>
@@ -1713,7 +1963,7 @@ const HouseDetail = () => {
                   {/* ── Payments ── */}
                   {payExpTab === 'Payments' && (
                     <>
-                      <Toolbar search={paySearch} onSearch={setPaySearch} onNew={() => setShowLogPayment(true)} toggleOptions={[{ label: 'Payments', value: 'Payments' }, { label: 'Payment periods', value: 'PaymentPeriods' }]} toggleValue={paySubTab} onToggle={setPaySubTab} />
+                      <Toolbar search={paySearch} onSearch={setPaySearch} onNew={() => { setEditingPayment(null); setLogPayForm({ paymentDate: new Date().toISOString().slice(0,10), category: 'Rent', month: '', status: 'Complete', amount: '', tenantId: '', sendReceipt: 'No', notes: '' }); setShowLogPayment(true); }} toggleOptions={[{ label: 'Payments', value: 'Payments' }, { label: 'Payment periods', value: 'PaymentPeriods' }]} toggleValue={paySubTab} onToggle={setPaySubTab} />
 
                       {paySubTab === 'Payments' && (
                         <div style={{ overflowX: 'auto' }}>
@@ -1730,7 +1980,13 @@ const HouseDetail = () => {
                                 <tr><td colSpan={8} style={{ padding: '40px 0', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>Loading…</td></tr>
                               ) : filtPay.length === 0 ? noDataEmpty
                               : filtPay.map(p => (
-                                <tr key={p._id} style={{ cursor: 'pointer' }} onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'} onMouseLeave={e => e.currentTarget.style.background = ''}>
+                                <tr
+                                  key={p._id}
+                                  style={{ cursor: 'pointer' }}
+                                  onClick={() => openEditPayment(p)}
+                                  onMouseEnter={e => e.currentTarget.style.background = '#eff6ff'}
+                                  onMouseLeave={e => e.currentTarget.style.background = ''}
+                                >
                                   <td style={tdStyle}>{p.paidDate ? new Date(p.paidDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : p.paymentDate ? new Date(p.paymentDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
                                   <td style={tdStyle}>{p.category || 'Rent'}</td>
                                   <td style={tdStyle}>{p.month ? (() => { const [y,m] = p.month.split('-'); return new Date(y, m-1).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }); })() : '—'}</td>
@@ -1738,10 +1994,65 @@ const HouseDetail = () => {
                                   <td style={{ ...tdStyle, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', color: '#6b7280' }}>{p.notes || '—'}</td>
                                   <td style={tdStyle}><StatusChip value={p.status} /></td>
                                   <td style={{ ...tdStyle, fontWeight: 600 }}>TZS {Number(p.amount || 0).toLocaleString()}</td>
-                                  <td style={{ ...tdStyle, textAlign: 'center' }}>
-                                    <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 4 }}>
+                                  <td style={{ ...tdStyle, textAlign: 'center', position: 'relative' }}>
+                                    <button
+                                      onClick={e => {
+                                        e.stopPropagation();
+                                        const r = e.currentTarget.getBoundingClientRect();
+                                        setPayMenuPos({ top: r.bottom + 4, right: window.innerWidth - r.right });
+                                        setPayMenuId(prev => prev === p._id ? null : p._id);
+                                      }}
+                                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 4, borderRadius: 4 }}
+                                      onMouseEnter={e => e.currentTarget.style.background = '#e5e7eb'}
+                                      onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                                    >
                                       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2m0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2m0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2"/></svg>
                                     </button>
+                                    {payMenuId === p._id && (
+                                      <div
+                                        onMouseDown={e => e.stopPropagation()}
+                                        style={{
+                                          position: 'fixed', top: payMenuPos.top, right: payMenuPos.right, zIndex: 9999,
+                                          background: '#fff', borderRadius: 12,
+                                          boxShadow: 'rgba(0,0,0,0.1) 0px 4px 20px 0px',
+                                          minWidth: 178, overflow: 'hidden',
+                                          color: '#0f2e5a', fontSize: 14,
+                                          fontFamily: '"Inter", sans-serif',
+                                          marginTop: 4,
+                                        }}
+                                      >
+                                        {/* Edit */}
+                                        <button
+                                          onClick={e => { e.stopPropagation(); setPayMenuId(null); openEditPayment(p); }}
+                                          style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '11px 16px', border: 'none', background: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, color: '#0f2e5a', textAlign: 'left' }}
+                                          onMouseEnter={e => e.currentTarget.style.background = '#f5f6f8'}
+                                          onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                                        >
+                                          <svg viewBox="0 0 24 24" style={{ width: 18, height: 18, fill: '#0f2e5a', flexShrink: 0 }}><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75z"/></svg>
+                                          Edit
+                                        </button>
+                                        {/* Email receipt */}
+                                        <button
+                                          onClick={e => { e.stopPropagation(); setPayMenuId(null); handleEmailReceipt(p._id); }}
+                                          style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '11px 16px', border: 'none', background: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, color: '#0f2e5a', textAlign: 'left' }}
+                                          onMouseEnter={e => e.currentTarget.style.background = '#f5f6f8'}
+                                          onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                                        >
+                                          <svg viewBox="0 0 24 24" style={{ width: 18, height: 18, fill: '#0f2e5a', flexShrink: 0 }}><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2m0 4-8 5-8-5V6l8 5 8-5z"/></svg>
+                                          Email receipt
+                                        </button>
+                                        {/* Delete */}
+                                        <button
+                                          onClick={e => { e.stopPropagation(); setPayMenuId(null); setConfirmDeletePay(p); }}
+                                          style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '11px 16px', border: 'none', background: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, color: '#dc2626', textAlign: 'left' }}
+                                          onMouseEnter={e => e.currentTarget.style.background = '#fff5f5'}
+                                          onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                                        >
+                                          <svg viewBox="0 0 24 24" style={{ width: 18, height: 18, fill: '#dc2626', flexShrink: 0 }}><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6zM8 9h8v10H8zm7.5-5-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                                          Delete payment
+                                        </button>
+                                      </div>
+                                    )}
                                   </td>
                                 </tr>
                               ))}
@@ -1897,16 +2208,54 @@ const HouseDetail = () => {
                               <tr><td colSpan={6} style={{ padding: '40px 0', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>Loading…</td></tr>
                             ) : filtExp.length === 0 ? noDataEmpty
                             : filtExp.map(exp => (
-                              <tr key={exp._id} style={{ cursor: 'pointer' }} onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'} onMouseLeave={e => e.currentTarget.style.background = ''}>
+                              <tr key={exp._id} style={{ cursor: 'pointer' }}
+                                onClick={() => openEditExpense(exp)}
+                                onMouseEnter={e => e.currentTarget.style.background = '#f0f7ff'}
+                                onMouseLeave={e => e.currentTarget.style.background = ''}>
                                 <td style={tdStyle}>{exp.dueDate ? new Date(exp.dueDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
                                 <td style={tdStyle}>{exp.category || '—'}</td>
                                 <td style={{ ...tdStyle, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', color: '#6b7280' }}>{exp.description || '—'}</td>
                                 <td style={tdStyle}><StatusChip value={exp.status} /></td>
                                 <td style={{ ...tdStyle, fontWeight: 600 }}>TZS {Number(exp.amount || 0).toLocaleString()}</td>
-                                <td style={{ ...tdStyle, textAlign: 'center' }}>
-                                  <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 4 }}>
+                                <td style={{ ...tdStyle, textAlign: 'center', position: 'relative' }}
+                                  onClick={e => e.stopPropagation()}>
+                                  <button
+                                    onClick={e => {
+                                      e.stopPropagation();
+                                      if (expMenuId === exp._id) { setExpMenuId(null); return; }
+                                      const r = e.currentTarget.getBoundingClientRect();
+                                      setExpMenuPos({ top: r.bottom + 4, right: window.innerWidth - r.right });
+                                      setExpMenuId(exp._id);
+                                    }}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 4, borderRadius: 4 }}
+                                    onMouseEnter={e => e.currentTarget.style.background = '#e5e7eb'}
+                                    onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                                  >
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2m0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2m0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2"/></svg>
                                   </button>
+                                  {expMenuId === exp._id && (
+                                    <div
+                                      onMouseDown={e => e.stopPropagation()}
+                                      style={{ position: 'fixed', top: expMenuPos.top, right: expMenuPos.right, zIndex: 9999, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 4px 20px rgba(4,34,56,0.14)', minWidth: 160, overflow: 'hidden' }}>
+                                      <button
+                                        onClick={() => { setExpMenuId(null); openEditExpense(exp); }}
+                                        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#042238', textAlign: 'left' }}
+                                        onMouseEnter={e => e.currentTarget.style.background = '#f5f6f8'}
+                                        onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#069ED9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                        Edit
+                                      </button>
+                                      <div style={{ height: 1, background: '#f0f2f5' }} />
+                                      <button
+                                        onClick={() => { setExpMenuId(null); setConfirmDeleteExp(exp); }}
+                                        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#ef4444', textAlign: 'left' }}
+                                        onMouseEnter={e => e.currentTarget.style.background = '#fff5f5'}
+                                        onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                                        Delete
+                                      </button>
+                                    </div>
+                                  )}
                                 </td>
                               </tr>
                             ))}
@@ -2294,23 +2643,23 @@ const HouseDetail = () => {
       {/* ── Invite Tenant Modal ───────────────────────────────── */}
       {inviteModalOpen && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: '#fff', borderRadius: 10, padding: '28px 28px 20px', width: 380, maxWidth: '90vw', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }}>
+          <div style={{ background: '#fff', borderRadius: 12, padding: '24px 24px 16px', width: 420, maxWidth: '90vw', boxShadow: '0px 11px 15px -7px rgba(0,0,0,0.2),0px 24px 38px 3px rgba(0,0,0,0.14)' }}>
             <h2 style={{ margin: '0 0 12px', fontSize: 18, fontWeight: 700, color: '#042238' }}>Invite tenant</h2>
-            <p style={{ margin: '0 0 24px', fontSize: 14, color: '#374151' }}>
+            <p style={{ margin: '0 0 24px', fontSize: 14, color: '#374151', lineHeight: 1.6 }}>
               Would you like to invite this tenant to the tenant portal?
             </p>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               {invitingExistingTenant ? (
                 <>
                   <button
                     disabled={savingLink}
-                    onClick={() => { setInviteModalOpen(false); setInvitingExistingTenant(null); }}
-                    style={{ padding: '8px 20px', background: 'none', border: 'none', color: '#042238', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
-                  >Cancel</button>
+                    onClick={() => { setInviteModalOpen(false); setInvitingExistingTenant(null); setLinkInviteMode(false); }}
+                    style={{ padding: '7px 18px', background: 'none', border: 'none', color: '#1d4ed8', fontSize: 13, fontWeight: 600, cursor: savingLink ? 'not-allowed' : 'pointer' }}
+                  >{linkInviteMode ? 'Skip invite' : 'Cancel'}</button>
                   <button
                     disabled={savingLink}
                     onClick={handleSendExistingInvite}
-                    style={{ padding: '8px 20px', background: '#042238', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 600, cursor: savingLink ? 'not-allowed' : 'pointer' }}
+                    style={{ padding: '7px 18px', background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: savingLink ? 'not-allowed' : 'pointer', opacity: savingLink ? 0.7 : 1 }}
                   >{savingLink ? 'Sending…' : 'Send invite'}</button>
                 </>
               ) : (
@@ -2318,12 +2667,12 @@ const HouseDetail = () => {
                   <button
                     disabled={savingLink}
                     onClick={() => handleInviteChoice(false)}
-                    style={{ padding: '8px 20px', background: 'none', border: 'none', color: '#042238', fontSize: 14, fontWeight: 600, cursor: savingLink ? 'not-allowed' : 'pointer' }}
+                    style={{ padding: '7px 18px', background: 'none', border: 'none', color: '#1d4ed8', fontSize: 13, fontWeight: 600, cursor: savingLink ? 'not-allowed' : 'pointer' }}
                   >Skip invite</button>
                   <button
                     disabled={savingLink}
                     onClick={() => handleInviteChoice(true)}
-                    style={{ padding: '8px 20px', background: '#042238', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 600, cursor: savingLink ? 'not-allowed' : 'pointer' }}
+                    style={{ padding: '7px 18px', background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: savingLink ? 'not-allowed' : 'pointer', opacity: savingLink ? 0.7 : 1 }}
                   >{savingLink ? 'Sending…' : 'Send invite'}</button>
                 </>
               )}
@@ -2347,8 +2696,8 @@ const HouseDetail = () => {
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ background: '#fff', borderRadius: 10, width: 540, maxWidth: '95vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 24px 14px', borderBottom: '1px solid #f3f4f6' }}>
-                <span style={{ fontSize: 17, fontWeight: 700, color: '#042238' }}>Log payment</span>
-                <button onClick={() => setShowLogPayment(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 4 }}>
+                <span style={{ fontSize: 17, fontWeight: 700, color: '#042238' }}>{editingPayment ? 'Edit payment' : 'Log payment'}</span>
+                <button onClick={() => { setShowLogPayment(false); setEditingPayment(null); setReceiptFile(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 4 }}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
                 </button>
               </div>
@@ -2408,6 +2757,34 @@ const HouseDetail = () => {
                   <label style={lbl}>Notes</label>
                   <textarea rows={3} value={lf.notes} onChange={e => set('notes', e.target.value)} style={{ ...inp, resize: 'vertical' }} />
                 </div>
+
+                {/* Receipt upload */}
+                <div>
+                  <label style={lbl}>Upload receipt</label>
+                  {receiptFile ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 6, padding: '10px 14px' }}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="#6b7280"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8zm4 18H6V4h7v5h5zM8 15.01l1.41 1.41L11 14.84V19h2v-4.16l1.59 1.59L16 15.01 12.01 11z"/></svg>
+                      <span style={{ flex: 1, fontSize: 13, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{receiptFile.name}</span>
+                      <button type="button" onClick={() => setReceiptFile(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: 'inline-flex', padding: 2 }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2m4.3 14.3c-.39.39-1.02.39-1.41 0L12 13.41 9.11 16.3c-.39.39-1.02.39-1.41 0a.996.996 0 0 1 0-1.41L10.59 12 7.7 9.11a.996.996 0 0 1 0-1.41c.39-.39 1.02-.39 1.41 0L12 10.59l2.89-2.89c.39-.39 1.02-.39 1.41 0s.39 1.02 0 1.41L13.41 12l2.89 2.89c.38.38.38 1.02 0 1.41"/></svg>
+                      </button>
+                    </div>
+                  ) : (
+                    <label style={{ display: 'block', border: '2px dashed #93c5fd', borderRadius: 6, padding: '28px 20px', textAlign: 'center', cursor: 'pointer', background: '#f0f9ff' }}
+                      onDragOver={e => { e.preventDefault(); e.currentTarget.style.background = '#dbeafe'; }}
+                      onDragLeave={e => { e.currentTarget.style.background = '#f0f9ff'; }}
+                      onDrop={e => { e.preventDefault(); e.currentTarget.style.background = '#f0f9ff'; const f = e.dataTransfer.files[0]; if (f) setReceiptFile(f); }}
+                    >
+                      <input type="file" hidden accept="image/png,image/jpeg,image/jpg,application/pdf" onChange={e => { if (e.target.files[0]) setReceiptFile(e.target.files[0]); }} />
+                      <div style={{ width: 44, height: 52, background: '#bfdbfe', borderRadius: 6, margin: '0 auto 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="#1d4ed8"><path d="M11 10V0H5v10H2l6 6 6-6h-3z" fillRule="evenodd"/></svg>
+                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: '#1e3a5f', marginBottom: 4 }}>Upload receipt</div>
+                      <span style={{ fontSize: 12, color: '#6b7280' }}>Submit an image of the receipt and we'll do the rest.</span>
+                    </label>
+                  )}
+                </div>
+
                 <div style={{ background: '#f9fafb', borderRadius: 6, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#6b7280' }}><span>Amount</span><span>TZS {Number(lf.amount||0).toLocaleString()}</span></div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#6b7280' }}><span>Late fees</span><span>TZS 0</span></div>
@@ -2415,8 +2792,8 @@ const HouseDetail = () => {
                 </div>
               </div>
               <div style={{ padding: '14px 24px', borderTop: '1px solid #f3f4f6', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-                <button onClick={() => setShowLogPayment(false)} style={{ padding: '7px 18px', borderRadius: 6, border: '1px solid #d1d5db', background: '#fff', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', color: '#374151' }}>Cancel</button>
-                <button onClick={handleLogPayment} disabled={logPaySubmitting} style={{ padding: '7px 18px', borderRadius: 6, border: 'none', background: '#033A6D', color: '#fff', fontSize: 13, fontWeight: 600, cursor: logPaySubmitting ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: logPaySubmitting ? 0.7 : 1 }}>{logPaySubmitting ? 'Saving…' : 'Save'}</button>
+                <button onClick={() => { setShowLogPayment(false); setEditingPayment(null); setReceiptFile(null); }} style={{ padding: '7px 18px', borderRadius: 6, border: '1px solid #d1d5db', background: '#fff', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', color: '#374151' }}>Cancel</button>
+                <button onClick={handleLogPayment} disabled={logPaySubmitting} style={{ padding: '7px 18px', borderRadius: 6, border: 'none', background: '#033A6D', color: '#fff', fontSize: 13, fontWeight: 600, cursor: logPaySubmitting ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: logPaySubmitting ? 0.7 : 1 }}>{logPaySubmitting ? 'Saving…' : editingPayment ? 'Update' : 'Save'}</button>
               </div>
             </div>
           </div>
@@ -2523,6 +2900,137 @@ const HouseDetail = () => {
           </div>
         );
       })()}
+
+      {/* ── Edit Expense Modal ── */}
+      {editingExpense && editExpForm && (() => {
+        const EXP_CATEGORIES = ["Accountant's Fees","Advertising","Agent Fees","Bank Fees","Cleaning Fees","Ground Rents","HOA","Insurance","Interest","Late Fees","Legal Fees","Maintenance and Repairs","Mortgage","Other","Property Tax","Rates","Rent Arrears","Utilities","Water"];
+        const ef = editExpForm;
+        const set = (k, v) => setEditExpForm(prev => ({ ...prev, [k]: v }));
+        const lbl = { fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 4, display: 'block' };
+        const inp = { width: '100%', boxSizing: 'border-box', padding: '7px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, outline: 'none', fontFamily: 'inherit', color: '#042238' };
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            onMouseDown={e => { if (e.target === e.currentTarget) { setEditingExpense(null); setEditExpForm(null); } }}>
+            <div style={{ background: '#fff', borderRadius: 10, width: 560, maxWidth: '95vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 24px 14px', borderBottom: '1px solid #f3f4f6' }}>
+                <span style={{ fontSize: 17, fontWeight: 700, color: '#042238' }}>Edit Expense</span>
+                <button onClick={() => { setEditingExpense(null); setEditExpForm(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 4 }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+                </button>
+              </div>
+              <div style={{ overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                  <div>
+                    <label style={lbl}>Due Date <span style={{ color: '#ef4444' }}>*</span></label>
+                    <input type="date" value={ef.dueDate} onChange={e => set('dueDate', e.target.value)} style={inp} />
+                  </div>
+                  <div>
+                    <label style={lbl}>Category <span style={{ color: '#ef4444' }}>*</span></label>
+                    <select value={ef.category} onChange={e => set('category', e.target.value)} style={inp}>
+                      {EXP_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label style={lbl}>Total Amount <span style={{ color: '#ef4444' }}>*</span></label>
+                  <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #d1d5db', borderRadius: 6, overflow: 'hidden' }}>
+                    <span style={{ padding: '7px 10px', background: '#f9fafb', borderRight: '1px solid #d1d5db', fontSize: 13, color: '#6b7280' }}>TZS</span>
+                    <input type="number" min="0" value={ef.amount} onChange={e => set('amount', e.target.value)} placeholder="0.00" style={{ flex: 1, padding: '7px 10px', border: 'none', outline: 'none', fontSize: 13, fontFamily: 'inherit', color: '#042238' }} />
+                  </div>
+                </div>
+                <div>
+                  <label style={lbl}>Description</label>
+                  <input type="text" value={ef.description} onChange={e => set('description', e.target.value)} style={inp} />
+                </div>
+                <div>
+                  <label style={lbl}>Supplier</label>
+                  <input type="text" value={ef.supplier} onChange={e => set('supplier', e.target.value)} placeholder="Supplier name" style={inp} />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                  <div>
+                    <label style={lbl}>Paid?</label>
+                    <div style={{ display: 'flex', gap: 20, paddingTop: 4 }}>
+                      {[['Yes', true], ['No', false]].map(([label, val]) => (
+                        <label key={label} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, color: '#374151' }}>
+                          <input type="radio" name="editIsPaid" checked={ef.isPaid === val} onChange={() => set('isPaid', val)} />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  {ef.isPaid && (
+                    <div>
+                      <label style={lbl}>Payment Date</label>
+                      <input type="date" value={ef.paymentDate} onChange={e => set('paymentDate', e.target.value)} style={inp} />
+                    </div>
+                  )}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                  <div>
+                    <label style={lbl}>Payable by Tenant?</label>
+                    <div style={{ display: 'flex', gap: 20, paddingTop: 4 }}>
+                      {[['Yes', true], ['No', false]].map(([label, val]) => (
+                        <label key={label} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, color: '#374151' }}>
+                          <input type="radio" name="editPayableByTenant" checked={ef.payableByTenant === val} onChange={() => set('payableByTenant', val)} />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label style={lbl}>Capital Expense?</label>
+                    <div style={{ display: 'flex', gap: 20, paddingTop: 4 }}>
+                      {[['Yes', true], ['No', false]].map(([label, val]) => (
+                        <label key={label} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, color: '#374151' }}>
+                          <input type="radio" name="editCapitalExpense" checked={ef.capitalExpense === val} onChange={() => set('capitalExpense', val)} />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <label style={lbl}>Notes</label>
+                  <textarea rows={3} value={ef.notes} onChange={e => set('notes', e.target.value)} style={{ ...inp, resize: 'vertical' }} />
+                </div>
+              </div>
+              <div style={{ padding: '14px 24px', borderTop: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <button
+                  onClick={() => { setEditingExpense(null); setEditExpForm(null); setConfirmDeleteExp(editingExpense); }}
+                  style={{ padding: '7px 14px', borderRadius: 6, border: 'none', background: 'none', fontSize: 13, fontWeight: 700, cursor: 'pointer', color: '#ef4444' }}>
+                  Delete
+                </button>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button onClick={() => { setEditingExpense(null); setEditExpForm(null); }} style={{ padding: '7px 18px', borderRadius: 6, border: '1px solid #d1d5db', background: '#fff', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', color: '#374151' }}>Cancel</button>
+                  <button onClick={handleUpdateExpense} disabled={editExpSubmitting} style={{ padding: '7px 18px', borderRadius: 6, border: 'none', background: '#033A6D', color: '#fff', fontSize: 13, fontWeight: 600, cursor: editExpSubmitting ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: editExpSubmitting ? 0.7 : 1 }}>{editExpSubmitting ? 'Saving…' : 'Save'}</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Delete expense confirmation ── */}
+      <ConfirmModal
+        open={!!confirmDeleteExp}
+        title="Delete Expense"
+        message={`Are you sure you want to delete this expense?\n\nThis action cannot be undone.`}
+        confirmLabel="Delete expense"
+        loading={deletingExp}
+        onConfirm={handleDeleteExpense}
+        onCancel={() => { if (!deletingExp) setConfirmDeleteExp(null); }}
+      />
+
+      {/* ── Delete payment confirmation ── */}
+      <ConfirmModal
+        open={!!confirmDeletePay}
+        title="Delete Payment"
+        message={`Are you sure you want to delete this payment record?\n\nThis action cannot be undone.`}
+        confirmLabel="Delete payment"
+        loading={deletingPay}
+        onConfirm={handleDeletePayment}
+        onCancel={() => { if (!deletingPay) setConfirmDeletePay(null); }}
+      />
     </Layout>
   );
 };

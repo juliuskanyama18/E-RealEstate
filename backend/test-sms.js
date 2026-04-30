@@ -1,37 +1,28 @@
 /**
- * Quick SMS test — run with:
- *   node --env-file=.env.local test-sms.js +255XXXXXXXXX
+ * Quick SMS test via Beem Africa — run with:
+ *   node --env-file=.env.local test-sms.js 255XXXXXXXXX
  */
 
-import twilio from "twilio";
+import { sendSms, normalizeTZPhone } from "./utils/sms.js";
 
-const phone = process.argv[2];
+const raw = process.argv[2];
 
+if (!raw) {
+  console.error("Usage: node --env-file=.env.local test-sms.js <phone>");
+  process.exit(1);
+}
+
+const phone = normalizeTZPhone(raw);
 if (!phone) {
-  console.error("Usage: node --env-file=.env.local test-sms.js +XXXXXXXXXXX");
+  console.error(`Could not parse phone number: ${raw}`);
   process.exit(1);
 }
 
-const { TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER } = process.env;
-
-if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_PHONE_NUMBER) {
-  console.error("TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN or TWILIO_PHONE_NUMBER not set in .env.local");
-  process.exit(1);
-}
-
-console.log(`From    : ${TWILIO_PHONE_NUMBER}`);
-console.log(`Sending test SMS to ${phone} …\n`);
+console.log(`Sending test SMS to ${phone} via Beem Africa…\n`);
 
 try {
-  const client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
-  const message = await client.messages.create({
-    to: phone,
-    from: TWILIO_PHONE_NUMBER,
-    body: "Test SMS from your rental system. Twilio integration is working!",
-  });
-
-  console.log("Status :", message.status);
-  console.log("SID    :", message.sid);
+  const result = await sendSms(phone, "Test SMS from Kanyama Estates. Beem Africa integration is working!");
+  console.log("Response:", JSON.stringify(result, null, 2));
 } catch (err) {
   console.error("SMS failed:", err.message || err);
   process.exit(1);

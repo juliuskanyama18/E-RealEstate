@@ -22,12 +22,14 @@ const AVATAR_COLORS = [
 const avatarColor = (name) => AVATAR_COLORS[(name?.charCodeAt(0) || 0) % AVATAR_COLORS.length];
 
 /* ─── Edit Tenant Modal ─────────────────────────────────────── */
-const EditModal = ({ tenant, houses, onClose, onSaved }) => {
+const EditModal = ({ tenant, onClose, onSaved }) => {
+  const nameParts = (tenant.name || '').trim().split(' ');
   const [form, setForm] = useState({
-    name: tenant.name || '',
+    firstName: nameParts[0] || '',
+    lastName:  nameParts.slice(1).join(' ') || '',
     email: tenant.email || '',
     phone: tenant.phone || '',
-    houseId: tenant.house?._id || '',
+    notes: tenant.notes || '',
   });
   const [saving, setSaving] = useState(false);
   const field = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -36,7 +38,13 @@ const EditModal = ({ tenant, houses, onClose, onSaved }) => {
     e.preventDefault();
     setSaving(true);
     try {
-      await axios.put(`${backendUrl}${API.tenants}/${tenant._id}`, form);
+      const fullName = `${form.firstName} ${form.lastName}`.trim();
+      await axios.put(`${backendUrl}${API.tenants}/${tenant._id}`, {
+        name:  fullName,
+        email: form.email,
+        phone: form.phone,
+        notes: form.notes,
+      });
       toast.success('Tenant updated');
       onSaved();
       onClose();
@@ -59,25 +67,44 @@ const EditModal = ({ tenant, houses, onClose, onSaved }) => {
         </button>
         <h2 style={{ margin: '0 0 24px', fontSize: 20, fontWeight: 700, color: NAVY, fontFamily: FONT }}>Edit Tenant</h2>
         <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div>
-            <label style={lbl}>Full Name</label>
-            <input required value={form.name} onChange={e => field('name', e.target.value)} style={inp}/>
+
+          {/* First + Last name */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={lbl}>First Name</label>
+              <input required value={form.firstName} onChange={e => field('firstName', e.target.value)} style={inp}
+                onFocus={e => e.target.style.borderColor = '#4a90c4'} onBlur={e => e.target.style.borderColor = '#d1d5db'}/>
+            </div>
+            <div>
+              <label style={lbl}>Last Name</label>
+              <input value={form.lastName} onChange={e => field('lastName', e.target.value)} style={inp}
+                onFocus={e => e.target.style.borderColor = '#4a90c4'} onBlur={e => e.target.style.borderColor = '#d1d5db'}/>
+            </div>
           </div>
+
           <div>
             <label style={lbl}>Email</label>
-            <input type="email" value={form.email} onChange={e => field('email', e.target.value)} style={inp}/>
+            <input type="email" value={form.email} onChange={e => field('email', e.target.value)} style={inp}
+              onFocus={e => e.target.style.borderColor = '#4a90c4'} onBlur={e => e.target.style.borderColor = '#d1d5db'}/>
           </div>
           <div>
             <label style={lbl}>Phone</label>
-            <input type="tel" value={form.phone} onChange={e => field('phone', e.target.value)} style={inp} placeholder="+255712345678"/>
+            <input type="tel" value={form.phone} onChange={e => field('phone', e.target.value)} style={inp} placeholder="+255712345678"
+              onFocus={e => e.target.style.borderColor = '#4a90c4'} onBlur={e => e.target.style.borderColor = '#d1d5db'}/>
           </div>
           <div>
-            <label style={lbl}>Property</label>
-            <select value={form.houseId} onChange={e => field('houseId', e.target.value)} style={{ ...inp, appearance: 'none', cursor: 'pointer' }}>
-              <option value="">No property assigned</option>
-              {houses.map(h => <option key={h._id} value={h._id}>{h.name}{h.city ? ` — ${h.city}` : ''}</option>)}
-            </select>
+            <label style={lbl}>Notes <span style={{ fontWeight: 400, color: '#9ca3af', fontSize: 12 }}>(optional)</span></label>
+            <textarea
+              value={form.notes}
+              onChange={e => field('notes', e.target.value)}
+              rows={4}
+              maxLength={1000}
+              placeholder="Any notes about this tenant..."
+              style={{ ...inp, height: 'auto', resize: 'vertical', paddingTop: 10, paddingBottom: 10, lineHeight: 1.5 }}
+              onFocus={e => e.target.style.borderColor = '#4a90c4'} onBlur={e => e.target.style.borderColor = '#d1d5db'}
+            />
           </div>
+
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
             <button type="button" onClick={onClose} style={{ padding: '9px 22px', background: '#fff', color: '#374151', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: FONT }}>Cancel</button>
             <button type="submit" disabled={saving} style={{ padding: '9px 28px', background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: FONT, opacity: saving ? 0.7 : 1 }}>
@@ -192,18 +219,88 @@ const TenantDetail = () => {
 
   const [bg, fg] = avatarColor(tenant.name);
   const ini = initials(tenant.name);
-  const portalActive = tenant.portalActivated;
+  const portalActive  = tenant.portalActivated;
+  const inviteSent    = tenant.portalInviteSent;
   const house = tenant.house
     ? (houses.find(h => h._id === tenant.house._id) || tenant.house)
     : null;
 
+  const isLinked = tenant.tenantStatus === 'current';
+
   const cardStyle = { background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', padding: '20px 24px' };
-  const divider = { border: 'none', borderTop: '1px solid #f3f4f6', margin: '12px 0' };
+  const divider   = { border: 'none', borderTop: '1px solid #f3f4f6', margin: '12px 0' };
+
+  /* ── Shared right-column cards ── */
+  const NotesCard = () => (
+    <div style={cardStyle}>
+      <p style={{ margin: '0 0 14px', fontSize: 15, fontWeight: 700, color: NAVY }}>Notes</p>
+      {tenant.notes ? (
+        <p style={{ margin: 0, fontSize: 14, color: '#374151', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{tenant.notes}</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px 0', gap: 8 }}>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="#d1d5db"><path d="M4 10.5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5m0-6c-.83 0-1.5.67-1.5 1.5S3.17 7.5 4 7.5 5.5 6.83 5.5 6 4.83 4.5 4 4.5m0 12c-.83 0-1.5.68-1.5 1.5s.68 1.5 1.5 1.5 1.5-.68 1.5-1.5-.67-1.5-1.5-1.5M7 19h14v-2H7zm0-6h14v-2H7zm0-8v2h14V5z"/></svg>
+          <span style={{ fontSize: 13, color: '#9ca3af' }}>You have no notes</span>
+        </div>
+      )}
+    </div>
+  );
+
+  const portalBadge = portalActive
+    ? { label: 'ACTIVE',      color: '#166534', border: '#86efac', bg: '#f0fdf4' }
+    : inviteSent
+      ? { label: 'INVITED',   color: '#0369a1', border: '#7dd3fc', bg: '#f0f9ff' }
+      : { label: 'NO ACCESS', color: '#92400e', border: '#fcd34d', bg: '#fffbeb' };
+
+  const PortalCard = () => (
+    <div style={cardStyle}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: NAVY }}>Tenant portal status</p>
+          <span style={{
+            fontSize: 11, fontWeight: 700, letterSpacing: '0.06em',
+            padding: '3px 10px', borderRadius: 20, border: '1px solid',
+            color: portalBadge.color, borderColor: portalBadge.border, background: portalBadge.bg,
+            whiteSpace: 'nowrap',
+          }}>
+            {portalBadge.label}
+          </span>
+        </div>
+        <p style={{ margin: 0, fontSize: 14, color: '#374151', lineHeight: 1.6 }}>
+          {!isLinked
+            ? 'Tenant must be part of a lease.'
+            : portalActive
+              ? 'Tenant has access to the portal.'
+              : inviteSent
+                ? <>
+                    Invite sent. Waiting for tenant to activate.{' '}
+                    <button
+                      onClick={handleInvite}
+                      disabled={inviting}
+                      style={{ background: 'none', border: 'none', color: '#1d4ed8', fontWeight: 600, fontSize: 14, cursor: inviting ? 'not-allowed' : 'pointer', padding: 0, textDecoration: 'underline', fontFamily: FONT }}
+                    >
+                      {inviting ? 'Sending…' : 'Resend'}
+                    </button>.
+                  </>
+                : <>
+                    Tenant does not have access.{' '}
+                    <button
+                      onClick={handleInvite}
+                      disabled={inviting}
+                      style={{ background: 'none', border: 'none', color: '#1d4ed8', fontWeight: 600, fontSize: 14, cursor: inviting ? 'not-allowed' : 'pointer', padding: 0, textDecoration: 'underline', fontFamily: FONT }}
+                    >
+                      {inviting ? 'Sending…' : 'Send Invite'}
+                    </button>.
+                  </>
+          }
+        </p>
+      </div>
+    </div>
+  );
 
   return (
     <Layout>
       <div style={{ flex: 1, background: '#f4f6f9', minHeight: '100vh', fontFamily: FONT, color: NAVY }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '32px 24px 48px' }}>
+        <div className="page-content" style={{ paddingTop: 24, paddingBottom: 40 }}>
 
           {/* Breadcrumb */}
           <nav style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#6b7280', marginBottom: 24 }}>
@@ -214,7 +311,6 @@ const TenantDetail = () => {
 
           {/* Top row: avatar + name + buttons */}
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 20, marginBottom: 28 }}>
-            {/* Left: avatar + name + email */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
               <div style={{ width: 64, height: 64, borderRadius: '50%', background: bg, color: fg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 800, flexShrink: 0, letterSpacing: '0.02em' }}>
                 {ini}
@@ -225,9 +321,7 @@ const TenantDetail = () => {
               </div>
             </div>
 
-            {/* Right: Actions + Edit tenant */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              {/* Actions dropdown */}
               <div ref={actionsRef} style={{ position: 'relative' }}>
                 <button
                   onClick={() => setShowActions(v => !v)}
@@ -248,7 +342,6 @@ const TenantDetail = () => {
                   </div>
                 )}
               </div>
-              {/* Edit tenant */}
               <button
                 onClick={() => setShowEdit(true)}
                 style={{ padding: '9px 22px', background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: FONT }}
@@ -258,23 +351,45 @@ const TenantDetail = () => {
             </div>
           </div>
 
-          {/* Two-column grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 20, alignItems: 'start' }}>
+          {/* ── Prospect / Past layout ── */}
+          {!isLinked ? (
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }}>
 
-            {/* ── Left column ── */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* Row 1, Col 1: Add lease — stretches to match Notes height */}
+              <div style={{ ...cardStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
+                <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#e8eaf6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="30" height="30" viewBox="0 0 24 24" fill="#6b7280"><path d="M12 7V3H2v18h20V7zM6 19H4v-2h2zm0-4H4v-2h2zm0-4H4V9h2zm0-4H4V5h2zm4 12H8v-2h2zm0-4H8v-2h2zm0-4H8V9h2zm0-4H8V5h2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8zm-2-8h-2v2h2zm0 4h-2v2h2z"/></svg>
+                </div>
+                <Link
+                  to="/houses"
+                  style={{ padding: '8px 20px', background: '#1d4ed8', color: '#fff', borderRadius: 6, fontSize: 13, fontWeight: 700, textDecoration: 'none', fontFamily: FONT, whiteSpace: 'nowrap' }}
+                >
+                  Add lease
+                </Link>
+              </div>
 
-              {/* Current lease card */}
-              <div style={cardStyle}>
-                <p style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700, color: NAVY }}>Current lease</p>
+              {/* Row 1, Col 2: Notes */}
+              <NotesCard />
 
-                {house ? (
+              {/* Row 2, Col 2: Portal — sits only under Notes */}
+              <div style={{ gridColumn: 2 }}>
+                <PortalCard />
+              </div>
+            </div>
+
+          ) : (
+            /* ── Current tenant layout ── */
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 20, alignItems: 'start' }}>
+
+              {/* Left: Current lease */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={cardStyle}>
+                  <p style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700, color: NAVY }}>Current lease</p>
                   <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
 
-                    {/* Left: property photo card with overlay */}
                     <div
                       onClick={() => navigate(`/houses/${house._id}`)}
-                      style={{ position: 'relative', width: 260, minWidth: 200, height: 200, borderRadius: 10, overflow: 'hidden', cursor: 'pointer', flexShrink: 0, background: '#dbeafe' }}
+                      style={{ position: 'relative', width: 320, minWidth: 220, height: 230, borderRadius: 10, overflow: 'hidden', cursor: 'pointer', flexShrink: 0, background: '#dbeafe' }}
                     >
                       {house.photo ? (
                         <img
@@ -287,19 +402,17 @@ const TenantDetail = () => {
                           <svg width="64" height="64" viewBox="0 0 24 24" fill="#93c5fd"><path d="M12 7V3H2v18h20V7zM6 19H4v-2h2zm0-4H4v-2h2zm0-4H4V9h2zm0-4H4V5h2zm4 12H8v-2h2zm0-4H8v-2h2zm0-4H8V9h2zm0-4H8V5h2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8zm-2-8h-2v2h2zm0 4h-2v2h2z"/></svg>
                         </div>
                       )}
-                      {/* White overlay card */}
                       <div style={{ position: 'absolute', top: 12, left: 12, right: 12, background: 'rgba(255,255,255,0.95)', borderRadius: 8, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}>
-                        <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#1d4ed8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M12 7V3H2v18h20V7zM6 19H4v-2h2zm0-4H4v-2h2zm0-4H4V9h2zm0-4H4V5h2zm4 12H8v-2h2zm0-4H8v-2h2zm0-4H8V9h2zm0-4H8V5h2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8zm-2-8h-2v2h2zm0 4h-2v2h2z"/></svg>
+                        <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#1d4ed8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M12 7V3H2v18h20V7zM6 19H4v-2h2zm0-4H4v-2h2zm0-4H4V9h2zm0-4H4V5h2zm4 12H8v-2h2zm0-4H8v-2h2zm0-4H8V9h2zm0-4H8V5h2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8zm-2-8h-2v2h2zm0 4h-2v2h2z"/></svg>
                         </div>
                         <div style={{ minWidth: 0 }}>
-                          <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: NAVY, lineHeight: 1.3 }}>{house.name?.toUpperCase()}</p>
+                          <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: NAVY, lineHeight: 1.3 }}>{house.name?.toUpperCase()}</p>
                           <p style={{ margin: '2px 0 0', fontSize: 12, color: '#6b7280', lineHeight: 1.3 }}>{[house.city, house.region].filter(Boolean).join(', ')}</p>
                         </div>
                       </div>
                     </div>
 
-                    {/* Right: Period / Payment / Deposit */}
                     <div style={{ flex: 1, minWidth: 180 }}>
                       <div style={{ marginBottom: 12 }}>
                         <p style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 700, color: NAVY }}>Period</p>
@@ -323,67 +436,23 @@ const TenantDetail = () => {
                       </div>
                     </div>
                   </div>
-                ) : (
-                  <p style={{ margin: 0, fontSize: 14, color: '#9ca3af' }}>No active lease.</p>
-                )}
-              </div>
-            </div>
-
-            {/* ── Right column ── */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-              {/* Notes card */}
-              <div style={cardStyle}>
-                <p style={{ margin: '0 0 14px', fontSize: 15, fontWeight: 700, color: NAVY }}>Notes</p>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px 0', gap: 8 }}>
-                  <svg width="28" height="28" viewBox="0 0 24 24" fill="#d1d5db"><path d="M4 10.5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5m0-6c-.83 0-1.5.67-1.5 1.5S3.17 7.5 4 7.5 5.5 6.83 5.5 6 4.83 4.5 4 4.5m0 12c-.83 0-1.5.68-1.5 1.5s.68 1.5 1.5 1.5 1.5-.68 1.5-1.5-.67-1.5-1.5-1.5M7 19h14v-2H7zm0-6h14v-2H7zm0-8v2h14V5z"/></svg>
-                  <span style={{ fontSize: 13, color: '#9ca3af' }}>You have no notes</span>
                 </div>
               </div>
 
-              {/* Tenant portal status card */}
-              <div style={cardStyle}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: NAVY }}>Tenant portal status</p>
-                    <span style={{
-                      fontSize: 11, fontWeight: 700, letterSpacing: '0.06em',
-                      padding: '3px 10px', borderRadius: 20, border: '1px solid',
-                      color: portalActive ? '#166534' : '#92400e',
-                      borderColor: portalActive ? '#86efac' : '#fcd34d',
-                      background: portalActive ? '#f0fdf4' : '#fffbeb',
-                      whiteSpace: 'nowrap',
-                    }}>
-                      {portalActive ? 'ACTIVE' : 'NO ACCESS'}
-                    </span>
-                  </div>
-                  <p style={{ margin: 0, fontSize: 14, color: '#374151', lineHeight: 1.6 }}>
-                    {portalActive
-                      ? 'Tenant has access to the portal.'
-                      : <>
-                          Tenant does not have access.{' '}
-                          <button
-                            onClick={handleInvite}
-                            disabled={inviting}
-                            style={{ background: 'none', border: 'none', color: '#1d4ed8', fontWeight: 600, fontSize: 14, cursor: inviting ? 'not-allowed' : 'pointer', padding: 0, textDecoration: 'underline', fontFamily: FONT }}
-                          >
-                            {inviting ? 'Sending…' : 'Send Invite'}
-                          </button>.
-                        </>
-                    }
-                  </p>
-                </div>
+              {/* Right: Notes + Portal */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <NotesCard />
+                <PortalCard />
               </div>
-
             </div>
-          </div>
+          )}
+
         </div>
       </div>
 
       {showEdit && (
         <EditModal
           tenant={tenant}
-          houses={houses}
           onClose={() => setShowEdit(false)}
           onSaved={load}
         />

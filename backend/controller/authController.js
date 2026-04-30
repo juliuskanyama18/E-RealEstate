@@ -45,7 +45,7 @@ export const register = async (req, res) => {
       await sendEmail({
         from: process.env.EMAIL,
         to: landlord.email,
-        subject: "Welcome to RentalSaaS",
+        subject: "Welcome to Kanyama Estates",
         html: getLandlordWelcomeTemplate(landlord),
       });
     } catch {
@@ -220,6 +220,75 @@ export const changePassword = async (req, res) => {
     user.password = await bcrypt.hash(newPassword, 12);
     await user.save({ validateBeforeSave: false });
     res.json({ success: true, message: "Password changed successfully" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const googleAuth = async (req, res) => {
+  try {
+    const { accessToken } = req.body;
+    if (!accessToken) {
+      return res.status(400).json({ success: false, message: "Access token required" });
+    }
+
+    // Verify token + fetch profile from Google
+    const gRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!gRes.ok) {
+      return res.status(401).json({ success: false, message: "Invalid Google token" });
+    }
+    const { email, name, sub: googleId } = await gRes.json();
+    if (!email) {
+      return res.status(401).json({ success: false, message: "Could not retrieve email from Google" });
+    }
+
+    let user = await User.findOne({ email: email.toLowerCase() });
+
+    if (user) {
+      if (user.isDeleted) {
+        return res.status(401).json({ success: false, message: "Invalid credentials" });
+      }
+      if (!user.isActive) {
+        return res.status(403).json({ success: false, message: "Account suspended. Contact the platform administrator." });
+      }
+      if (user.role === "tenant") {
+        return res.status(403).json({ success: false, message: "This login is for landlords only. Use the tenant portal." });
+      }
+      user.googleId = googleId;
+      user.lastLogin = new Date();
+      await user.save({ validateBeforeSave: false });
+    } else {
+      // New user — register as landlord
+      user = await User.create({
+        name: name || email.split("@")[0],
+        email: email.toLowerCase(),
+        role: "landlord",
+        googleId,
+        isActive: true,
+      });
+      try {
+        await sendEmail({
+          from: process.env.EMAIL,
+          to: user.email,
+          subject: "Welcome to Kanyama Estates",
+          html: getLandlordWelcomeTemplate(user),
+        });
+      } catch {
+        // Non-fatal
+      }
+    }
+
+    const token = signToken(user._id, user.role);
+    res.json({
+      success: true,
+      message: "Login successful",
+      data: {
+        token,
+        user: { _id: user._id, name: user.name, email: user.email, role: user.role, isActive: user.isActive },
+      },
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: "Server error", error: error.message });
   }

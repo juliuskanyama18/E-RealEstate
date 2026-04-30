@@ -48,7 +48,7 @@ const FONT     = '"Inter", sans-serif';
 const pageStyle = {
   flex: 1, overflowY: 'auto',
   background: '#f4f6f9',
-  padding: '20px 28px 40px',
+  padding: '0',
   fontFamily: FONT,
   color: NAVY,
   boxSizing: 'border-box',
@@ -283,7 +283,7 @@ const MaintenanceDetail = () => {
   return (
     <Layout>
       <div style={pageStyle} onClick={() => setStatusOpen(false)}>
-        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+        <div className="page-content" style={{ paddingTop: 20, paddingBottom: 40 }}>
 
         {/* ── ① Back ──────────────────────────────────────────── */}
         <div style={{ marginBottom: 14 }}>

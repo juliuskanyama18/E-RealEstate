@@ -729,7 +729,7 @@ const Navbar = ({ onMenuClick }) => {
 
   return (
     <>
-      <header className="bg-white border-b border-gray-200 px-4 h-14 flex items-center justify-between flex-shrink-0 relative z-30">
+      <header className="bg-white border-b border-gray-200 px-4 flex items-center justify-between flex-shrink-0 sticky top-0 z-30" style={{ height: 64 }}>
         <button onClick={onMenuClick} className="p-2 rounded-md text-gray-500 hover:bg-gray-100 transition-colors" aria-label="open drawer">
           <Menu size={20} />
         </button>
@@ -756,11 +756,7 @@ const Navbar = ({ onMenuClick }) => {
             )}
           </button>
 
-          {/* Tips */}
-          <button className="relative p-2 rounded-md text-gray-600 hover:bg-gray-100 transition-colors" aria-label="Quick start">
-            <Lightbulb size={20} />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-blue-500 rounded-full" />
-          </button>
+          {/* Quick start disabled */}
 
           <div className="w-px h-6 bg-gray-200 mx-1" />
 
@@ -785,9 +781,7 @@ const Navbar = ({ onMenuClick }) => {
                 <button onClick={() => { setProfileOpen(false); navigate('/account'); }} className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors text-left">
                   <User size={18} className="text-gray-400 flex-shrink-0" />Account settings
                 </button>
-                <a href="https://help.rentalsaas.com" target="_blank" rel="noopener noreferrer" onClick={() => setProfileOpen(false)} className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                  <HelpCircle size={18} className="text-gray-400 flex-shrink-0" />Help
-                </a>
+                {/* Help link disabled */}
                 <hr className="border-gray-100" />
                 <button onClick={handleLogout} className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors text-left">
                   <LogOut size={18} className="text-gray-400 flex-shrink-0" />Logout

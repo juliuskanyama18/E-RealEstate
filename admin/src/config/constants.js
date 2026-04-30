@@ -8,6 +8,7 @@ export const API = {
   setPassword: '/api/auth/set-password',
   updateProfile: '/api/auth/profile',
   changePassword: '/api/auth/password',
+  googleAuth: '/api/auth/google',
   admin: {
     stats:       '/api/admin/stats',
     landlords:   '/api/admin/landlords',
@@ -35,8 +36,11 @@ export const API = {
     me: '/api/tenant/me',
     status: '/api/tenant/rent-status',
     history: '/api/tenant/rent-history',
+    schedule: '/api/tenant/schedule',
     maintenance: '/api/tenant/maintenance',
+    landlord: '/api/tenant/landlord',
     documents: '/api/tenant/documents',
+    reminders: '/api/tenant/reminders',
   },
 };
 

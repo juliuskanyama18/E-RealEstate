@@ -45,7 +45,10 @@ import AdminPayments from './pages/superadmin/Payments';
 import AdminUsers from './pages/superadmin/Users';
 
 // Tenant portal
-import TenantPortal from './pages/tenant/Dashboard';
+import TenantPortal          from './pages/tenant/Dashboard';
+import TenantPaymentHistory  from './pages/tenant/PaymentHistory';
+import TenantMaintenance     from './pages/tenant/Maintenance';
+import TenantDocuments       from './pages/tenant/Documents';
 
 const App = () => (
   <ErrorBoundary FallbackComponent={ErrorFallback} onReset={() => window.location.reload()}>
@@ -92,7 +95,10 @@ const App = () => (
         <Route path="/admin/settings"      element={<ProtectedRoute roles={['superadmin']}><AdminSettings /></ProtectedRoute>} />
 
         {/* Tenant portal */}
-        <Route path="/portal" element={<ProtectedRoute roles={['tenant']}><TenantPortal /></ProtectedRoute>} />
+        <Route path="/portal"              element={<ProtectedRoute roles={['tenant']}><TenantPortal /></ProtectedRoute>} />
+        <Route path="/portal/history"      element={<ProtectedRoute roles={['tenant']}><TenantPaymentHistory /></ProtectedRoute>} />
+        <Route path="/portal/maintenance"  element={<ProtectedRoute roles={['tenant']}><TenantMaintenance /></ProtectedRoute>} />
+        <Route path="/portal/documents"   element={<ProtectedRoute roles={['tenant']}><TenantDocuments /></ProtectedRoute>} />
 
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />

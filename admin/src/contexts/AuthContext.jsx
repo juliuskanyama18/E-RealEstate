@@ -58,10 +58,16 @@ export const AuthProvider = ({ children }) => {
     return data;
   };
 
+  const googleLogin = async (accessToken) => {
+    const { data } = await axios.post(`${backendUrl}${API.googleAuth}`, { accessToken });
+    if (data.success) applySession(data.data.token, data.data.user);
+    return data;
+  };
+
   const logout = () => clearSession();
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, isAuthenticated: !!token && !!user, role: user?.role || null, login, register, logout, applySession }}>
+    <AuthContext.Provider value={{ user, token, loading, isAuthenticated: !!token && !!user, role: user?.role || null, login, register, googleLogin, logout, applySession }}>
       {children}
     </AuthContext.Provider>
   );

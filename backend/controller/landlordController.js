@@ -16,7 +16,7 @@ import Expense from "../models/Expense.js";
 import RentHistory from "../models/RentHistory.js";
 import Supplier from "../models/Supplier.js";
 import { sendEmail } from "../config/nodemailer.js";
-import { getTenantWelcomeTemplate, getTenantInviteTemplate } from "../utils/emailTemplates.js";
+import { getTenantWelcomeTemplate, getTenantInviteTemplate, getPaymentReceiptTemplate, getTenantReminderEmailTemplate } from "../utils/emailTemplates.js";
 
 // ─── Multer setup for house photos ─────────────────────────────────────────
 const uploadDir = path.resolve("uploads/houses");
@@ -284,10 +284,10 @@ export const getHouseTenants = async (req, res) => {
 
 export const addTenant = async (req, res) => {
   try {
-    const { houseId, name, email, password, phone, rentAmount, rentDueDate, leaseStart, leaseEnd } = req.body;
+    const { houseId, name, email, password, phone, notes, rentAmount, rentDueDate, leaseStart, leaseEnd } = req.body;
 
-    if (!houseId || !name || !email || rentAmount === undefined || !rentDueDate) {
-      return res.status(400).json({ success: false, message: "houseId, name, email, rentAmount, and rentDueDate are required" });
+    if (!name || !email || rentAmount === undefined || !rentDueDate) {
+      return res.status(400).json({ success: false, message: "name, email, rentAmount, and rentDueDate are required" });
     }
     if (!validator.isEmail(email)) {
       return res.status(400).json({ success: false, message: "Invalid email address" });
@@ -297,8 +297,12 @@ export const addTenant = async (req, res) => {
       return res.status(400).json({ success: false, message: "rentDueDate must be between 1 and 31" });
     }
 
-    const house = await House.findOne({ _id: houseId, landlord: req.user._id });
-    if (!house) return res.status(404).json({ success: false, message: "House not found" });
+    // House is optional — only look it up when provided
+    let house = null;
+    if (houseId) {
+      house = await House.findOne({ _id: houseId, landlord: req.user._id });
+      if (!house) return res.status(404).json({ success: false, message: "House not found" });
+    }
 
     const duplicate = await User.findOne({ email: email.toLowerCase() });
     if (duplicate) {
@@ -317,45 +321,54 @@ export const addTenant = async (req, res) => {
       password: hashedPw || await bcrypt.hash(crypto.randomUUID?.() || Math.random().toString(36), 12),
       role: "tenant",
       landlord: req.user._id,
-      house: houseId,
+      house: houseId || undefined,
+      tenantStatus: houseId ? 'current' : 'prospect',
       phone: phone?.trim(),
+      notes: notes?.trim() || undefined,
       rentAmount: Number(rentAmount),
       rentDueDate: dueDay,
       leaseStart: leaseStart ? new Date(leaseStart) : undefined,
       leaseEnd: leaseEnd ? new Date(leaseEnd) : undefined,
     });
 
-    await House.findByIdAndUpdate(houseId, { isOccupied: true });
+    if (house) {
+      await House.findByIdAndUpdate(houseId, { isOccupied: true });
+    }
 
     // Send response immediately — do NOT await email (prevents hanging on hosted environments)
     const response = tenant.toObject();
     delete response.password;
     res.status(201).json({ success: true, message: "Tenant added successfully", data: response });
 
-    // Fire email in background after response is sent
-    const { sendInvitation } = req.body;
-    if (sendInvitation && tenant.email) {
-      const rawToken = crypto.randomBytes(20).toString("hex");
-      const hashedToken = crypto.createHash("sha256").update(rawToken).digest("hex");
-      User.findByIdAndUpdate(tenant._id, {
-        resetToken: hashedToken,
-        resetTokenExpire: Date.now() + 7 * 24 * 60 * 60 * 1000,
-      }).catch(() => {});
-      const setPasswordUrl = `${process.env.WEBSITE_URL}/set-password/${rawToken}`;
-      sendEmail({
-        from: process.env.EMAIL,
-        to: tenant.email,
-        subject: `You've been invited to ${house.name} — Set your password`,
-        html: getTenantInviteTemplate(tenant, house, setPasswordUrl),
-      }).catch((err) => console.error("[addTenant] Invite email failed:", err.message));
-    } else if (tenant.email) {
-      const notifyDaysBefore = req.user.notifyDaysBefore ?? 3;
-      sendEmail({
-        from: process.env.EMAIL,
-        to: tenant.email,
-        subject: `Welcome to ${house.name}`,
-        html: getTenantWelcomeTemplate(tenant, house, !!password, notifyDaysBefore),
-      }).catch((err) => console.error("[addTenant] Welcome email failed:", err.message));
+    // Fire email in background after response is sent — isolated so errors never reach the catch block
+    try {
+      const { sendInvitation } = req.body;
+      if (sendInvitation && tenant.email) {
+        const rawToken = crypto.randomBytes(20).toString("hex");
+        const hashedToken = crypto.createHash("sha256").update(rawToken).digest("hex");
+        User.findByIdAndUpdate(tenant._id, {
+          resetToken: hashedToken,
+          resetTokenExpire: Date.now() + 7 * 24 * 60 * 60 * 1000,
+          portalInviteSent: true,
+        }).catch(() => {});
+        const setPasswordUrl = `${process.env.WEBSITE_URL}/set-password/${rawToken}`;
+        sendEmail({
+          from: process.env.EMAIL,
+          to: tenant.email,
+          subject: house ? `You've been invited to ${house.name} — Set your password` : `You've been invited — Set your password`,
+          html: getTenantInviteTemplate(tenant, house, setPasswordUrl),
+        }).catch((err) => console.error("[addTenant] Invite email failed:", err.message));
+      } else if (tenant.email) {
+        const notifyDaysBefore = req.user.notifyDaysBefore ?? 3;
+        sendEmail({
+          from: process.env.EMAIL,
+          to: tenant.email,
+          subject: house ? `Welcome to ${house.name}` : `Welcome — Your tenant account is ready`,
+          html: getTenantWelcomeTemplate(tenant, house, !!password, notifyDaysBefore),
+        }).catch((err) => console.error("[addTenant] Welcome email failed:", err.message));
+      }
+    } catch (emailErr) {
+      console.error("[addTenant] Post-response email block failed:", emailErr.message);
     }
   } catch (error) {
     if (error.code === 11000) {
@@ -394,11 +407,12 @@ export const getTenant = async (req, res) => {
 
 export const updateTenant = async (req, res) => {
   try {
-    const { name, email, password, phone, rentAmount, rentDueDate, leaseStart, leaseEnd } = req.body;
+    const { name, email, password, phone, notes, rentAmount, rentDueDate, leaseStart, leaseEnd } = req.body;
     const updates = {};
 
     if (name) updates.name = name.trim();
     if (phone !== undefined) updates.phone = phone.trim();
+    if (notes !== undefined) updates.notes = notes.trim();
     if (email) {
       if (!validator.isEmail(email)) return res.status(400).json({ success: false, message: "Invalid email address" });
       const dup = await User.findOne({ landlord: req.user._id, email: email.toLowerCase(), role: "tenant", _id: { $ne: req.params.id } });
@@ -704,12 +718,13 @@ export const updateOrgSettings = async (req, res) => {
 // ─── Record a payment ───────────────────────────────────────────────────────
 export const recordPayment = async (req, res) => {
   try {
-    const { tenantId, amount, month, datePaid, paymentMethod, notes } = req.body;
+    const { tenantId, amount, month, datePaid, paymentMethod, notes, sendReceipt } = req.body;
     if (!tenantId || amount === undefined || !month) {
       return res.status(400).json({ success: false, message: "tenantId, amount, and month are required" });
     }
 
-    const tenant = await User.findOne({ _id: tenantId, landlord: req.user._id, role: "tenant" });
+    const tenant = await User.findOne({ _id: tenantId, landlord: req.user._id, role: "tenant" })
+      .populate("house", "name address city");
     if (!tenant) return res.status(404).json({ success: false, message: "Tenant not found" });
 
     const paidAmt = Number(amount);
@@ -718,17 +733,18 @@ export const recordPayment = async (req, res) => {
     // Build due date from month string (e.g. "2025-03") + tenant's rentDueDate day
     const [yr, mo] = month.split("-").map(Number);
     const dueDate = new Date(yr, mo - 1, tenant.rentDueDate || 1);
+    const paidDateVal = datePaid ? new Date(datePaid) : new Date();
 
     // Upsert RentRecord for this tenant + month
     await RentRecord.findOneAndUpdate(
       { tenant: tenant._id, month },
       {
         landlord: req.user._id,
-        house: tenant.house,
+        house: tenant.house?._id || tenant.house,
         amount: paidAmt,
         month,
         dueDate,
-        paidDate: datePaid ? new Date(datePaid) : new Date(),
+        paidDate: paidDateVal,
         status: "paid",
         notes: notes?.trim() || undefined,
         ...(paymentMethod ? { paymentMethod } : {}),
@@ -736,8 +752,33 @@ export const recordPayment = async (req, res) => {
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
-    // Adjust tenant balance: add amount paid (reduces debt if negative, adds credit if positive)
+    // Adjust tenant balance: add amount paid
     await User.findByIdAndUpdate(tenant._id, { $inc: { balance: paidAmt } });
+
+    // Save uploaded receipt as a Document linked to the house
+    if (req.file) {
+      const houseId = tenant.house?._id || tenant.house;
+      if (houseId) {
+        await Document.create({
+          house: houseId,
+          landlord: req.user._id,
+          type: "property",
+          fileName: req.file.filename,
+          originalName: req.file.originalname,
+          filePath: `/uploads/receipts/${req.file.filename}`,
+          fileSize: req.file.size,
+          mimeType: req.file.mimetype,
+          description: `Payment receipt – ${month} – ${tenant.name}`,
+        });
+      }
+    }
+
+    // Send receipt email to tenant
+    if (sendReceipt === "Yes" && tenant.email) {
+      const house = tenant.house || {};
+      const html = getPaymentReceiptTemplate(tenant, house, { amount: paidAmt, month, datePaid: paidDateVal });
+      sendEmail({ to: tenant.email, subject: `Payment Receipt – ${month}`, html }).catch(() => {});
+    }
 
     res.json({ success: true, message: "Payment recorded successfully" });
   } catch (error) {
@@ -777,8 +818,10 @@ export const getPayment = async (req, res) => {
 // ─── Update a payment record ──────────────────────────────────────────────────
 export const updatePayment = async (req, res) => {
   try {
-    const { amount, status, notes, paidDate, dueDate } = req.body;
-    const record = await RentRecord.findOne({ _id: req.params.id, landlord: req.user._id });
+    const { amount, status, notes, paidDate, dueDate, category, sendReceipt } = req.body;
+    const record = await RentRecord.findOne({ _id: req.params.id, landlord: req.user._id })
+      .populate("tenant", "name email house")
+      .populate("house", "name address city");
     if (!record) return res.status(404).json({ success: false, message: "Record not found" });
 
     // If amount changed and record was/is paid, adjust tenant balance
@@ -806,13 +849,26 @@ export const updatePayment = async (req, res) => {
       }
     }
 
-    if (amount !== undefined)  record.amount  = newAmount;
-    if (status)                record.status  = newStatus;
-    if (notes !== undefined)   record.notes   = notes?.trim() || undefined;
+    if (amount !== undefined)   record.amount   = newAmount;
+    if (status)                 record.status   = newStatus;
+    if (notes !== undefined)    record.notes    = notes?.trim() || undefined;
     if (paidDate !== undefined) record.paidDate = paidDate ? new Date(paidDate) : undefined;
     if (dueDate !== undefined)  record.dueDate  = dueDate  ? new Date(dueDate)  : record.dueDate;
+    if (category)               record.category = category;
 
     await record.save();
+
+    // Send receipt email if requested
+    if (sendReceipt === "Yes" && record.tenant?.email) {
+      const house = record.house;
+      const html = getPaymentReceiptTemplate(record.tenant, house, {
+        amount: newAmount,
+        month: record.month,
+        datePaid: paidDate || record.paidDate,
+      });
+      sendEmail({ to: record.tenant.email, subject: `Payment Receipt – ${record.month}`, html }).catch(() => {});
+    }
+
     const updated = await RentRecord.findById(record._id)
       .populate("tenant", "name email phone rentAmount")
       .populate("house", "name address city");
@@ -943,7 +999,7 @@ export const getHouseLease = async (req, res) => {
     if (!house) return res.status(404).json({ success: false, message: "House not found" });
 
     const lease = await Lease.findOne({ house: req.params.id, landlord: req.user._id, status: "active" })
-      .populate("tenant", "name email phone portalActivated");
+      .populate("tenant", "name email phone portalActivated portalInviteSent");
 
     res.json({ success: true, data: lease || null });
   } catch (error) {
@@ -989,10 +1045,17 @@ export const linkTenantToLease = async (req, res) => {
 
     // Unlink when tenantId is null/empty
     if (!tenantId) {
+      const previousTenantId = lease.tenant;
       lease.tenant = undefined;
       await lease.save();
       const stillOccupied = await User.exists({ house: lease.house, landlord: req.user._id, role: "tenant" });
       if (!stillOccupied) await House.findByIdAndUpdate(lease.house, { isOccupied: false });
+      if (previousTenantId) {
+        await User.findByIdAndUpdate(previousTenantId, {
+          $unset: { house: 1 },
+          tenantStatus: 'past',
+        });
+      }
       return res.json({ success: true, message: "Tenant unlinked from lease", data: lease });
     }
 
@@ -1002,7 +1065,15 @@ export const linkTenantToLease = async (req, res) => {
     lease.tenant = tenantId;
     await lease.save();
     await House.findByIdAndUpdate(lease.house, { isOccupied: true });
-    await lease.populate("tenant", "name email phone portalActivated");
+    await User.findByIdAndUpdate(tenantId, {
+      house: lease.house,
+      tenantStatus: 'current',
+      ...(lease.startDate  && { leaseStart:  lease.startDate }),
+      ...(lease.endDate    && { leaseEnd:    lease.endDate }),
+      ...(lease.rentAmount && { rentAmount:  lease.rentAmount }),
+      ...(lease.paymentDay && { rentDueDate: lease.paymentDay === 31 ? 1 : lease.paymentDay }),
+    });
+    await lease.populate("tenant", "name email phone portalActivated portalInviteSent");
     res.json({ success: true, message: "Tenant linked to lease", data: lease });
   } catch (error) {
     res.status(500).json({ success: false, message: "Server error", error: error.message });
@@ -1020,6 +1091,7 @@ export const inviteTenant = async (req, res) => {
     await User.findByIdAndUpdate(tenant._id, {
       resetToken: hashedToken,
       resetTokenExpire: Date.now() + 7 * 24 * 60 * 60 * 1000,
+      portalInviteSent: true,
     });
     const setPasswordUrl = `${process.env.WEBSITE_URL}/set-password/${rawToken}`;
     await sendEmail({
@@ -1077,6 +1149,7 @@ export const createAndLinkTenant = async (req, res) => {
         await User.findByIdAndUpdate(tenant._id, {
           resetToken: hashedToken,
           resetTokenExpire: Date.now() + 7 * 24 * 60 * 60 * 1000,
+          portalInviteSent: true,
         });
         const setPasswordUrl = `${process.env.WEBSITE_URL}/set-password/${rawToken}`;
         await sendEmail({
@@ -1088,7 +1161,7 @@ export const createAndLinkTenant = async (req, res) => {
       } catch { /* non-fatal */ }
     }
 
-    await lease.populate("tenant", "name email phone portalActivated");
+    await lease.populate("tenant", "name email phone portalActivated portalInviteSent");
     const response = tenant.toObject();
     delete response.password;
     res.status(201).json({ success: true, message: "Tenant created and linked", data: { lease, tenant: response } });
@@ -1169,7 +1242,7 @@ export const getAllReminders = async (req, res) => {
 
 export const createAnyReminder = async (req, res) => {
   try {
-    const { houseId, dateTime, category, notes } = req.body;
+    const { houseId, dateTime, category, notes, recurring, repeatInterval } = req.body;
     if (!dateTime) return res.status(400).json({ success: false, message: "dateTime is required" });
     if (houseId) {
       const house = await House.findOne({ _id: houseId, landlord: req.user._id });
@@ -1183,6 +1256,8 @@ export const createAnyReminder = async (req, res) => {
       category: category || "Other",
       notes,
       status,
+      recurring: Boolean(recurring),
+      repeatInterval: recurring ? (repeatInterval || "monthly") : "monthly",
     });
     res.status(201).json({ success: true, data: reminder });
   } catch (error) {
@@ -1214,18 +1289,36 @@ export const createReminder = async (req, res) => {
     const house = await House.findOne({ _id: req.params.id, landlord: req.user._id });
     if (!house) return res.status(404).json({ success: false, message: "House not found" });
 
-    const { dateTime, category, notes } = req.body;
+    const { dateTime, category, notes, notifyTenant, tenantId, recurring, repeatInterval } = req.body;
     if (!dateTime) return res.status(400).json({ success: false, message: "dateTime is required" });
+
+    // Validate tenant belongs to this landlord if notifying
+    let tenantDoc = null;
+    if (notifyTenant && tenantId) {
+      tenantDoc = await User.findOne({ _id: tenantId, landlord: req.user._id, role: "tenant" })
+        .select("name email phone");
+    }
 
     const status = new Date(dateTime) < new Date() ? "overdue" : "upcoming";
     const reminder = await Reminder.create({
       house: req.params.id,
       landlord: req.user._id,
+      tenant: tenantDoc?._id || null,
       dateTime,
       category: category || "Other",
       notes,
       status,
+      notifyTenant: Boolean(notifyTenant && tenantDoc),
+      recurring: Boolean(recurring),
+      repeatInterval: recurring ? (repeatInterval || "monthly") : "monthly",
     });
+
+    // Immediately notify tenant by email
+    if (tenantDoc?.email) {
+      const html = getTenantReminderEmailTemplate(tenantDoc, reminder, house);
+      sendEmail({ to: tenantDoc.email, subject: `Reminder from your Landlord – ${category || 'General'}`, html }).catch(() => {});
+    }
+
     res.status(201).json({ success: true, data: reminder });
   } catch (error) {
     res.status(500).json({ success: false, message: "Server error", error: error.message });
@@ -1383,9 +1476,12 @@ export const deleteOrgPayment = async (req, res) => {
 
 export const getExpenses = async (req, res) => {
   try {
-    // Only return expenses NOT assigned to any property
-    const expenses = await Expense.find({ landlord: req.user._id, house: { $in: [null, undefined] } })
+    const filter = { landlord: req.user._id };
+    if (req.query.houseId) filter.house = req.query.houseId;
+    const expenses = await Expense.find(filter)
       .select("-receiptImage")
+      .populate("house", "name address")
+      .populate("supplier", "name")
       .sort({ dueDate: -1 })
       .lean();
     res.json({ success: true, data: expenses });
@@ -1418,7 +1514,7 @@ export const getHouseExpenses = async (req, res) => {
 
 export const createExpense = async (req, res) => {
   try {
-    const { dueDate, category, description, amount, status, paymentDate, payableByTenant, capitalExpense, notes, supplier } = req.body;
+    const { dueDate, category, description, amount, status, paymentDate, payableByTenant, capitalExpense, notes, supplier, house } = req.body;
     if (!dueDate || amount === undefined) return res.status(400).json({ success: false, message: "dueDate and amount are required" });
     const receiptImage = req.file ? fileToDataUrl(req.file) : undefined;
     const receiptName  = req.file ? req.file.originalname : undefined;
@@ -1430,6 +1526,7 @@ export const createExpense = async (req, res) => {
       capitalExpense:  capitalExpense  === 'true' || capitalExpense  === true,
       receiptImage, receiptName,
       supplier: supplier || undefined,
+      house: house || undefined,
     });
     res.status(201).json({ success: true, data: expense });
   } catch (error) {

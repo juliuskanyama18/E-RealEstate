@@ -115,7 +115,7 @@ router.put("/leases/:leaseId/tenant", linkTenantToLease);
 router.post("/leases/:leaseId/tenant", createAndLinkTenant);
 
 router.get("/payments",      getPayments);
-router.post("/payments",     recordPayment);
+router.post("/payments",     uploadReceiptFile, recordPayment);
 router.get("/payments/:id",  getPayment);
 router.put("/payments/:id",  updatePayment);
 router.delete("/payments/:id", deletePayment);

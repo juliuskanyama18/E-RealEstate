@@ -43,7 +43,7 @@ export const getRentReminderTemplate = (tenant, house, daysBeforeDue = 3) => `
     <p style="color:#6b7280;font-size:14px;margin:0;">Please ensure payment is made on time. Contact your landlord for any queries.</p>
   </td></tr>
   <tr><td style="background:#f9fafb;padding:20px 40px;border-top:1px solid #e5e7eb;">
-    <p style="color:#9ca3af;font-size:12px;margin:0;text-align:center;">Automated reminder from RentalSaaS</p>
+    <p style="color:#9ca3af;font-size:12px;margin:0;text-align:center;">Automated reminder from Kanyama Estates</p>
   </td></tr>
 </table>
 </td></tr></table>
@@ -87,20 +87,20 @@ export const getTenantWelcomeTemplate = (tenant, house, hasLogin, notifyDaysBefo
     <p style="color:#6b7280;font-size:14px;margin:0;">You will receive automated reminders ${notifyDaysBefore} day${notifyDaysBefore !== 1 ? 's' : ''} before rent is due.</p>
   </td></tr>
   <tr><td style="background:#f9fafb;padding:20px 40px;border-top:1px solid #e5e7eb;">
-    <p style="color:#9ca3af;font-size:12px;margin:0;text-align:center;">Automated notification from RentalSaaS</p>
+    <p style="color:#9ca3af;font-size:12px;margin:0;text-align:center;">Automated notification from Kanyama Estates</p>
   </td></tr>
 </table>
 </td></tr></table>
 </body></html>`.trim();
 
 export const getLandlordWelcomeTemplate = (landlord) => `
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><title>Welcome to RentalSaaS</title></head>
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><title>Welcome to Kanyama Estates</title></head>
 <body style="margin:0;padding:0;background:#f4f6f9;font-family:Arial,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f9;padding:40px 0;">
 <tr><td align="center">
 <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08);">
   <tr><td style="background:linear-gradient(135deg,#7c3aed,#5b21b6);padding:32px 40px;">
-    <h1 style="color:#fff;margin:0;font-size:24px;">Welcome to RentalSaaS</h1>
+    <h1 style="color:#fff;margin:0;font-size:24px;">Welcome to Kanyama Estates</h1>
     <p style="color:#ddd6fe;margin:6px 0 0;font-size:14px;">Your landlord account is ready</p>
   </td></tr>
   <tr><td style="padding:32px 40px;">
@@ -117,7 +117,7 @@ export const getLandlordWelcomeTemplate = (landlord) => `
     <p style="color:#6b7280;font-size:14px;margin:0;">Login with your email: <strong>${landlord.email}</strong></p>
   </td></tr>
   <tr><td style="background:#f9fafb;padding:20px 40px;border-top:1px solid #e5e7eb;">
-    <p style="color:#9ca3af;font-size:12px;margin:0;text-align:center;">RentalSaaS — Rental Management Platform</p>
+    <p style="color:#9ca3af;font-size:12px;margin:0;text-align:center;">Kanyama Estates — Rental Management Platform</p>
   </td></tr>
 </table>
 </td></tr></table>
@@ -128,7 +128,7 @@ export const getTenantInviteTemplate = (tenant, house, setPasswordUrl) => `
 <html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Welcome to Your Tenant Portal</title></head>
 <body style="margin:0;padding:0;background-color:#eeeeee;font-family:'Open Sans',Arial,sans-serif;">
 <div style="background:transparent;max-width:600px;margin:0 auto;padding:28px 32px 16px;">
-  <span style="font-size:17px;font-weight:800;color:#042238;">Rental Management System</span>
+  <span style="font-size:17px;font-weight:800;color:#042238;">Kanyama Estates</span>
 </div>
 <div style="max-width:600px;margin:0 auto;">
   <div style="background:linear-gradient(135deg,#033a6d 0%,#042238 100%);padding:36px 40px;text-align:center;">
@@ -168,8 +168,8 @@ export const getTenantInviteTemplate = (tenant, house, setPasswordUrl) => `
 </div>
 <div style="background:#fefefe;max-width:600px;margin:0 auto;border-radius:4px;padding:0 32px 32px;">
   <div style="max-width:536px;margin:0 auto;border-top:1px solid #acb9c8;padding-top:16px;text-align:center;">
-    <p style="font-size:14px;font-family:'Open Sans',Arial,sans-serif;font-style:italic;color:#042238;line-height:150%;margin:0 0 10px;">Your landlord uses this Rental Management System to manage their rental property. You'll receive notifications from them through this platform.</p>
-    <p style="font-size:13px;font-family:'Open Sans',Arial,sans-serif;color:#8a9ab0;margin:0;">Rental Management System &copy; ${new Date().getFullYear()}</p>
+    <p style="font-size:14px;font-family:'Open Sans',Arial,sans-serif;font-style:italic;color:#042238;line-height:150%;margin:0 0 10px;">Your landlord uses this Kanyama Estates to manage their rental property. You'll receive notifications from them through this platform.</p>
+    <p style="font-size:13px;font-family:'Open Sans',Arial,sans-serif;color:#8a9ab0;margin:0;">Kanyama Estates &copy; ${new Date().getFullYear()}</p>
   </div>
 </div>
 </body></html>`.trim();
@@ -192,7 +192,7 @@ export const getPasswordResetTemplate = (resetUrl) => `
     <p style="color:#9ca3af;font-size:13px;margin:0;">If you did not request this, ignore this email. Your password will not change.</p>
   </td></tr>
   <tr><td style="background:#f9fafb;padding:20px 40px;border-top:1px solid #e5e7eb;">
-    <p style="color:#9ca3af;font-size:12px;margin:0;text-align:center;">RentalSaaS — Rental Management Platform</p>
+    <p style="color:#9ca3af;font-size:12px;margin:0;text-align:center;">Kanyama Estates — Rental Management Platform</p>
   </td></tr>
 </table>
 </td></tr></table>
@@ -230,8 +230,90 @@ export const getAdminPasswordResetTemplate = (user, resetUrl) => `
     <p style="color:#9ca3af;font-size:13px;margin:0;">Account: <strong>${user.email}</strong></p>
   </td></tr>
   <tr><td style="background:#f9fafb;padding:20px 40px;border-top:1px solid #e5e7eb;">
-    <p style="color:#9ca3af;font-size:12px;margin:0;text-align:center;">RentalSaaS — Rental Management Platform</p>
+    <p style="color:#9ca3af;font-size:12px;margin:0;text-align:center;">Kanyama Estates — Rental Management Platform</p>
   </td></tr>
 </table>
 </td></tr></table>
 </body></html>`.trim();
+
+// ─── Payment receipt sent to tenant ──────────────────────────────────────────
+export const getPaymentReceiptTemplate = (tenant, house, payment) => {
+  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><title>Payment Receipt</title></head>
+<body style="margin:0;padding:0;background:#f4f6f9;font-family:Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f9;padding:40px 0;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08);">
+  <tr><td style="background:linear-gradient(135deg,#042238,#033a6d);padding:32px 40px;">
+    <h1 style="color:#fff;margin:0;font-size:24px;">Payment Receipt</h1>
+    <p style="color:#bfdbfe;margin:6px 0 0;font-size:14px;">Your payment has been recorded</p>
+  </td></tr>
+  <tr><td style="padding:32px 40px;">
+    <p style="color:#374151;font-size:16px;margin:0 0 8px;">Hi <strong>${tenant.name}</strong>,</p>
+    <p style="color:#6b7280;font-size:15px;line-height:1.6;margin:0 0 24px;">We have recorded your payment. Please keep this receipt for your records.</p>
+    <table width="100%" style="background:#eff6ff;border-radius:8px;padding:20px;margin-bottom:24px;" cellpadding="0" cellspacing="0">
+      <tr><td style="padding:8px 0;">
+        <span style="color:#6b7280;font-size:13px;display:block;">Property</span>
+        <span style="color:#111827;font-size:15px;font-weight:600;">${house.name || house.address || ''}</span>
+      </td></tr>
+      <tr><td style="padding:8px 0;border-top:1px solid #dbeafe;">
+        <span style="color:#6b7280;font-size:13px;display:block;">Payment Period</span>
+        <span style="color:#111827;font-size:15px;font-weight:600;">${payment.month || ''}</span>
+      </td></tr>
+      <tr><td style="padding:8px 0;border-top:1px solid #dbeafe;">
+        <span style="color:#6b7280;font-size:13px;display:block;">Amount Paid</span>
+        <span style="color:#16a34a;font-size:22px;font-weight:700;">TZS ${Number(payment.amount || 0).toLocaleString()}</span>
+      </td></tr>
+      <tr><td style="padding:8px 0;border-top:1px solid #dbeafe;">
+        <span style="color:#6b7280;font-size:13px;display:block;">Date</span>
+        <span style="color:#111827;font-size:15px;">${fmtDate(payment.datePaid)}</span>
+      </td></tr>
+    </table>
+    <p style="color:#9ca3af;font-size:13px;margin:0;">Contact your landlord for any queries regarding this payment.</p>
+  </td></tr>
+  <tr><td style="background:#f9fafb;padding:20px 40px;border-top:1px solid #e5e7eb;">
+    <p style="color:#9ca3af;font-size:12px;margin:0;text-align:center;">Kanyama Estates — Rental Management Platform</p>
+  </td></tr>
+</table>
+</td></tr></table>
+</body></html>`.trim();
+};
+
+// ─── Reminder notification sent to tenant ────────────────────────────────────
+export const getTenantReminderEmailTemplate = (tenant, reminder, house) => {
+  const fmtDT = (d) => d ? new Date(d).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><title>Reminder</title></head>
+<body style="margin:0;padding:0;background:#f4f6f9;font-family:Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f9;padding:40px 0;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08);">
+  <tr><td style="background:linear-gradient(135deg,#4f46e5,#3730a3);padding:32px 40px;">
+    <h1 style="color:#fff;margin:0;font-size:24px;">Reminder from your Landlord</h1>
+    <p style="color:#c7d2fe;margin:6px 0 0;font-size:14px;">${reminder.category || 'General'}</p>
+  </td></tr>
+  <tr><td style="padding:32px 40px;">
+    <p style="color:#374151;font-size:16px;margin:0 0 8px;">Hi <strong>${tenant.name}</strong>,</p>
+    <p style="color:#6b7280;font-size:15px;line-height:1.6;margin:0 0 24px;">Your landlord has set a reminder for you:</p>
+    <table width="100%" style="background:#eef2ff;border-radius:8px;padding:20px;margin-bottom:24px;" cellpadding="0" cellspacing="0">
+      ${house ? `<tr><td style="padding:8px 0;">
+        <span style="color:#6b7280;font-size:13px;display:block;">Property</span>
+        <span style="color:#111827;font-size:15px;font-weight:600;">${house.name || house.address || ''}</span>
+      </td></tr>` : ''}
+      <tr><td style="padding:8px 0;border-top:1px solid #c7d2fe;">
+        <span style="color:#6b7280;font-size:13px;display:block;">Date &amp; Time</span>
+        <span style="color:#111827;font-size:15px;font-weight:600;">${fmtDT(reminder.dateTime)}</span>
+      </td></tr>
+      ${reminder.notes ? `<tr><td style="padding:8px 0;border-top:1px solid #c7d2fe;">
+        <span style="color:#6b7280;font-size:13px;display:block;">Notes</span>
+        <span style="color:#111827;font-size:15px;">${reminder.notes}</span>
+      </td></tr>` : ''}
+    </table>
+  </td></tr>
+  <tr><td style="background:#f9fafb;padding:20px 40px;border-top:1px solid #e5e7eb;">
+    <p style="color:#9ca3af;font-size:12px;margin:0;text-align:center;">Kanyama Estates — Rental Management Platform</p>
+  </td></tr>
+</table>
+</td></tr></table>
+</body></html>`.trim();
+};
+

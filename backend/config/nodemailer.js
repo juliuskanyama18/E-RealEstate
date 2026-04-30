@@ -11,7 +11,7 @@ export const sendEmail = async ({ from, to, subject, html }) => {
   }
 
   const payload = {
-    sender: { email: from || process.env.EMAIL, name: 'RentalSaaS' },
+    sender: { email: from || process.env.EMAIL, name: 'Kanyama Estates' },
     to: [{ email: to }],
     subject,
     htmlContent: html,

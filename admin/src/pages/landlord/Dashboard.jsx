@@ -1,13 +1,21 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import {
   Building2, Calendar, FileText, Bell,
   ChevronLeft, ChevronRight, UserPlus, CreditCard, Wrench,
+  TrendingUp, TrendingDown, ArrowUpRight,
 } from 'lucide-react';
+import { Line } from 'react-chartjs-2';
+import {
+  Chart as ChartJS, CategoryScale, LinearScale, PointElement,
+  LineElement, Filler, Tooltip as ChartTooltip,
+} from 'chart.js';
 import Layout from '../../components/Layout';
 import { backendUrl, API } from '../../config/constants';
 import { useAuth } from '../../contexts/AuthContext';
+
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, ChartTooltip);
 
 /* ── Mini Calendar ─────────────────────────────────────────── */
 const MiniCalendar = ({ current, onPrev, onNext, rentDueDays = new Set(), leaseExpiryDays = new Set(), selectedDate = null, onSelectDate }) => {
@@ -244,96 +252,121 @@ const DateChip = ({ value, onChange }) => (
 );
 
 /* ── Cashflow Chart (uses real monthly data) ────────────────── */
-const CF_W        = 560;
-const CF_H        = 230;
-const CF_BAR_AREA = 185;
-const CF_BASELINE = 123;
-const CF_BAR_SLOT = CF_W / 12;
-const CF_BAR_W    = 27;
-const CF_BAR_X0   = (CF_BAR_SLOT - CF_BAR_W) / 2;
-const CF_MONTHS_L = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-const CF_GRID_Y   = Array.from({ length: 13 }, (_, i) => Math.round((CF_BAR_AREA / 12) * i));
+const CF_MONTHS_L = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 const CashflowChart = ({ monthlyIncome }) => {
   const yr = new Date().getFullYear();
-  const currentMonth = new Date().getMonth();
   const [fromDate, setFromDate] = useState(new Date(yr, 0, 1));
   const [toDate,   setToDate]   = useState(new Date(yr, 11, 31));
+  const chartRef = useRef(null);
 
   const income   = monthlyIncome.reduce((s, v) => s + v, 0);
   const expenses = 0;
   const net      = income - expenses;
 
-  const chartMax = Math.max(...monthlyIncome, 1) * 1.4;
-  const toBarH   = (val) => val > 0 ? Math.max(Math.round((val / chartMax) * CF_BASELINE), 4) : 0;
+  const chartData = {
+    labels: CF_MONTHS_L,
+    datasets: [
+      {
+        data: monthlyIncome,
+        borderColor: '#f97316',
+        borderWidth: 2.5,
+        tension: 0.45,
+        fill: true,
+        backgroundColor: (ctx) => {
+          const chart = ctx.chart;
+          const { ctx: c, chartArea } = chart;
+          if (!chartArea) return 'transparent';
+          const gradient = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+          gradient.addColorStop(0, 'rgba(249,115,22,0.28)');
+          gradient.addColorStop(1, 'rgba(249,115,22,0.01)');
+          return gradient;
+        },
+        pointRadius: 0,
+        pointHoverRadius: 5,
+        pointHoverBackgroundColor: '#f97316',
+        pointHoverBorderColor: '#fff',
+        pointHoverBorderWidth: 2,
+      },
+    ],
+  };
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#fff',
+        borderColor: '#e5e7eb',
+        borderWidth: 1,
+        titleColor: '#374151',
+        bodyColor: '#6b7280',
+        padding: 10,
+        callbacks: {
+          label: (ctx) => ` TZS ${ctx.raw.toLocaleString()}`,
+        },
+      },
+    },
+    scales: {
+      x: {
+        grid: { color: '#f3f4f6', drawBorder: false },
+        ticks: { color: '#9ca3af', font: { size: 11 } },
+        border: { display: false },
+      },
+      y: {
+        grid: { color: '#f3f4f6', drawBorder: false },
+        border: { display: false, dash: [4, 4] },
+        ticks: {
+          color: '#9ca3af',
+          font: { size: 11 },
+          callback: (v) => {
+            if (v === 0) return '0';
+            if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+            if (v >= 10_000)    return `${(v / 1_000).toFixed(0)}k`;
+            if (v >= 1_000)     return `${(v / 1_000).toFixed(1)}k`;
+            return v.toLocaleString();
+          },
+        },
+      },
+    },
+  };
+
+  const summaryCards = [
+    { label: 'Income',   value: income,   dot: 'bg-blue-500',   bg: 'bg-blue-50',   border: 'border-blue-100',   text: 'text-blue-900',   sub: 'text-blue-600' },
+    { label: 'Expenses', value: expenses, dot: 'bg-orange-500', bg: 'bg-orange-50', border: 'border-orange-100', text: 'text-orange-900', sub: 'text-orange-600' },
+    { label: 'Net',      value: net,      dot: 'bg-green-500',  bg: 'bg-green-50',  border: 'border-green-100',  text: 'text-green-900',  sub: 'text-green-600' },
+  ];
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-sm font-semibold text-gray-700">Cashflow</p>
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow p-5">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-5">
+        <h3 className="text-sm font-semibold text-gray-900">Financial Overview</h3>
         <div className="flex items-center gap-2">
           <DateChip value={fromDate} onChange={setFromDate} />
           <DateChip value={toDate}   onChange={setToDate}   />
         </div>
       </div>
 
-      <div className="flex items-start gap-8 mb-3">
-        {[
-          { label: 'INCOME',   value: income,   color: 'bg-blue-500' },
-          { label: 'EXPENSES', value: expenses, color: 'bg-blue-200' },
-          { label: 'NET',      value: net,      color: 'bg-slate-700' },
-        ].map(({ label, value, color }) => (
-          <div key={label}>
-            <p className="text-base font-bold text-gray-900">TZS {value.toLocaleString()}</p>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${color}`} />
-              <span className="text-[10px] font-semibold text-gray-400 tracking-widest">{label}</span>
+      {/* Summary cards */}
+      <div className="grid grid-cols-3 gap-3 mb-5">
+        {summaryCards.map(({ label, value, dot, bg, border, text, sub }) => (
+          <div key={label} className={`${bg} border ${border} rounded-xl p-3.5`}>
+            <div className="flex items-center gap-1.5 mb-2">
+              <div className={`w-2 h-2 rounded-full ${dot}`} />
+              <span className={`text-xs font-medium ${sub}`}>{label}</span>
             </div>
+            <p className={`text-base font-bold ${text}`}>TZS {value.toLocaleString()}</p>
           </div>
         ))}
       </div>
 
-      <svg
-        viewBox={`0 0 ${CF_W} ${CF_H}`}
-        className="w-full"
-        style={{ height: 195, display: 'block' }}
-        aria-label="Cashflow chart"
-      >
-        <rect width={CF_W} height={CF_H} fill="transparent" />
-        {CF_GRID_Y.map((y, i) => (
-          <line key={i} x1={0} x2={CF_W} y1={y} y2={y} stroke="#F5F6F8" strokeWidth={1} />
-        ))}
-        {monthlyIncome.map((val, i) => {
-          const h = toBarH(val);
-          return (
-            <g key={i} transform={`translate(${CF_BAR_X0 + i * CF_BAR_SLOT}, ${CF_BASELINE - h})`}>
-              <rect
-                width={CF_BAR_W} height={h} rx={2} strokeWidth={0}
-                fill={h > 0 ? (i === currentMonth ? '#3B82F6' : '#93C5FD') : '#eeeeee'}
-              />
-            </g>
-          );
-        })}
-        <g transform={`translate(0, ${CF_BAR_AREA + 10})`}>
-          {CF_MONTHS_L.map((m, i) => (
-            <g key={m} transform={`translate(${i * CF_BAR_SLOT + CF_BAR_SLOT / 2}, 0)`}>
-              <line x1={0} x2={0} y1={0} y2={4} stroke="rgb(119,119,119)" strokeWidth={1} />
-              <text
-                dominantBaseline="text-before-edge"
-                textAnchor="middle"
-                y={7}
-                style={{
-                  fontFamily: 'sans-serif', fontSize: '11px',
-                  fill: i === currentMonth ? '#3B82F6' : 'rgb(134,156,189)',
-                  fontWeight: i === currentMonth ? 'bold' : 'normal',
-                }}
-              >
-                {m}
-              </text>
-            </g>
-          ))}
-        </g>
-      </svg>
+      {/* Area chart */}
+      <div style={{ height: 220 }}>
+        <Line ref={chartRef} data={chartData} options={chartOptions} />
+      </div>
     </div>
   );
 };
@@ -354,49 +387,48 @@ const AlarmClockIcon = ({ size = 18, className = '' }) => (
 );
 
 /* ── Payment Tile ───────────────────────────────────────────── */
-const PaymentTile = ({ title, amount, icon: Icon, iconBg, iconColor, sub, due, lastMonth }) => {
+const PaymentTile = ({ title, amount, icon: Icon, iconBg, iconColor, gradient, sub, due, lastMonth, trend }) => {
   const hasDue = due !== undefined;
   const pct    = hasDue && due > 0 ? Math.min(100, Math.round((amount / due) * 100)) : 0;
   const fmt    = (n) => `TZS ${Number(n || 0).toLocaleString()}`;
+  const isPositive = (trend ?? 0) >= 0;
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 flex flex-col justify-between h-full" style={{ minHeight: 130 }}>
-      {/* Top: title */}
-      <span className="text-sm font-semibold text-gray-700">{title}</span>
-
-      {/* Middle: icon + amount + optional due + optional progress bar */}
-      <div className="my-3">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${iconBg}`}>
-              <Icon size={18} className={iconColor} />
-            </div>
-            <p className="text-xl font-bold text-gray-900">{fmt(amount)}</p>
-          </div>
-          {hasDue && (
-            <div className="text-right flex-shrink-0">
-              <p className="text-sm font-bold text-gray-700">{fmt(due)}</p>
-              <p className="text-[10px] text-gray-400 whitespace-nowrap">Due this month</p>
-            </div>
-          )}
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300 p-5 flex flex-col justify-between h-full group" style={{ minHeight: 140 }}>
+      {/* Top: icon + trend badge */}
+      <div className="flex items-start justify-between mb-3">
+        <div className={`p-2.5 rounded-xl shadow-sm group-hover:scale-110 transition-transform ${gradient || iconBg}`}>
+          <Icon size={18} className={gradient ? 'text-white' : iconColor} />
         </div>
-        {hasDue && (
-          <div className="w-full h-1.5 rounded-full bg-gray-100 overflow-hidden mt-3">
-            <div
-              className="h-full rounded-full bg-blue-500 transition-all duration-500"
-              style={{ width: `${pct}%` }}
-            />
+        {trend !== undefined && trend !== 0 && (
+          <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${isPositive ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+            {isPositive ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+            {Math.abs(trend)}%
           </div>
         )}
       </div>
 
-      {/* Bottom: sub text — always pinned to bottom */}
+      {/* Middle: title + amount */}
+      <div className="mb-2">
+        <p className="text-xs font-medium text-gray-500 mb-1">{title}</p>
+        <div className="flex items-end gap-2">
+          <p className="text-xl font-bold text-gray-900">{fmt(amount)}</p>
+          {hasDue && <p className="text-xs text-gray-400 pb-0.5">/ {fmt(due)}</p>}
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      {hasDue && (
+        <div className="w-full h-1.5 rounded-full bg-gray-100 overflow-hidden mb-2">
+          <div className="h-full rounded-full bg-blue-500 transition-all duration-500" style={{ width: `${pct}%` }} />
+        </div>
+      )}
+
+      {/* Bottom */}
       {hasDue ? (
         <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-gray-600">{fmt(amount)} / {fmt(due)}</span>
-          <span className="text-[10px] text-gray-400 whitespace-nowrap">
-            Last month: <span className="font-semibold text-gray-500">{fmt(lastMonth)}</span>
-          </span>
+          <span className="text-xs text-gray-400">{pct}% collected</span>
+          <span className="text-[10px] text-gray-400">Last: <span className="font-semibold text-gray-500">{fmt(lastMonth)}</span></span>
         </div>
       ) : (
         <p className="text-xs text-gray-400">{sub}</p>
@@ -617,15 +649,19 @@ const LandlordDashboard = () => {
 
   return (
     <Layout>
-      <main className="flex-1 min-h-screen bg-[#f5f6f8]">
-        <div className="max-w-[1100px] mx-auto px-6 py-7 space-y-5">
+      <main className="flex-1 min-h-screen overflow-x-hidden" style={{ background: 'linear-gradient(135deg, #f5f6f8 0%, #f0f4ff 100%)' }}>
+        <div className="page-content py-7 space-y-6">
 
           {/* ── Greeting ────────────────────────────────────────── */}
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Hello {firstName},</h1>
-            <p className="text-sm text-gray-400 mt-0.5">
-              {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
-            </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                Welcome back, {firstName} 👋
+              </h1>
+              <p className="text-sm text-gray-400 mt-0.5">
+                {new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              </p>
+            </div>
           </div>
 
           {loading ? (
@@ -640,30 +676,32 @@ const LandlordDashboard = () => {
                   <Link
                     key={label}
                     to={to}
-                    className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex flex-col items-center gap-2.5 hover:border-blue-200 hover:shadow-md transition-all group"
+                    className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-col items-center gap-2.5 hover:shadow-md hover:border-blue-100 transition-all duration-200 group"
                   >
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${iconBg} group-hover:scale-105 transition-transform`}>
-                      <Icon size={18} className={iconColor} />
+                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${iconBg} group-hover:scale-110 transition-transform duration-200`}>
+                      <Icon size={19} className={iconColor} />
                     </div>
-                    <span className="text-xs font-medium text-gray-600 text-center">{label}</span>
+                    <span className="text-xs font-semibold text-gray-600 text-center">{label}</span>
                   </Link>
                 ))}
               </div>
 
-              {/* ── Unified 10-col grid — tiles align exactly with cards below ── */}
+              {/* ── Unified 10-col grid ── */}
               <div className="grid grid-cols-1 lg:grid-cols-10 gap-4">
 
-                {/* Row 1 — Payment tiles (3+3+4 = 10 cols) */}
+                {/* Payment tiles (3+3+4 = 10 cols) */}
                 <div className="lg:col-span-3">
                   <PaymentTile
                     title="Rent Received"
                     amount={rentReceived}
                     icon={HouseIcon}
+                    gradient="bg-gradient-to-br from-green-500 to-green-600"
                     iconBg="bg-green-100"
                     iconColor="text-green-600"
                     sub={`${paidThisMonth} tenant${paidThisMonth !== 1 ? 's' : ''} paid this month`}
                     due={totalDueThisMonth}
                     lastMonth={rentLastMonth}
+
                   />
                 </div>
                 <div className="lg:col-span-3">
@@ -671,46 +709,75 @@ const LandlordDashboard = () => {
                     title="Upcoming Payments"
                     amount={upcomingAmount}
                     icon={Calendar}
+                    gradient="bg-gradient-to-br from-blue-500 to-blue-600"
                     iconBg="bg-blue-100"
                     iconColor="text-blue-600"
                     sub={`${upcomingTenants.length} payment${upcomingTenants.length !== 1 ? 's' : ''} due within 7 days`}
                   />
                 </div>
                 <div className="lg:col-span-4">
-                  <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 flex flex-col justify-between h-full" style={{ minHeight: 130 }}>
-                    <span className="text-sm font-semibold text-gray-700">Rent Overdue</span>
-                    <div className="my-3 flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
-                        <AlarmClockIcon size={18} className="text-red-500" />
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300 p-5 flex flex-col justify-between h-full group" style={{ minHeight: 140 }}>
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="p-2.5 rounded-xl bg-gradient-to-br from-red-500 to-red-600 shadow-sm group-hover:scale-110 transition-transform">
+                        <AlarmClockIcon size={18} className="text-white" />
                       </div>
+                      {overdueCount > 0 && (
+                        <div className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-50 text-red-700">
+                          <TrendingDown size={11} />
+                          {overdueCount} overdue
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 mb-1">Rent Overdue</p>
                       <p className="text-xl font-bold text-gray-900">TZS {overdueAmount.toLocaleString()}</p>
                     </div>
-                    <span className="text-xs text-gray-500">
-                      {overdueCount === 0 ? 'No overdue tenants' : `${overdueCount} overdue`}
-                    </span>
+                    <p className="text-xs text-gray-400">
+                      {overdueCount === 0 ? 'No overdue tenants — all clear!' : `${overdueCount} propert${overdueCount !== 1 ? 'ies' : 'y'} overdue`}
+                    </p>
                   </div>
                 </div>
 
-                {/* Left column (6 cols) — Cashflow then Properties stacked */}
+                {/* Left column (6 cols) — Cashflow + Properties */}
                 <div className="lg:col-span-6 flex flex-col gap-4">
                   <CashflowChart monthlyIncome={monthlyIncome} />
-                  <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-                    <div className="flex items-center justify-between mb-4">
-                      <p className="text-sm font-semibold text-gray-700">Properties</p>
-                      <Link to="/houses" className="text-xs text-blue-600 hover:underline">View all</Link>
+
+                  {/* Properties card */}
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow p-5">
+                    <div className="flex items-center justify-between mb-5">
+                      <p className="text-sm font-semibold text-gray-900">Properties Overview</p>
+                      <Link to="/houses" className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 transition-colors">
+                        View all <ArrowUpRight size={13} />
+                      </Link>
                     </div>
-                    <StatPill label="Total Properties" value={totalProperties} color="bg-blue-500" />
-                    <StatPill label="Total Tenants"    value={totalTenants}    color="bg-green-500" />
-                    <StatPill label="Occupied Houses"  value={occupiedHouses}  color="bg-purple-500" />
-                    <StatPill label="Vacant Houses"    value={vacantHouses}    color="bg-orange-400" />
-                    <div className="mt-4 pt-3 border-t border-gray-50 space-y-3">
+
+                    {/* Stat grid */}
+                    <div className="grid grid-cols-2 gap-3 mb-5">
+                      {[
+                        { label: 'Total Properties', value: totalProperties, bg: 'bg-blue-50',   dot: 'bg-blue-500',   text: 'text-blue-900' },
+                        { label: 'Total Tenants',    value: totalTenants,    bg: 'bg-green-50',  dot: 'bg-green-500',  text: 'text-green-900' },
+                        { label: 'Occupied',         value: occupiedHouses,  bg: 'bg-purple-50', dot: 'bg-purple-500', text: 'text-purple-900' },
+                        { label: 'Vacant',           value: vacantHouses,    bg: 'bg-orange-50', dot: 'bg-orange-400', text: 'text-orange-900' },
+                      ].map(({ label, value, bg, dot, text }) => (
+                        <div key={label} className={`${bg} rounded-xl p-3.5`}>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <div className={`w-2 h-2 rounded-full ${dot}`} />
+                            <span className="text-xs text-gray-500">{label}</span>
+                          </div>
+                          <p className={`text-2xl font-bold ${text}`}>{value}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Progress bars */}
+                    <div className="space-y-3 pt-4 border-t border-gray-100">
                       <div>
                         <div className="flex items-center justify-between text-xs text-gray-500 mb-1.5">
                           <span>Occupancy rate</span>
                           <span className="font-semibold text-gray-900">{occupancyRate}%</span>
                         </div>
-                        <div className="w-full h-2 rounded-full bg-gray-100">
-                          <div className="h-2 rounded-full bg-green-500 transition-all duration-500" style={{ width: `${occupancyRate}%` }} />
+                        <div className="w-full h-2 rounded-full bg-gray-100 overflow-hidden">
+                          <div className="h-full rounded-full transition-all duration-700" style={{ width: `${occupancyRate}%`, background: 'linear-gradient(90deg, #10b981, #34d399)' }} />
                         </div>
                       </div>
                       <div>
@@ -718,8 +785,8 @@ const LandlordDashboard = () => {
                           <span>Rent collected this month</span>
                           <span className="font-semibold text-gray-900">{collectionRate}%</span>
                         </div>
-                        <div className="w-full h-2 rounded-full bg-gray-100">
-                          <div className="h-2 rounded-full bg-blue-500 transition-all duration-500" style={{ width: `${collectionRate}%` }} />
+                        <div className="w-full h-2 rounded-full bg-gray-100 overflow-hidden">
+                          <div className="h-full rounded-full transition-all duration-700" style={{ width: `${collectionRate}%`, background: 'linear-gradient(90deg, #3b82f6, #60a5fa)' }} />
                         </div>
                         <p className="text-[10px] text-gray-400 mt-1">
                           {paidThisMonth} of {totalTenants} tenant{totalTenants !== 1 ? 's' : ''} paid
@@ -729,7 +796,7 @@ const LandlordDashboard = () => {
                   </div>
                 </div>
 
-                {/* Right column (4 cols) — Calendar+Events then Maintenance stacked */}
+                {/* Right column (4 cols) — Calendar + Events + Maintenance */}
                 <div className="lg:col-span-4 flex flex-col gap-4">
                   <MiniCalendar
                     current={calCurrent}

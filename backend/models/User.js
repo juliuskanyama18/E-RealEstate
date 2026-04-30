@@ -16,8 +16,12 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: [true, "Password is required"],
       minlength: 6,
+      select: false,
+    },
+    googleId: {
+      type: String,
+      trim: true,
       select: false,
     },
     role: {
@@ -35,15 +39,30 @@ const userSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "House",
     },
+    // Tenant lifecycle status
+    tenantStatus: {
+      type: String,
+      enum: ['prospect', 'current', 'past'],
+      default: 'prospect',
+    },
     phone: {
       type: String,
       trim: true,
+    },
+    notes: {
+      type: String,
+      trim: true,
+      maxlength: 1000,
     },
     isActive: {
       type: Boolean,
       default: true,
     },
     portalActivated: {
+      type: Boolean,
+      default: false,
+    },
+    portalInviteSent: {
       type: Boolean,
       default: false,
     },
