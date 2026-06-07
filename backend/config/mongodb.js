@@ -4,8 +4,8 @@ import dns from "dns";
 
 dotenv.config({ path: './.env.local' });
 
-// Override Node.js c-ares DNS to bypass broken Windows IPv6 loopback addresses
-dns.setServers(['8.8.8.8', '8.8.4.4']);
+// Use local network DNS — avoids Windows Firewall blocking outbound UDP to external DNS
+dns.setServers(['10.166.133.9']);
 
 const connectdb = async () => {
   try {
