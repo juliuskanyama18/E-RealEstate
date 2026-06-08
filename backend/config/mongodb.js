@@ -4,8 +4,11 @@ import dns from "dns";
 
 dotenv.config({ path: './.env.local' });
 
-// Use local network DNS — avoids Windows Firewall blocking outbound UDP to external DNS
-dns.setServers(['10.166.133.9']);
+// In development on Windows, c-ares can't reach external DNS via UDP due to Firewall.
+// Use the local router DNS instead. In production (Render), system DNS works fine.
+if (process.env.NODE_ENV !== 'production') {
+  dns.setServers(['10.166.133.9']);
+}
 
 const connectdb = async () => {
   try {
