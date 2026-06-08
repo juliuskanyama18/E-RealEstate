@@ -1600,10 +1600,10 @@ const HouseDetail = () => {
 
           {/* Row 2 — property identity + actions */}
           <div className="bg-white border-b border-gray-100">
-            <div className="max-w-4xl mx-auto px-6 py-3" style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
+            <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
 
               {/* Left: circular avatar + name + edit + address */}
-              <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 16, minWidth: 0 }}>
+              <div className="flex items-center gap-4 min-w-0">
                 <div style={{ width: 56, height: 56, borderRadius: '50%', flexShrink: 0, overflow: 'hidden', border: '1px solid #e5e7eb', background: 'linear-gradient(135deg,#f8fafc,#eff6ff)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {house.photo
                     ? <img src={`${backendUrl}${house.photo}`} alt={house.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -1654,8 +1654,8 @@ const HouseDetail = () => {
               </div>
 
               {/* Right: lease selector + Add button */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-                <div style={{ display: 'inline-flex', alignItems: 'center', border: '1px solid #d1d5db', borderRadius: 6, padding: '6px 10px', fontSize: 13, color: '#374151', background: '#fff', gap: 8, cursor: 'default', minWidth: 200 }}>
+              <div className="flex items-center gap-2 w-full sm:w-auto sm:flex-shrink-0">
+                <div style={{ display: 'inline-flex', alignItems: 'center', border: '1px solid #d1d5db', borderRadius: 6, padding: '6px 10px', fontSize: 13, color: '#374151', background: '#fff', gap: 8, cursor: 'default', flex: 1 }}>
                   <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.3 }}>
                     <span style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Lease</span>
                     <span style={{ fontSize: 12, fontWeight: 500, color: '#374151' }}>
