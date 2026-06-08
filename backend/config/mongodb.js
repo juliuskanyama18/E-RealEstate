@@ -4,10 +4,9 @@ import dns from "dns";
 
 dotenv.config({ path: './.env.local' });
 
-// In development on Windows, c-ares can't reach external DNS via UDP due to Firewall.
-// Use the local router DNS instead. In production (Render), system DNS works fine.
+// Prefer IPv4 to avoid Windows IPv6 loopback issues with MongoDB SRV lookups
 if (process.env.NODE_ENV !== 'production') {
-  dns.setServers(['10.166.133.9']);
+  dns.setServers(['8.8.8.8', '8.8.4.4']);
 }
 
 const connectdb = async () => {

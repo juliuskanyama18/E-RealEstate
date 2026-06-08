@@ -406,16 +406,16 @@ const Houses = () => {
                     <div style={{ flex: '1 1 0', minWidth: 0, paddingRight: 16 }}>
                       <p style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', letterSpacing: '0.06em' }}>ADDRESS</p>
                     </div>
-                    <div style={{ flex: '0 0 155px', paddingRight: 16 }}>
+                    <div className="hidden md:block" style={{ flex: '0 0 155px', paddingRight: 16 }}>
                       <p style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', letterSpacing: '0.06em' }}>TENANTS</p>
                     </div>
-                    <div style={{ flex: '0 0 124px', paddingRight: 16 }}>
+                    <div className="hidden lg:block" style={{ flex: '0 0 124px', paddingRight: 16 }}>
                       <p style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', letterSpacing: '0.06em' }}>DUE DATE</p>
                     </div>
-                    <div style={{ flex: '0 0 130px', paddingRight: 16 }}>
+                    <div className="hidden lg:block" style={{ flex: '0 0 130px', paddingRight: 16 }}>
                       <p style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', letterSpacing: '0.06em' }}>RENT DUE</p>
                     </div>
-                    <div style={{ flex: '0 0 120px', textAlign: 'center' }}>
+                    <div style={{ flex: '0 0 90px', textAlign: 'center' }}>
                       <p style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', letterSpacing: '0.06em' }}>STATUS</p>
                     </div>
                   </div>
@@ -477,28 +477,30 @@ const Houses = () => {
                             </button>
                           </div>
                           {locationLine && <p style={{ fontSize: 11, color: '#6b7280', marginTop: 1 }}>{locationLine}</p>}
+                          {/* Tenant visible only on mobile where the Tenants column is hidden */}
+                          {tenantName && <p className="md:hidden" style={{ fontSize: 11, color: '#042238', marginTop: 1, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{tenantName}</p>}
                         </div>
 
-                        {/* Tenants */}
-                        <div style={{ flex: '0 0 155px', paddingRight: 16 }}>
+                        {/* Tenants — hidden on mobile */}
+                        <div className="hidden md:block" style={{ flex: '0 0 155px', paddingRight: 16 }}>
                           <p style={{ fontSize: 13, color: tenantName ? '#042238' : '#d1d5db' }}>{tenantName || '—'}</p>
                         </div>
 
-                        {/* Due Date */}
-                        <div style={{ flex: '0 0 124px', paddingRight: 16 }}>
+                        {/* Due Date — hidden below lg */}
+                        <div className="hidden lg:block" style={{ flex: '0 0 124px', paddingRight: 16 }}>
                           <p style={{ fontSize: 13, color: dueDateStr === '—' ? '#d1d5db' : '#042238' }}>{dueDateStr}</p>
                         </div>
 
-                        {/* Rent Due */}
-                        <div style={{ flex: '0 0 130px', paddingRight: 16 }}>
+                        {/* Rent Due — hidden below lg */}
+                        <div className="hidden lg:block" style={{ flex: '0 0 130px', paddingRight: 16 }}>
                           <p style={{ fontSize: 13, fontWeight: 600, color: rentDue ? '#042238' : '#d1d5db' }}>
                             {rentDue ? `TZS ${Number(rentDue).toLocaleString()}` : '—'}
                           </p>
                         </div>
 
-                        {/* Status */}
-                        <div style={{ flex: '0 0 120px', display: 'flex', justifyContent: 'center' }}>
-                          <span className={`inline-flex items-center text-xs font-bold px-2.5 py-0.5 rounded-full ${statusClass}`} style={{ letterSpacing: '0.04em' }}>
+                        {/* Status — always visible, narrower on mobile */}
+                        <div style={{ flex: '0 0 90px', display: 'flex', justifyContent: 'center' }}>
+                          <span className={`inline-flex items-center text-xs font-bold px-2 py-0.5 rounded-full ${statusClass}`} style={{ letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
                             {status}
                           </span>
                         </div>
