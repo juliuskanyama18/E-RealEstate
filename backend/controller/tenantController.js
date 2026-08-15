@@ -13,7 +13,10 @@ if (!fs.existsSync(maintUploadDir)) fs.mkdirSync(maintUploadDir, { recursive: tr
 
 const maintStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, maintUploadDir),
-  filename: (_req, file, cb) => cb(null, `${Date.now()}-${file.originalname.replace(/\s+/g, "_")}`),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `${Date.now()}-${Math.round(Math.random() * 1e6)}${ext}`);
+  },
 });
 
 export const uploadTenantMaintenancePhotos = multer({

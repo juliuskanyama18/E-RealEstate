@@ -1,6 +1,7 @@
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 import validator from "validator";
+import mongoose from "mongoose";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -534,7 +535,7 @@ export const createMaintenanceRequest = async (req, res) => {
 export const getMaintenanceRequests = async (req, res) => {
   try {
     const filter = { landlord: req.user._id };
-    if (req.query.houseId) filter.house = req.query.houseId;
+    if (req.query.houseId && mongoose.isValidObjectId(req.query.houseId)) filter.house = req.query.houseId;
 
     const requests = await MaintenanceRequest.find(filter)
       .populate("house", "name address city")
@@ -790,7 +791,7 @@ export const recordPayment = async (req, res) => {
 export const getPayments = async (req, res) => {
   try {
     const filter = { landlord: req.user._id };
-    if (req.query.houseId) filter.house = req.query.houseId;
+    if (req.query.houseId && mongoose.isValidObjectId(req.query.houseId)) filter.house = req.query.houseId;
     const records = await RentRecord.find(filter)
       .populate("tenant", "name email")
       .populate("house", "name address")
@@ -1022,11 +1023,22 @@ export const getHouseLeases = async (req, res) => {
   }
 };
 
+const LEASE_EDITABLE_FIELDS = [
+  "startDate", "endDate", "rentAmount", "frequency", "paymentDay", "deposit",
+  "chargeLateFees", "lateFees", "leaseExpiryReminder", "leaseExpiryReminderDays",
+  "rentReminder", "overdueReminder", "furnishing", "notes", "status",
+];
+
 export const updateLease = async (req, res) => {
   try {
+    const updates = {};
+    for (const field of LEASE_EDITABLE_FIELDS) {
+      if (Object.prototype.hasOwnProperty.call(req.body, field)) updates[field] = req.body[field];
+    }
+
     const lease = await Lease.findOneAndUpdate(
       { _id: req.params.leaseId, landlord: req.user._id },
-      req.body,
+      updates,
       { new: true, runValidators: true }
     ).populate("tenant", "name email phone");
     if (!lease) return res.status(404).json({ success: false, message: "Lease not found" });
@@ -1325,11 +1337,18 @@ export const createReminder = async (req, res) => {
   }
 };
 
+const REMINDER_EDITABLE_FIELDS = ["dateTime", "category", "notes", "status", "recurring", "repeatInterval"];
+
 export const updateReminder = async (req, res) => {
   try {
+    const updates = {};
+    for (const field of REMINDER_EDITABLE_FIELDS) {
+      if (Object.prototype.hasOwnProperty.call(req.body, field)) updates[field] = req.body[field];
+    }
+
     const reminder = await Reminder.findOneAndUpdate(
       { _id: req.params.reminderId, landlord: req.user._id },
-      req.body,
+      updates,
       { new: true, runValidators: true }
     );
     if (!reminder) return res.status(404).json({ success: false, message: "Reminder not found" });
@@ -1516,6 +1535,16 @@ export const createExpense = async (req, res) => {
   try {
     const { dueDate, category, description, amount, status, paymentDate, payableByTenant, capitalExpense, notes, supplier, house } = req.body;
     if (!dueDate || amount === undefined) return res.status(400).json({ success: false, message: "dueDate and amount are required" });
+
+    if (house) {
+      const ownedHouse = await House.findOne({ _id: house, landlord: req.user._id });
+      if (!ownedHouse) return res.status(404).json({ success: false, message: "House not found" });
+    }
+    if (supplier) {
+      const ownedSupplier = await Supplier.findOne({ _id: supplier, landlord: req.user._id });
+      if (!ownedSupplier) return res.status(404).json({ success: false, message: "Supplier not found" });
+    }
+
     const receiptImage = req.file ? fileToDataUrl(req.file) : undefined;
     const receiptName  = req.file ? req.file.originalname : undefined;
     const expense = await Expense.create({
@@ -1551,8 +1580,21 @@ export const updateExpense = async (req, res) => {
     if (payableByTenant !== undefined) expense.payableByTenant = payableByTenant === 'true' || payableByTenant === true;
     if (capitalExpense  !== undefined) expense.capitalExpense  = capitalExpense  === 'true' || capitalExpense  === true;
     if (notes       !== undefined) expense.notes       = notes;
-    if (supplier    !== undefined) expense.supplier    = supplier || undefined;
-    if (house       !== undefined) expense.house       = house    || undefined;
+
+    if (supplier !== undefined) {
+      if (supplier) {
+        const ownedSupplier = await Supplier.findOne({ _id: supplier, landlord: req.user._id });
+        if (!ownedSupplier) return res.status(404).json({ success: false, message: "Supplier not found" });
+      }
+      expense.supplier = supplier || undefined;
+    }
+    if (house !== undefined) {
+      if (house) {
+        const ownedHouse = await House.findOne({ _id: house, landlord: req.user._id });
+        if (!ownedHouse) return res.status(404).json({ success: false, message: "House not found" });
+      }
+      expense.house = house || undefined;
+    }
 
     if (req.file) {
       expense.receiptImage = fileToDataUrl(req.file);

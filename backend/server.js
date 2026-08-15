@@ -44,6 +44,9 @@ app.use(
     origin: [
       "http://localhost:5174",
       "http://localhost:5173",
+      // Capacitor's default WebView origins (Android + iOS native app)
+      "https://localhost",
+      "capacitor://localhost",
       process.env.WEBSITE_URL,
     ].filter(Boolean),
     credentials: true,

@@ -1,5 +1,6 @@
 import bcrypt from "bcrypt";
 import crypto from "crypto";
+import mongoose from "mongoose";
 import User from "../models/User.js";
 import House from "../models/House.js";
 import RentRecord from "../models/RentRecord.js";
@@ -236,8 +237,8 @@ export const getAllRentRecords = async (req, res) => {
     const { month, status } = req.query;
 
     const query = {};
-    if (month)  query.month  = month;
-    if (status) query.status = status;
+    if (typeof month === "string" && month)   query.month  = month;
+    if (typeof status === "string" && status) query.status = status;
 
     const [records, monthlyStats] = await Promise.all([
       RentRecord.find(query)

@@ -1,5 +1,5 @@
 // Beem Africa SMS — https://apisms.beem.africa/v1/send
-// Env vars: BEEM_API_KEY, BEEM_SECRET_KEY, BEEM_SOURCE_ADDR (sender name, e.g. "KANYAMA")
+// Env vars: BEEM_API_KEY, BEEM_SECRET_KEY, BEEM_SOURCE_ADDR (sender name, e.g. "KANYAMAEST")
 
 // Accepts: 07XXXXXXXX | 7XXXXXXXX | 255XXXXXXXX | +255XXXXXXXX
 // Returns: 255XXXXXXXX (Beem expects no + prefix) or null
