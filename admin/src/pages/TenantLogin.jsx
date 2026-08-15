@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
@@ -17,8 +17,13 @@ const TenantLogin = () => {
   const [loading, setLoading] = useState(false);
 
   // Already authenticated → redirect
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate(role === 'tenant' ? '/portal' : '/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, role, navigate]);
+
   if (isAuthenticated) {
-    navigate(role === 'tenant' ? '/portal' : '/dashboard', { replace: true });
     return null;
   }
 

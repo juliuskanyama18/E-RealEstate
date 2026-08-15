@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Building2 } from 'lucide-react';
 import { useGoogleLogin } from '@react-oauth/google';
@@ -127,8 +127,13 @@ const Login = () => {
     onError: () => toast.error('Google login failed'),
   });
 
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate(dashboardByRole[role] || '/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, role, navigate]);
+
   if (isAuthenticated) {
-    navigate(dashboardByRole[role] || '/dashboard', { replace: true });
     return null;
   }
 
