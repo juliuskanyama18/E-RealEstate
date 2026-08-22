@@ -489,8 +489,8 @@ const CreateRequestModal = ({ house, onClose }) => {
 const DOT_PATH = "M1.609 0c.206 0 .417.068.627.138.208.069.386.209.523.347.14.139.28.313.352.52.067.21.105.417.105.624 0 .21-.038.417-.105.591a1.394 1.394 0 0 1-.352.518c-.137.174-.315.28-.523.349a1.51 1.51 0 0 1-1.223 0 1.058 1.058 0 0 1-.524-.35 1.082 1.082 0 0 1-.351-.517A1.17 1.17 0 0 1 0 1.63c0-.207.036-.414.138-.624C.21.798.315.624.489.485.77.175 1.19 0 1.61 0m5.897 125.96a1.64 1.64 0 0 0-1.144.488 1.6 1.6 0 0 0 0 2.258 1.627 1.627 0 0 0 2.288 0 1.57 1.57 0 0 0-.034-2.258h.034a1.633 1.633 0 0 0-1.144-.488Zm83.407-1.732a1.668 1.668 0 0 0-1.52 1.81c.069.907.867 1.595 1.77 1.525.943-.075 1.63-.871 1.56-1.776-.075-.908-.801-1.56-1.666-1.56h-.144Zm-13.39.027a1.709 1.709 0 0 0-1.506 1.83c.108.897.896 1.578 1.792 1.472.934-.072 1.614-.863 1.508-1.793a1.644 1.644 0 0 0-1.651-1.509h-.143Zm-14.298-.046c-.073 0-.144 0-.217.04-.9.07-1.583.9-1.477 1.834.106.9.938 1.55 1.838 1.48a1.658 1.658 0 0 0 1.475-1.839 1.643 1.643 0 0 0-1.619-1.515Zm-14.187.037a1.72 1.72 0 0 0-1.437 1.903h.04c.103.897.966 1.542 1.863 1.4.896-.109 1.54-.972 1.396-1.869a1.66 1.66 0 0 0-1.649-1.434h-.213Zm-13.214.015c-.111 0-.216.035-.325.035-.907.177-1.486 1.032-1.304 1.922a1.679 1.679 0 0 0 1.953 1.32c.905-.181 1.522-1.036 1.34-1.961a1.694 1.694 0 0 0-1.664-1.316Zm82.467-.024a1.606 1.606 0 0 0-1.553 1.735h-.037c.075.939.867 1.662 1.772 1.591a1.716 1.716 0 0 0 1.59-1.773 1.662 1.662 0 0 0-1.662-1.553h-.11Zm-96.351-.015c-.18 0-.362.036-.54.073-.871.29-1.34 1.266-1.052 2.136a1.662 1.662 0 0 0 2.1 1.052c.87-.254 1.34-1.234 1.05-2.102a1.663 1.663 0 0 0-1.558-1.159Zm82.96-1.034c-.931.07-1.612.86-1.541 1.758.035.933.825 1.616 1.759 1.545.929-.037 1.613-.862 1.54-1.76-.07-.862-.79-1.543-1.65-1.543h-.108Zm27.363-.034a1.703 1.703 0 0 0-1.584 1.76c.071.935.828 1.618 1.764 1.58.902-.07 1.623-.824 1.552-1.759a1.636 1.636 0 0 0-1.657-1.58h-.075ZM8.095 83.08c-.788 0-1.508.573-1.65 1.4-.108.935.501 1.76 1.432 1.902a1.68 1.68 0 0 0 1.866-1.4c.143-.93-.5-1.757-1.395-1.902h-.253ZM1.61 13.936c.206 0 .417.034.627.105.208.069.386.208.523.348.318.315.457.734.457 1.154 0 .21-.038.42-.105.631-.073.174-.212.35-.352.522-.137.141-.315.244-.523.351-.384.14-.84.14-1.223 0-.21-.107-.384-.21-.524-.351a1.56 1.56 0 0 1-.351-.522 1.421 1.421 0 0 1-.138-.63c0-.454.176-.84.49-1.155.28-.313.699-.453 1.119-.453m0 13.4c.206 0 .417.038.627.107.208.104.386.211.523.351.14.174.28.349.352.525.067.21.105.42.105.63 0 .422-.14.842-.457 1.156-.556.596-1.676.596-2.27 0A1.65 1.65 0 0 1 0 28.95c0-.211.036-.42.138-.63.072-.177.177-.352.351-.526.281-.28.7-.458 1.12-.458m0 13.936c.206 0 .417.034.627.105.208.103.386.209.523.348.318.316.457.734.457 1.155 0 .21-.038.42-.105.631-.073.174-.212.348-.352.524-.137.141-.315.243-.523.35a1.862 1.862 0 0 1-1.223 0c-.21-.107-.384-.209-.524-.35a1.606 1.606 0 0 1-.351-.524A1.423 1.423 0 0 1 0 42.88c0-.42.176-.84.49-1.155.139-.14.313-.245.523-.348a1.62 1.62 0 0 1 .596-.105m0 13.4c.206 0 .417.036.627.105.208.103.386.21.523.348.318.315.457.736.457 1.154 0 .209-.038.42-.105.631a1.78 1.78 0 0 1-.352.522c-.137.141-.315.244-.523.351-.384.14-.84.14-1.223 0-.21-.107-.384-.21-.524-.351-.174-.14-.279-.348-.353-.522-.1-.21-.136-.422-.136-.63 0-.42.176-.84.49-1.155.28-.277.699-.453 1.119-.453m0 13.936c.206 0 .417.036.627.138.208.069.386.173.523.347.318.277.457.694.457 1.112 0 .206-.038.415-.105.622a1.41 1.41 0 0 1-.352.521 1.362 1.362 0 0 1-.523.345 1.494 1.494 0 0 1-1.223 0 1.362 1.362 0 0 1-.524-.345 1.11 1.11 0 0 1-.353-.521A1.409 1.409 0 0 1 0 70.205c0-.418.176-.835.49-1.112.28-.312.699-.485 1.119-.485m0 13.803c.206 0 .417.034.627.138.208.069.386.173.523.347.14.139.28.313.352.52.067.172.105.38.105.59 0 .242-.038.417-.105.625-.073.207-.212.38-.352.52-.137.14-.315.276-.523.347a1.51 1.51 0 0 1-1.223 0 1.366 1.366 0 0 1-.524-.347 1.124 1.124 0 0 1-.353-.52c-.1-.176-.136-.383-.136-.626 0-.208.036-.417.136-.59.074-.206.18-.38.353-.519.281-.312.7-.485 1.12-.485m0 13.936c.206 0 .417.07.627.138.208.07.386.21.523.349.318.31.457.693.457 1.142 0 .21-.038.417-.105.589a1.4 1.4 0 0 1-.352.519 1.37 1.37 0 0 1-.523.348 1.496 1.496 0 0 1-1.223 0 1.37 1.37 0 0 1-.524-.348 1.104 1.104 0 0 1-.353-.52A1.176 1.176 0 0 1 0 97.574c0-.449.176-.832.49-1.142.28-.31.699-.487 1.119-.487m0 13.936c.206 0 .417.038.627.107.208.07.386.21.523.35.14.139.28.315.352.526.067.174.105.385.105.63 0 .21-.038.422-.105.596-.073.211-.212.386-.352.527-.137.14-.315.28-.523.35a1.495 1.495 0 0 1-1.223 0 1.361 1.361 0 0 1-.524-.35 1.132 1.132 0 0 1-.353-.527 1.21 1.21 0 0 1-.136-.595c0-.457.176-.842.49-1.158.28-.316.699-.456 1.119-.456m0 13.936c.206 0 .417.068.627.138.208.069.386.209.523.347.318.311.457.694.457 1.144 0 .21-.038.417-.105.59a1.402 1.402 0 0 1-.352.519 1.058 1.058 0 0 1-.523.349 1.51 1.51 0 0 1-1.223 0 1.058 1.058 0 0 1-.524-.35 1.105 1.105 0 0 1-.353-.519c-.1-.172-.136-.379-.136-.59 0-.449.176-.832.49-1.143.28-.31.699-.485 1.119-.485m7.518 7.504c.21 0 .416.036.59.107.208.102.38.207.519.346.174.175.276.348.346.523.104.21.138.416.138.626 0 .207-.034.418-.138.626-.07.209-.172.382-.346.52a1.59 1.59 0 0 1-1.73.349 1.344 1.344 0 0 1-.521-.348 1.636 1.636 0 0 1-.481-1.147c0-.417.17-.835.48-1.15a1.69 1.69 0 0 1 1.143-.452";
 
 /* ── Documents Tab ───────────────────────────────────────────────────────── */
-const DocumentsTab = ({ houseId, backendUrl }) => {
-  const [docTab, setDocTab]           = useState('property');
+const DocumentsTab = ({ houseId, backendUrl, initialTab = 'property', onChange }) => {
+  const [docTab, setDocTab]           = useState(initialTab);
   const [docs, setDocs]               = useState([]);
   const [loading, setLoading]         = useState(true);
   const [search, setSearch]           = useState('');
@@ -536,6 +536,7 @@ const DocumentsTab = ({ houseId, backendUrl }) => {
       toast.success('Document uploaded');
       closeUpload();
       fetchDocs(docTab);
+      onChange?.();
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Upload failed');
     } finally { setUploading(false); }
@@ -554,6 +555,7 @@ const DocumentsTab = ({ houseId, backendUrl }) => {
           await axios.delete(`${backendUrl}/api/landlord/documents/${docId}`, { headers: { Authorization: `Bearer ${token}` } });
           setDocs(prev => prev.filter(d => d._id !== docId));
           toast.success('Deleted');
+          onChange?.();
         } catch { toast.error('Failed to delete'); }
         finally { setConfirm({ open: false }); }
       },
@@ -1058,8 +1060,10 @@ const HouseDetail = () => {
   const [house, setHouse]     = useState(null);
   const [tenants, setTenants] = useState([]);
   const [lease, setLease]     = useState(null);
+  const [leaseDocCount, setLeaseDocCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab]         = useState('Overview');
+  const [docsInitialTab, setDocsInitialTab] = useState('property');
   const [paymentView, setPaymentView]     = useState('Month');
   const [payExpTab, setPayExpTab]         = useState('Payments');
   const [housePayments,    setHousePayments]    = useState([]);
@@ -1122,14 +1126,16 @@ const HouseDetail = () => {
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        const [houseRes, tenantsRes, leaseRes] = await Promise.all([
+        const [houseRes, tenantsRes, leaseRes, leaseDocsRes] = await Promise.all([
           axios.get(`${backendUrl}${API.houses}/${id}`),
           axios.get(`${backendUrl}${API.houses}/${id}/tenants`),
           axios.get(`${backendUrl}/api/landlord/houses/${id}/lease`).catch(() => ({ data: { data: null } })),
+          axios.get(`${backendUrl}/api/landlord/houses/${id}/documents?type=lease`).catch(() => ({ data: { data: [] } })),
         ]);
         setHouse(houseRes.data.data);
         setTenants(tenantsRes.data.data || []);
         setLease(leaseRes.data.data || null);
+        setLeaseDocCount((leaseDocsRes.data.data || []).length);
       } catch {
         toast.error('Failed to load house details');
       } finally {
@@ -1138,6 +1144,13 @@ const HouseDetail = () => {
     };
     fetchAll();
   }, [id]);
+
+  const refreshLeaseDocCount = async () => {
+    try {
+      const res = await axios.get(`${backendUrl}/api/landlord/houses/${id}/documents?type=lease`);
+      setLeaseDocCount((res.data.data || []).length);
+    } catch { /* non-critical */ }
+  };
 
   /* ── Due date helpers ── */
   const getCurrentDueDate = (paymentDay) => {
@@ -1680,7 +1693,7 @@ const HouseDetail = () => {
                       { label: 'Expense',  action: () => { setShowAddExpense(true);  setShowAddMenu(false); }, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M18 17H6v-2h12zm0-4H6v-2h12zm0-4H6V7h12zM3 22l1.5-1.5L6 22l1.5-1.5L9 22l1.5-1.5L12 22l1.5-1.5L15 22l1.5-1.5L18 22l1.5-1.5L21 22V2l-1.5 1.5L18 2l-1.5 1.5L15 2l-1.5 1.5L12 2l-1.5 1.5L9 2 7.5 3.5 6 2 4.5 3.5 3 2z"/></svg> },
                       { label: 'Lease',    action: () => { navigate(`/houses/${id}/create-lease`); setShowAddMenu(false); }, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="m18.85 10.39 1.06-1.06c.78-.78.78-2.05 0-2.83L18.5 5.09c-.78-.78-2.05-.78-2.83 0l-1.06 1.06zm-5.66-2.83L4 16.76V21h4.24l9.19-9.19zM19 17.5c0 2.19-2.54 3.5-5 3.5-.55 0-1-.45-1-1s.45-1 1-1c1.54 0 3-.73 3-1.5 0-.47-.48-.87-1.23-1.2l1.48-1.48c1.07.63 1.75 1.47 1.75 2.68M4.58 13.35C3.61 12.79 3 12.06 3 11c0-1.8 1.89-2.63 3.56-3.36C7.59 7.18 9 6.56 9 6c0-.41-.78-1-2-1-1.26 0-1.8.61-1.83.64-.35.41-.98.46-1.4.12-.41-.34-.49-.95-.15-1.38C3.73 4.24 4.76 3 7 3s4 1.32 4 3c0 1.87-1.93 2.72-3.64 3.47C6.42 9.88 5 10.5 5 11c0 .31.43.6 1.07.86z"/></svg> },
                       { label: 'Reminder', action: () => { setActiveTab('Reminders'); setShowAddMenu(false); }, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M9 11H7v2h2zm4 0h-2v2h2zm4 0h-2v2h2zm2-7h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2m0 16H5V9h14z"/></svg> },
-                      { label: 'Document', action: () => { setActiveTab('Documents'); setShowAddMenu(false); }, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8zm2 16H8v-2h8zm0-4H8v-2h8zm-3-5V3.5L18.5 9z"/></svg> },
+                      { label: 'Document', action: () => { setDocsInitialTab('property'); setActiveTab('Documents'); setShowAddMenu(false); }, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8zm2 16H8v-2h8zm0-4H8v-2h8zm-3-5V3.5L18.5 9z"/></svg> },
                     ];
                     return (
                       <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, background: '#fff', borderRadius: 10, boxShadow: '0 4px 24px rgba(0,0,0,0.14)', border: '1px solid #e5e7eb', zIndex: 300, minWidth: 180, overflow: 'hidden', paddingTop: 6, paddingBottom: 6 }}>
@@ -1709,7 +1722,7 @@ const HouseDetail = () => {
               {TABS.map(tab => (
                 <button
                   key={tab}
-                  onClick={() => setActiveTab(tab)}
+                  onClick={() => { setActiveTab(tab); if (tab === 'Documents') setDocsInitialTab('property'); }}
                   className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-all ${
                     activeTab === tab
                       ? 'border-[#033A6D] text-[#033A6D]'
@@ -1792,6 +1805,18 @@ const HouseDetail = () => {
                     <span style={{ fontSize: 12, color: isOverdue ? '#ef4444' : currentMonthPaid ? '#16a34a' : '#1565c0' }}>
                       {currentMonthPaid ? `Next due ${fmtDueDate(displayDueDate)}` : `Due ${fmtDueDate(displayDueDate)}`}
                     </span>
+                    {/* Lease document */}
+                    <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #f3f4f6' }}>
+                      <button
+                        onClick={() => { setDocsInitialTab('lease'); setActiveTab('Documents'); }}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 12, fontWeight: 600, color: leaseDocCount > 0 ? '#042238' : '#6b7280' }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6z"/></svg>
+                        {leaseDocCount > 0
+                          ? `${leaseDocCount} lease document${leaseDocCount === 1 ? '' : 's'} attached`
+                          : 'Attach signed lease document'}
+                      </button>
+                    </div>
                   </>
                 ) : (
                   <>
@@ -2470,7 +2495,7 @@ const HouseDetail = () => {
         {/* ── Documents tab ────────────────────────────────────── */}
         {activeTab === 'Documents' && (
           <div className="max-w-4xl mx-auto w-full px-5 pt-5 pb-6">
-            <DocumentsTab houseId={id} backendUrl={backendUrl} />
+            <DocumentsTab houseId={id} backendUrl={backendUrl} initialTab={docsInitialTab} onChange={refreshLeaseDocCount} />
           </div>
         )}
 
