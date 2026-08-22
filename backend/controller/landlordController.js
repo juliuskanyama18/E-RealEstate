@@ -1083,7 +1083,8 @@ export const linkTenantToLease = async (req, res) => {
       ...(lease.startDate  && { leaseStart:  lease.startDate }),
       ...(lease.endDate    && { leaseEnd:    lease.endDate }),
       ...(lease.rentAmount && { rentAmount:  lease.rentAmount }),
-      ...(lease.paymentDay && { rentDueDate: lease.paymentDay === 31 ? 1 : lease.paymentDay }),
+      ...(lease.paymentDay && { rentDueDate: lease.paymentDay }),
+      ...(lease.frequency && { frequency: lease.frequency }),
     });
     await lease.populate("tenant", "name email phone portalActivated portalInviteSent");
     res.json({ success: true, message: "Tenant linked to lease", data: lease });
@@ -1144,7 +1145,8 @@ export const createAndLinkTenant = async (req, res) => {
       house: lease.house,
       phone: (phone || mobile)?.trim(),
       rentAmount: lease.rentAmount,
-      rentDueDate: lease.paymentDay === 31 ? 1 : lease.paymentDay,
+      rentDueDate: lease.paymentDay,
+      frequency: lease.frequency,
       leaseStart: lease.startDate,
       leaseEnd: lease.endDate,
     });

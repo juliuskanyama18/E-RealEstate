@@ -14,6 +14,7 @@ import {
 import Layout from '../../components/Layout';
 import { backendUrl, API } from '../../config/constants';
 import { useAuth } from '../../contexts/AuthContext';
+import { FREQ_MONTHS, actualPayDay, isDueMonth } from '../../utils/leaseSchedule';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, ChartTooltip);
 
@@ -76,20 +77,6 @@ const MiniCalendar = ({ current, onPrev, onNext, rentDueDays = new Set(), leaseE
   );
 };
 
-/* ── Frequency → interval in months ────────────────────────── */
-const FREQ_MONTHS = {
-  'One-Time': 0, '1 Month': 1, '2 Months': 2, '3 Months': 3,
-  '4 Months': 4, '5 Months': 5, '6 Months': 6,
-  '18 Months': 18, '24 Months': 24, '1 Year': 12,
-};
-
-/* Returns the actual calendar day for paymentDay in given year/month.
-   paymentDay 31 = last day of month. */
-const actualPayDay = (paymentDay, yr, mo) => {
-  if (paymentDay === 31) return new Date(yr, mo + 1, 0).getDate();
-  return Math.min(paymentDay, new Date(yr, mo + 1, 0).getDate());
-};
-
 /* ── Build calendar events from lease data ──────────────────── */
 const buildEvents = (leases, calYear, calMonth) => {
   const today = new Date();
@@ -110,32 +97,11 @@ const buildEvents = (leases, calYear, calMonth) => {
     // ── Rent Due ────────────────────────────────────────────────
     const day = actualPayDay(payDay, calYear, calMonth);
 
-    if (interval === 0) {
-      // One-Time: only shows in the start month
-      if (start.getFullYear() === calYear && start.getMonth() === calMonth) {
-        const eventDate = new Date(calYear, calMonth, day);
-        if ((!end || eventDate <= end) && eventDate >= start)
-          events.push({ type: 'rent', day, date: eventDate, houseName, houseId, isOverdue: eventDate < today });
-      }
-    } else {
-      // Periodic: first due = paymentDay of start month (advance one period if pay day already passed before startDate)
-      let dueYr = start.getFullYear();
-      let dueMo = start.getMonth();
-      const firstDueDay = actualPayDay(payDay, dueYr, dueMo);
-      if (new Date(dueYr, dueMo, firstDueDay) < start) {
-        dueMo += interval;
-        dueYr += Math.floor(dueMo / 12);
-        dueMo %= 12;
-      }
-      // Does the calendar month land exactly on a period boundary?
-      const firstTotalMo = dueYr * 12 + dueMo;
-      const calTotalMo   = calYear * 12 + calMonth;
-      const diff = calTotalMo - firstTotalMo;
-      if (diff >= 0 && diff % interval === 0) {
-        const eventDate = new Date(calYear, calMonth, day);
-        if ((!end || eventDate <= end) && eventDate >= start)
-          events.push({ type: 'rent', day, date: eventDate, houseName, houseId, isOverdue: eventDate < today });
-      }
+    const isOneTimeDueMonth = interval === 0 && start.getFullYear() === calYear && start.getMonth() === calMonth;
+    if (isOneTimeDueMonth || isDueMonth(lease, calYear, calMonth)) {
+      const eventDate = new Date(calYear, calMonth, day);
+      if ((!end || eventDate <= end) && eventDate >= start)
+        events.push({ type: 'rent', day, date: eventDate, houseName, houseId, isOverdue: eventDate < today });
     }
 
     // ── Lease Expiry ────────────────────────────────────────────

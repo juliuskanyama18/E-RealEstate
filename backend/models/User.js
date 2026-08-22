@@ -76,6 +76,10 @@ const userSchema = new mongoose.Schema(
       min: 1,
       max: 31,
     },
+    frequency: {
+      type: String,
+      default: '1 Month',
+    },
     leaseStart: {
       type: Date,
     },

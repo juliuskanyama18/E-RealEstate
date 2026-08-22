@@ -7,6 +7,7 @@ import RentRecord from "../models/RentRecord.js";
 import MaintenanceRequest from "../models/MaintenanceRequest.js";
 import Document from "../models/Document.js";
 import Reminder from "../models/Reminder.js";
+import { isDueMonth } from "../utils/leaseSchedule.js";
 
 const maintUploadDir = path.resolve("uploads/maintenance");
 if (!fs.existsSync(maintUploadDir)) fs.mkdirSync(maintUploadDir, { recursive: true });
@@ -160,7 +161,7 @@ export const createTenantMaintenanceRequest = (req, res) => {
 export const getPaymentSchedule = async (req, res) => {
   try {
     const tenant = await User.findById(req.user._id)
-      .select("rentAmount rentDueDate leaseStart leaseEnd house")
+      .select("rentAmount rentDueDate leaseStart leaseEnd house frequency")
       .populate("house", "name");
 
     if (!tenant) return res.status(404).json({ success: false, message: "Account not found" });
@@ -170,16 +171,18 @@ export const getPaymentSchedule = async (req, res) => {
     let leaseEnd    = tenant.leaseEnd;
     let rentAmount  = tenant.rentAmount;
     let rentDueDate = tenant.rentDueDate;
+    let frequency   = tenant.frequency;
 
     if (!leaseStart || !leaseEnd || !rentAmount || !rentDueDate) {
       const lease = await Lease.findOne({ tenant: tenant._id })
-        .select("startDate endDate rentAmount paymentDay")
+        .select("startDate endDate rentAmount paymentDay frequency")
         .lean();
       if (lease) {
         if (!leaseStart)  leaseStart  = lease.startDate;
         if (!leaseEnd)    leaseEnd    = lease.endDate;
         if (!rentAmount)  rentAmount  = lease.rentAmount;
-        if (!rentDueDate) rentDueDate = lease.paymentDay === 31 ? 1 : lease.paymentDay;
+        if (!rentDueDate) rentDueDate = lease.paymentDay;
+        if (!frequency)   frequency   = lease.frequency;
       }
     }
 
@@ -215,6 +218,7 @@ export const getPaymentSchedule = async (req, res) => {
       const due  = new Date(yr, mo, day);
       if (leaseS && due < leaseS) continue;
       if (leaseE && due > leaseE) continue;
+      if (leaseS && !isDueMonth(leaseS, rentDueDate, frequency, due.getFullYear(), due.getMonth())) continue;
       const moNorm   = ((mo % 12) + 12) % 12;
       const monthKey = `${due.getFullYear()}-${String(due.getMonth() + 1).padStart(2, '0')}`;
       if (paidMonths.has(monthKey)) continue; // skip already-paid months

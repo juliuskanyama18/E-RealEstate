@@ -4,6 +4,7 @@ import Reminder from "../models/Reminder.js";
 import { sendEmail } from "../config/nodemailer.js";
 import { getRentReminderTemplate } from "./emailTemplates.js";
 import { sendSms, normalizeTZPhone } from "./sms.js";
+import { isDueMonth } from "./leaseSchedule.js";
 
 const sendRentReminders = async () => {
   try {
@@ -29,7 +30,15 @@ const sendRentReminders = async () => {
       targetDate.setDate(today.getDate() + daysAhead);
       const targetDay = targetDate.getDate();
 
-      return t.rentDueDate === targetDay;
+      if (t.rentDueDate !== targetDay) return false;
+
+      // Only nag on months this lease actually bills — a quarterly/biannual/etc.
+      // lease shouldn't fire a rent reminder every month.
+      if (t.leaseStart && !isDueMonth(t.leaseStart, t.rentDueDate, t.frequency, targetDate.getFullYear(), targetDate.getMonth())) {
+        return false;
+      }
+
+      return true;
     });
 
     if (eligible.length === 0) {

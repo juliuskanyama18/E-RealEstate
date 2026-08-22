@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import Layout from '../../components/Layout';
 import ConfirmModal from '../../components/ConfirmModal';
 import { backendUrl, API } from '../../config/constants';
+import { isDueMonth, getNextDueDate } from '../../utils/leaseSchedule';
 
 /* ── Property type SVGs ─────────────────────────────────────── */
 const TYPE_SVG = {
@@ -1152,35 +1153,34 @@ const HouseDetail = () => {
     } catch { /* non-critical */ }
   };
 
-  /* ── Due date helpers ── */
-  const getCurrentDueDate = (paymentDay) => {
-    const now = new Date();
-    const yr = now.getFullYear(), mo = now.getMonth();
-    const day = paymentDay === 31 ? new Date(yr, mo + 1, 0).getDate() : Math.min(paymentDay, new Date(yr, mo + 1, 0).getDate());
-    return new Date(yr, mo, day);
-  };
+  /* ── Due date helpers (frequency-aware — see utils/leaseSchedule.js) ── */
   const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   const fmtDueDate = (d) => `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 
-  const currentDueDate = lease ? getCurrentDueDate(lease.paymentDay) : null;
-
-  // Check if the current month's rent is already paid
-  const currentMonthKey = currentDueDate
-    ? `${currentDueDate.getFullYear()}-${String(currentDueDate.getMonth() + 1).padStart(2, '0')}`
-    : null;
-  const currentMonthPaid = currentMonthKey
-    ? housePayments.some(p => p.month === currentMonthKey && p.status === 'paid')
-    : false;
-
-  // If paid this month, show next month's due date instead
-  const getNextDueDate = (paymentDay) => {
-    const now = new Date();
-    const yr = now.getFullYear(), mo = now.getMonth() + 1; // next month
-    const day = paymentDay === 31 ? new Date(yr, mo + 1, 0).getDate() : Math.min(paymentDay, new Date(yr, mo + 1, 0).getDate());
-    return new Date(yr, mo, day);
+  // Walk forward through this lease's actual installment months (respecting its
+  // payment frequency, not assuming monthly) to find the next one that isn't paid yet.
+  const findNextUnpaidDue = () => {
+    if (!lease?.startDate || !lease?.paymentDay) return null;
+    const start = new Date(lease.startDate);
+    const end = lease.endDate ? new Date(lease.endDate) : null;
+    let yr = start.getFullYear(), mo = start.getMonth();
+    for (let i = 0; i < 600; i++) { // generous ceiling, same as getNextDueDate
+      if (isDueMonth(lease, yr, mo)) {
+        const day = lease.paymentDay === 31 ? new Date(yr, mo + 1, 0).getDate() : Math.min(lease.paymentDay, new Date(yr, mo + 1, 0).getDate());
+        const due = new Date(yr, mo, day);
+        if (end && due > end) return null;
+        const monthKey = `${yr}-${String(mo + 1).padStart(2, '0')}`;
+        const paid = housePayments.some(p => p.month === monthKey && p.status === 'paid');
+        if (!paid) return due;
+      }
+      mo += 1;
+      if (mo > 11) { mo = 0; yr += 1; }
+    }
+    return null;
   };
-  const displayDueDate = currentMonthPaid && currentDueDate ? getNextDueDate(lease.paymentDay) : currentDueDate;
-  const isOverdue      = !currentMonthPaid && currentDueDate ? new Date() > currentDueDate : false;
+
+  const displayDueDate = lease ? findNextUnpaidDue() : null;
+  const isOverdue = displayDueDate ? new Date() > displayDueDate : false;
 
   /* ── Open link modal and fetch all tenants ── */
   const openLinkModal = async () => {
@@ -1802,8 +1802,8 @@ const HouseDetail = () => {
                       TZS {lease.rentAmount.toLocaleString()}
                     </p>
                     {/* Due date */}
-                    <span style={{ fontSize: 12, color: isOverdue ? '#ef4444' : currentMonthPaid ? '#16a34a' : '#1565c0' }}>
-                      {currentMonthPaid ? `Next due ${fmtDueDate(displayDueDate)}` : `Due ${fmtDueDate(displayDueDate)}`}
+                    <span style={{ fontSize: 12, color: isOverdue ? '#ef4444' : displayDueDate ? '#1565c0' : '#16a34a' }}>
+                      {displayDueDate ? `${isOverdue ? 'Was due' : 'Next due'} ${fmtDueDate(displayDueDate)}` : 'All rent paid up to date'}
                     </span>
                     {/* Lease document */}
                     <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #f3f4f6' }}>
@@ -2094,15 +2094,20 @@ const HouseDetail = () => {
                         const periods = [];
                         let cur = new Date(start.getFullYear(), start.getMonth(), 1);
                         while (cur <= end) {
-                          const monthKey = `${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}`;
-                          const dueDay = tenants[0]?.rentDueDate || 1;
-                          const dueDate = new Date(cur.getFullYear(), cur.getMonth(), dueDay);
-                          const rec = housePayments.find(p => p.month === monthKey);
-                          const isPaid = rec && rec.status === 'paid';
-                          const isUpcoming = dueDate > today;
-                          const status = isPaid ? 'paid' : isUpcoming ? 'upcoming' : 'overdue';
-                          const pct = isPaid ? 100 : 0;
-                          periods.push({ monthKey, dueDate, rec, status, pct, rentAmt });
+                          // Only list months that are actual installment due dates for this
+                          // lease's payment frequency — a quarterly lease shouldn't show 12
+                          // "due" rows a year, just the 3 it actually bills.
+                          if (!lease || isDueMonth(lease, cur.getFullYear(), cur.getMonth())) {
+                            const monthKey = `${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}`;
+                            const dueDay = lease?.paymentDay || tenants[0]?.rentDueDate || 1;
+                            const dueDate = new Date(cur.getFullYear(), cur.getMonth(), dueDay);
+                            const rec = housePayments.find(p => p.month === monthKey);
+                            const isPaid = rec && rec.status === 'paid';
+                            const isUpcoming = dueDate > today;
+                            const status = isPaid ? 'paid' : isUpcoming ? 'upcoming' : 'overdue';
+                            const pct = isPaid ? 100 : 0;
+                            periods.push({ monthKey, dueDate, rec, status, pct, rentAmt });
+                          }
                           cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
                         }
                         periods.reverse();
