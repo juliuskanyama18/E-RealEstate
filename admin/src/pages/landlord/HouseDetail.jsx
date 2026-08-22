@@ -1583,7 +1583,7 @@ const HouseDetail = () => {
               </button>
               <ChevronRight size={12} className="text-gray-300" />
               <span className="font-medium text-gray-700 truncate max-w-[240px]">
-                {house.address || house.name}
+                {house.name || house.address}
               </span>
               <span
                 className={`ml-auto inline-flex items-center gap-1 text-[10px] font-bold tracking-wide px-2 py-0.5 rounded-full border ${
@@ -1613,7 +1613,7 @@ const HouseDetail = () => {
                 <div style={{ minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <h1 style={{ fontSize: 18, fontWeight: 800, color: '#042238', lineHeight: 1.2, margin: 0, textTransform: 'uppercase', letterSpacing: '0.01em' }}>
-                      {house.address || house.name}
+                      {house.name || house.address}
                     </h1>
                     <div ref={editPropMenuRef} style={{ position: 'relative' }}>
                       <button
@@ -1660,7 +1660,7 @@ const HouseDetail = () => {
                     <span style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Lease</span>
                     <span style={{ fontSize: 12, fontWeight: 500, color: '#374151' }}>
                       {lease
-                        ? `${new Date(lease.startDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} – ${new Date(lease.endDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
+                        ? `${new Date(lease.startDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} – ${lease.endDate ? new Date(lease.endDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Ongoing'}`
                         : 'No active lease'}
                     </span>
                   </div>
@@ -2477,7 +2477,7 @@ const HouseDetail = () => {
         {/* ── Reminders tab ────────────────────────────────────── */}
         {activeTab === 'Reminders' && (
           <div className="max-w-4xl mx-auto w-full px-5 pt-5 pb-6">
-            <RemindersSection houseId={id} houseName={house?.address || house?.name || ''} backendUrl={backendUrl} />
+            <RemindersSection houseId={id} houseName={house?.name || house?.address || ''} backendUrl={backendUrl} />
           </div>
         )}
 

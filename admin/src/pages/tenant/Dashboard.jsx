@@ -175,66 +175,68 @@ const TenantDashboard = () => {
           <div style={{ marginBottom: 32, minWidth: 350, width: '100%' }}>
             <h2 style={{ margin: '0 0 12px', fontSize: '1.25rem', fontWeight: 700, color: NAVY, fontFamily: FONT }}>Payments due</h2>
 
-            <div style={{ background: '#fff', borderRadius: 8, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', fontFamily: FONT, fontSize: '1rem', color: NAVY, lineHeight: 1.5 }}>
+            <div style={{ background: '#fff', borderRadius: 8, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', fontFamily: FONT, fontSize: '1rem', color: NAVY, lineHeight: 1.5, overflowX: 'auto' }}>
+              <div style={{ minWidth: 640 }}>
 
-              {/* Header row */}
-              <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 2fr 1.5fr 1.5fr 60px', alignItems: 'center', padding: '8px 16px', borderBottom: '1px solid #e5e7eb' }}>
-                {['DUE','CATEGORY','DESCRIPTION','STATUS','AMOUNT','ACTION'].map(h => (
-                  <span key={h} style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.07em' }}>{h}</span>
-                ))}
-              </div>
-
-              {/* Body */}
-              {paymentsDue.length === 0 ? (
-                <div style={{ padding: '32px 16px', textAlign: 'center', color: '#9ca3af', fontSize: '1rem' }}>
-                  No upcoming payments
+                {/* Header row */}
+                <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 2fr 1.5fr 1.5fr 60px', alignItems: 'center', padding: '8px 16px', borderBottom: '1px solid #e5e7eb' }}>
+                  {['DUE','CATEGORY','DESCRIPTION','STATUS','AMOUNT','ACTION'].map(h => (
+                    <span key={h} style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.07em' }}>{h}</span>
+                  ))}
                 </div>
-              ) : (
-                paymentsDue.map((p, idx) => (
-                  <div
-                    key={p.key}
-                    style={{ display: 'grid', gridTemplateColumns: '80px 1fr 2fr 1.5fr 1.5fr 60px', alignItems: 'center', padding: '10px 16px', borderBottom: idx < paymentsDue.length - 1 ? '1px solid #f3f4f6' : 'none' }}
-                  >
-                    {/* Date block */}
-                    <div>
-                      <div style={{
-                        width: 48, height: 48, borderRadius: 8,
-                        background: p.overdue ? '#ef4444' : NAVY,
-                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#fff',
-                      }}>
-                        <span style={{ fontSize: 16, fontWeight: 700, lineHeight: 1 }}>{p.day}</span>
-                        <span style={{ fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 2 }}>{p.month}</span>
-                      </div>
-                    </div>
-                    {/* Category */}
-                    <div style={{ fontWeight: 600 }}>Rent</div>
-                    {/* Description */}
-                    <div style={{ color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.description}</div>
-                    {/* Status */}
-                    <div>
-                      {p.overdue && (
-                        <span style={{
-                          display: 'inline-block', background: '#ef4444', color: '#fff',
-                          borderRadius: 20, padding: '3px 12px', fontSize: 11, fontWeight: 700, letterSpacing: '0.04em',
-                        }}>
-                          OVERDUE
-                        </span>
-                      )}
-                    </div>
-                    {/* Amount */}
-                    <div style={{ fontWeight: 600, color: NAVY, whiteSpace: 'nowrap' }}>
-                      TZS {p.amount.toLocaleString('en', { minimumFractionDigits: 2 })}
-                    </div>
-                    {/* Action */}
-                    <div />
+
+                {/* Body */}
+                {paymentsDue.length === 0 ? (
+                  <div style={{ padding: '32px 16px', textAlign: 'center', color: '#9ca3af', fontSize: '1rem' }}>
+                    No upcoming payments
                   </div>
-                ))
-              )}
+                ) : (
+                  paymentsDue.map((p, idx) => (
+                    <div
+                      key={p.key}
+                      style={{ display: 'grid', gridTemplateColumns: '80px 1fr 2fr 1.5fr 1.5fr 60px', alignItems: 'center', padding: '10px 16px', borderBottom: idx < paymentsDue.length - 1 ? '1px solid #f3f4f6' : 'none' }}
+                    >
+                      {/* Date block */}
+                      <div>
+                        <div style={{
+                          width: 48, height: 48, borderRadius: 8,
+                          background: p.overdue ? '#ef4444' : NAVY,
+                          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#fff',
+                        }}>
+                          <span style={{ fontSize: 16, fontWeight: 700, lineHeight: 1 }}>{p.day}</span>
+                          <span style={{ fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 2 }}>{p.month}</span>
+                        </div>
+                      </div>
+                      {/* Category */}
+                      <div style={{ fontWeight: 600 }}>Rent</div>
+                      {/* Description */}
+                      <div style={{ color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.description}</div>
+                      {/* Status */}
+                      <div>
+                        {p.overdue && (
+                          <span style={{
+                            display: 'inline-block', background: '#ef4444', color: '#fff',
+                            borderRadius: 20, padding: '3px 12px', fontSize: 11, fontWeight: 700, letterSpacing: '0.04em',
+                          }}>
+                            OVERDUE
+                          </span>
+                        )}
+                      </div>
+                      {/* Amount */}
+                      <div style={{ fontWeight: 600, color: NAVY, whiteSpace: 'nowrap' }}>
+                        TZS {p.amount.toLocaleString('en', { minimumFractionDigits: 2 })}
+                      </div>
+                      {/* Action */}
+                      <div />
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           </div>
 
           {/* ── Bottom: Maintenance + Insurance ─────────────── */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+          <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: 20 }}>
 
             {/* Maintenance */}
             <div style={{ background: '#fff', borderRadius: 8, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', overflow: 'hidden' }}>

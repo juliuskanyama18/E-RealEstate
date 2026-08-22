@@ -777,10 +777,14 @@ const Navbar = ({ onMenuClick }) => {
                     <p className="text-xs text-gray-400 truncate">{user?.email}</p>
                   </div>
                 </div>
-                <hr className="border-gray-100" />
-                <button onClick={() => { setProfileOpen(false); navigate('/account'); }} className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors text-left">
-                  <User size={18} className="text-gray-400 flex-shrink-0" />Account settings
-                </button>
+                {user?.role === 'landlord' && (
+                  <>
+                    <hr className="border-gray-100" />
+                    <button onClick={() => { setProfileOpen(false); navigate('/account'); }} className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors text-left">
+                      <User size={18} className="text-gray-400 flex-shrink-0" />Account settings
+                    </button>
+                  </>
+                )}
                 {/* Help link disabled */}
                 <hr className="border-gray-100" />
                 <button onClick={handleLogout} className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors text-left">
