@@ -18,6 +18,7 @@ import RentHistory from "../models/RentHistory.js";
 import Supplier from "../models/Supplier.js";
 import { sendEmail } from "../config/nodemailer.js";
 import { getTenantWelcomeTemplate, getTenantInviteTemplate, getPaymentReceiptTemplate, getTenantReminderEmailTemplate } from "../utils/emailTemplates.js";
+import { isDueMonth } from "../utils/leaseSchedule.js";
 
 // ─── Multer setup for house photos ─────────────────────────────────────────
 const uploadDir = path.resolve("uploads/houses");
@@ -151,8 +152,13 @@ export const getHouses = async (req, res) => {
           tenant: lease.tenant || null,
         };
       }
-      // Compute rent status for tab filtering
-      if (hObj.isOccupied && hObj.lease?.paymentDay) {
+      // Compute rent status for tab filtering — must respect the lease's
+      // billing frequency, same as the Payment Periods view, or a
+      // quarterly/biannual/etc. lease gets flagged "overdue" every month
+      // even in cycles it doesn't actually bill.
+      const dueThisCycle = lease?.startDate && hObj.lease?.paymentDay
+        && isDueMonth(lease.startDate, hObj.lease.paymentDay, hObj.lease.frequency, now.getFullYear(), now.getMonth());
+      if (hObj.isOccupied && dueThisCycle) {
         const isPaid = paidHouseIds.has(h._id.toString());
         if (isPaid) {
           hObj.rentStatus = null; // paid this month — not overdue or due soon
@@ -262,6 +268,27 @@ export const deleteHouse = async (req, res) => {
 
     const house = await House.findOneAndDelete({ _id: req.params.id, landlord: req.user._id });
     if (!house) return res.status(404).json({ success: false, message: "House not found" });
+
+    // Cascade — a deleted house shouldn't leave dangling leases/payments/etc.
+    // that keep showing up in dashboard totals and lease selectors.
+    const filter = { house: house._id, landlord: req.user._id };
+    const docs = await Document.find(filter).select("filePath");
+    for (const doc of docs) {
+      if (doc.filePath) {
+        const fullPath = path.resolve(`.${doc.filePath}`);
+        if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
+      }
+    }
+    await Promise.all([
+      Lease.deleteMany(filter),
+      RentRecord.deleteMany(filter),
+      MaintenanceRequest.deleteMany(filter),
+      Document.deleteMany(filter),
+      Reminder.deleteMany(filter),
+      Expense.deleteMany(filter),
+      RentHistory.deleteMany(filter),
+    ]);
+
     res.json({ success: true, message: "House deleted" });
   } catch (error) {
     res.status(500).json({ success: false, message: "Server error", error: error.message });
@@ -472,10 +499,21 @@ export const removeTenant = async (req, res) => {
     const tenant = await User.findOneAndDelete({ _id: req.params.id, landlord: req.user._id, role: "tenant" });
     if (!tenant) return res.status(404).json({ success: false, message: "Tenant not found" });
 
-    const remaining = await User.exists({ house: tenant.house, role: "tenant" });
-    if (!remaining) {
-      await House.findByIdAndUpdate(tenant.house, { isOccupied: false });
+    if (tenant.house) {
+      const remaining = await User.exists({ house: tenant.house, role: "tenant" });
+      if (!remaining) {
+        await House.findByIdAndUpdate(tenant.house, { isOccupied: false });
+      }
     }
+
+    // A deleted tenant shouldn't leave a lease pointing at a user that no
+    // longer exists — that dangling reference is what made a lease still
+    // look "occupied"/billable after the tenant was removed.
+    await Lease.updateMany(
+      { tenant: tenant._id, landlord: req.user._id },
+      { $unset: { tenant: 1 } }
+    );
+    await RentRecord.deleteMany({ tenant: tenant._id, landlord: req.user._id });
 
     res.json({ success: true, message: "Tenant removed" });
   } catch (error) {

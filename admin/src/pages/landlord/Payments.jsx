@@ -1110,7 +1110,8 @@ const Payments = () => {
                 </div>
 
                 {/* Table */}
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 620 }}>
                   <thead>
                     <tr style={{ background: '#f5f6f8' }}>
                       {['Date Paid', 'Property', 'Tenant', 'Month', 'Status', 'Amount', ''].map((h, i) => (
@@ -1162,6 +1163,7 @@ const Payments = () => {
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
             </div>
           )}
@@ -1257,7 +1259,8 @@ const Payments = () => {
                 </div>
 
                 {/* Table */}
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 780 }}>
                   <thead>
                     <tr style={{ background: '#f5f6f8' }}>
                       <th style={{ ...thStyle, width: 36, padding: '10px 12px' }}>
@@ -1324,6 +1327,7 @@ const Payments = () => {
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
             );
           })()}

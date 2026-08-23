@@ -945,7 +945,7 @@ const RemindersSection = ({ houseId, houseName, backendUrl: bUrl }) => {
                 </div>
               </div>
               {/* Date&Time + Category side by side */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 12 }}>
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 5 }}>Date &amp; Time</label>
                   <input
@@ -2744,7 +2744,7 @@ const HouseDetail = () => {
                 </button>
               </div>
               <div style={{ overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 14 }}>
                   <div>
                     <label style={lbl}>Payment date</label>
                     <input type="date" value={lf.paymentDate} onChange={e => set('paymentDate', e.target.value)} style={inp} />
@@ -2859,7 +2859,7 @@ const HouseDetail = () => {
                 </button>
               </div>
               <div style={{ overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 14 }}>
                   <div>
                     <label style={lbl}>Due Date <span style={{ color: '#ef4444' }}>*</span></label>
                     <input type="date" value={ef.dueDate} onChange={e => set('dueDate', e.target.value)} style={inp} />
@@ -2886,7 +2886,7 @@ const HouseDetail = () => {
                   <label style={lbl}>Supplier</label>
                   <input type="text" value={ef.supplier} onChange={e => set('supplier', e.target.value)} placeholder="Supplier name" style={inp} />
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 14 }}>
                   <div>
                     <label style={lbl}>Paid?</label>
                     <div style={{ display: 'flex', gap: 20, paddingTop: 4 }}>
@@ -2905,7 +2905,7 @@ const HouseDetail = () => {
                     </div>
                   )}
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 14 }}>
                   <div>
                     <label style={lbl}>Payable by Tenant?</label>
                     <div style={{ display: 'flex', gap: 20, paddingTop: 4 }}>
@@ -2961,7 +2961,7 @@ const HouseDetail = () => {
                 </button>
               </div>
               <div style={{ overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 14 }}>
                   <div>
                     <label style={lbl}>Due Date <span style={{ color: '#ef4444' }}>*</span></label>
                     <input type="date" value={ef.dueDate} onChange={e => set('dueDate', e.target.value)} style={inp} />
@@ -2988,7 +2988,7 @@ const HouseDetail = () => {
                   <label style={lbl}>Supplier</label>
                   <input type="text" value={ef.supplier} onChange={e => set('supplier', e.target.value)} placeholder="Supplier name" style={inp} />
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 14 }}>
                   <div>
                     <label style={lbl}>Paid?</label>
                     <div style={{ display: 'flex', gap: 20, paddingTop: 4 }}>
@@ -3007,7 +3007,7 @@ const HouseDetail = () => {
                     </div>
                   )}
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 14 }}>
                   <div>
                     <label style={lbl}>Payable by Tenant?</label>
                     <div style={{ display: 'flex', gap: 20, paddingTop: 4 }}>

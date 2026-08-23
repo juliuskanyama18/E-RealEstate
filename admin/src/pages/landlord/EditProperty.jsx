@@ -239,11 +239,11 @@ export default function EditProperty() {
             </div>
 
             {/* Footer bar: Delete ← → Save */}
-            <div className="mt-6 bg-white border border-gray-200 rounded-xl px-5 py-4 flex items-center justify-between">
+            <div className="mt-6 bg-white border border-gray-200 rounded-xl px-5 py-4 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3">
               <button
                 type="button"
                 onClick={handleDelete}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors"
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors whitespace-nowrap"
               >
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
@@ -253,7 +253,7 @@ export default function EditProperty() {
               <button
                 type="submit"
                 disabled={saving}
-                className="inline-flex items-center gap-2 px-8 py-2.5 rounded-lg bg-blue-900 hover:bg-blue-950 disabled:opacity-60 text-white text-sm font-bold tracking-widest uppercase transition-colors"
+                className="inline-flex items-center justify-center gap-2 px-8 py-2.5 rounded-lg bg-blue-900 hover:bg-blue-950 disabled:opacity-60 text-white text-sm font-bold tracking-widest uppercase transition-colors whitespace-nowrap"
               >
                 {saving ? 'Saving…' : 'Save Changes'}
               </button>
