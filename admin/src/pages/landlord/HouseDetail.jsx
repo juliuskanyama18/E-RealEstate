@@ -1756,7 +1756,7 @@ const HouseDetail = () => {
           <div style={{ maxWidth: 860, margin: '0 auto', width: '100%', padding: '24px 20px 40px', boxSizing: 'border-box' }}>
 
             {/* ── Two action cards ── */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+            <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: 16, marginBottom: 16 }}>
 
               {/* Left: Rent overview (if lease) or Add lease */}
               <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e5e7eb', padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
@@ -1883,18 +1883,18 @@ const HouseDetail = () => {
                         setTenantMenuOpenId(menuKey);
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
                         <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#fde8e0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                           <span style={{ fontSize: 12, fontWeight: 700, color: '#c05a3a' }}>
                             {(lease.tenant.name || 'T').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                           </span>
                         </div>
-                        <div>
-                          <div style={{ fontWeight: 700, fontSize: 14, color: '#042238' }}>{lease.tenant.name}</div>
-                          <div style={{ fontSize: 12, color: '#6b7280' }}>{lease.tenant.email}</div>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontWeight: 700, fontSize: 14, color: '#042238', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lease.tenant.name}</div>
+                          <div style={{ fontSize: 12, color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lease.tenant.email}</div>
                         </div>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                         {lease.tenant.portalActivated
                           ? <span style={{ border: '1px solid #16a34a', color: '#16a34a', borderRadius: 20, padding: '2px 10px', fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>ACTIVE</span>
                           : lease.tenant.portalInviteSent
@@ -1960,18 +1960,20 @@ const HouseDetail = () => {
               );
 
               const Toolbar = ({ search, onSearch, onNew, toggleOptions, toggleValue, onToggle }) => (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderBottom: '1px solid #f3f4f6' }}>
-                  <div style={{ position: 'relative', width: 220 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderBottom: '1px solid #f3f4f6', flexWrap: 'wrap' }}>
+                  <div style={{ position: 'relative', flex: '1 1 140px', minWidth: 120 }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="#9ca3af" style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"/></svg>
                     <input value={search} onChange={e => onSearch(e.target.value)} placeholder="Search" style={{ width: '100%', boxSizing: 'border-box', paddingLeft: 30, paddingRight: 10, paddingTop: 6, paddingBottom: 6, border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, outline: 'none', color: '#042238', fontFamily: 'inherit' }} />
                   </div>
-                  <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-                    {toggleOptions && <ToggleGroup options={toggleOptions} value={toggleValue} onChange={onToggle} />}
-                  </div>
-                  <button onClick={onNew} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#033A6D', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  <button onClick={onNew} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#033A6D', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0, order: 2 }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg>
                     New
                   </button>
+                  {toggleOptions && (
+                    <div style={{ flex: '1 1 100%', display: 'flex', justifyContent: 'center', order: 3 }}>
+                      <ToggleGroup options={toggleOptions} value={toggleValue} onChange={onToggle} />
+                    </div>
+                  )}
                 </div>
               );
 
