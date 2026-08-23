@@ -1153,6 +1153,13 @@ const HouseDetail = () => {
     } catch { /* non-critical */ }
   };
 
+  const refreshTenants = async () => {
+    try {
+      const res = await axios.get(`${backendUrl}${API.houses}/${id}/tenants`);
+      setTenants(res.data.data || []);
+    } catch { /* non-critical */ }
+  };
+
   /* ── Due date helpers (frequency-aware — see utils/leaseSchedule.js) ── */
   const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   const fmtDueDate = (d) => `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
@@ -1207,6 +1214,7 @@ const HouseDetail = () => {
       const res = await axios.put(`${backendUrl}/api/landlord/leases/${lease._id}/tenant`,
         { tenantId: selectedTenantId }, { headers: { Authorization: `Bearer ${token}` } });
       setLease(res.data.data);
+      refreshTenants();
       toast.success('Tenant linked to lease');
       closeLinkModal();
       const linked = allTenants.find(t => t._id === selectedTenantId);
@@ -1242,6 +1250,7 @@ const HouseDetail = () => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setLease(res.data.data.lease);
+      refreshTenants();
       toast.success(sendInvite ? 'Tenant created and invite sent' : 'Tenant created and linked');
       setInviteModalOpen(false);
       setPendingTenantData(null);
@@ -1264,6 +1273,7 @@ const HouseDetail = () => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setLease(res.data.data);
+      refreshTenants();
       toast.success('Tenant unlinked');
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Failed to unlink tenant');
