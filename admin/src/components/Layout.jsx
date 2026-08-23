@@ -28,7 +28,7 @@ const Layout = ({ children }) => {
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gray-50 overflow-x-hidden">
       {/* Mobile backdrop — shown when full sidebar is open on mobile */}
       {sidebarMode === 'open' && (
         <div

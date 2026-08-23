@@ -315,7 +315,7 @@ const Houses = () => {
 
   return (
     <Layout>
-      <main className="flex-1 overflow-y-auto bg-gray-50">
+      <main className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50">
         <div className="page-content py-6">
 
         {/* ── Properties header row ──────────────────────── */}

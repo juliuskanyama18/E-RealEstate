@@ -1589,7 +1589,7 @@ const HouseDetail = () => {
 
   return (
     <Layout>
-      <div className="flex-1 flex flex-col min-h-0 overflow-y-auto bg-gray-50">
+      <div className="flex-1 flex flex-col min-h-0 overflow-y-auto overflow-x-hidden bg-gray-50">
 
         {/* ── Sticky header ───────────────────────────────────── */}
         <div className="sticky top-0 z-10 bg-white border-b border-gray-200 shadow-sm">

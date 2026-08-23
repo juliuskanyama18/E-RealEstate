@@ -1143,6 +1143,7 @@ export const createAndLinkTenant = async (req, res) => {
       role: "tenant",
       landlord: req.user._id,
       house: lease.house,
+      tenantStatus: "current",
       phone: (phone || mobile)?.trim(),
       rentAmount: lease.rentAmount,
       rentDueDate: lease.paymentDay,
