@@ -353,7 +353,7 @@ const TenantDetail = () => {
 
           {/* ── Prospect / Past layout ── */}
           {!isLinked ? (
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }}>
+            <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr]" style={{ gap: 16 }}>
 
               {/* Row 1, Col 1: Add lease — stretches to match Notes height */}
               <div style={{ ...cardStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
@@ -372,14 +372,14 @@ const TenantDetail = () => {
               <NotesCard />
 
               {/* Row 2, Col 2: Portal — sits only under Notes */}
-              <div style={{ gridColumn: 2 }}>
+              <div className="lg:col-start-2">
                 <PortalCard />
               </div>
             </div>
 
           ) : (
             /* ── Current tenant layout ── */
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 20, alignItems: 'start' }}>
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px]" style={{ gap: 20, alignItems: 'start' }}>
 
               {/* Left: Current lease */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
