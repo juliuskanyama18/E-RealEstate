@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import Layout from '../../components/Layout';
 import { backendUrl } from '../../config/constants';
 import { ChevronDown, ChevronUp, Plus, X } from 'lucide-react';
+import { openDatePicker } from '../../utils/datePicker';
 
 const NAVY = '#042238';
 const FONT = '"Inter", sans-serif';
@@ -87,7 +88,7 @@ const DateInput = ({ value, onChange, placeholder = 'DD/MM/YYYY' }) => {
       {/* Calendar icon button */}
       <button
         type="button"
-        onClick={() => pickerRef.current?.showPicker?.() || pickerRef.current?.click()}
+        onClick={() => openDatePicker(pickerRef)}
         style={{ position: 'absolute', right: 8, background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center', color: '#9ca3af' }}
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">

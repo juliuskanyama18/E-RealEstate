@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import Layout from '../../components/Layout';
 import { ArrowLeft, Info } from 'lucide-react';
 import { backendUrl, API } from '../../config/constants';
+import { openDatePicker } from '../../utils/datePicker';
 
 const NAVY = '#042238';
 const TEAL = '#069ED9';
@@ -359,7 +360,7 @@ const SetUpMonthlyCharge = () => {
                     {/* Calendar icon — clicking opens the hidden date picker */}
                     <button
                       type="button"
-                      onClick={() => hiddenDateRef.current?.showPicker?.() || hiddenDateRef.current?.click()}
+                      onClick={() => openDatePicker(hiddenDateRef)}
                       style={{
                         position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)',
                         background: 'none', border: 'none', padding: 0, cursor: 'pointer',

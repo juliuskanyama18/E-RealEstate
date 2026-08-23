@@ -6,6 +6,7 @@ import { toast } from 'react-hot-toast';
 import Layout from '../../components/Layout';
 import ConfirmModal from '../../components/ConfirmModal';
 import { backendUrl, API } from '../../config/constants';
+import { openDatePicker } from '../../utils/datePicker';
 
 const NAVY = '#042238';
 const TEAL = '#069ED9';
@@ -145,7 +146,7 @@ const DateInput = ({ value, onChange }) => {
         style={{ ...iStyle, paddingRight: 36 }} />
       <input ref={calRef} type="date" style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: 0, height: 0, top: 0, right: 0 }}
         onChange={e => { const [y,m,d] = (e.target.value||'').split('-'); if(y&&m&&d) onChange(`${d}/${m}/${y}`); }} />
-      <button type="button" onClick={() => calRef.current.showPicker?.() || calRef.current.click()}
+      <button type="button" onClick={() => openDatePicker(calRef)}
         style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: '#6b7280', display: 'flex', alignItems: 'center' }}>
         <svg focusable="false" aria-hidden="true" viewBox="0 0 24 24" style={{ width: 18, height: 18, fill: 'currentColor' }}>
           <path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z" />
