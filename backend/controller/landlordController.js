@@ -75,7 +75,7 @@ const storage = multer.diskStorage({
 });
 export const uploadHousePhoto = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB — phone camera JPEGs routinely exceed 5MB
   fileFilter: (_req, file, cb) => {
     cb(null, file.mimetype.startsWith("image/"));
   },
@@ -498,7 +498,7 @@ const maintStorage = multer.diskStorage({
 });
 export const uploadMaintenancePhotos = multer({
   storage: maintStorage,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB — phone camera JPEGs routinely exceed 5MB
   fileFilter: (_req, file, cb) => cb(null, file.mimetype.startsWith("image/")),
 }).array("photos", 10);
 

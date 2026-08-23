@@ -22,7 +22,7 @@ const maintStorage = multer.diskStorage({
 
 export const uploadTenantMaintenancePhotos = multer({
   storage: maintStorage,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB — phone camera JPEGs routinely exceed 5MB
   fileFilter: (_req, file, cb) => {
     if (!file.mimetype.startsWith("image/")) return cb(new Error("Only image files are allowed"));
     cb(null, true);
