@@ -311,13 +311,13 @@ const TenantDetail = () => {
 
           {/* Top row: avatar + name + buttons */}
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 20, marginBottom: 28 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, minWidth: 0 }}>
               <div style={{ width: 64, height: 64, borderRadius: '50%', background: bg, color: fg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 800, flexShrink: 0, letterSpacing: '0.02em' }}>
                 {ini}
               </div>
-              <div>
-                <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, color: NAVY, lineHeight: 1.2 }}>{tenant.name}</h1>
-                {tenant.email && <p style={{ margin: '4px 0 0', fontSize: 14, color: '#6b7280' }}>{tenant.email}</p>}
+              <div style={{ minWidth: 0 }}>
+                <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, color: NAVY, lineHeight: 1.2, overflowWrap: 'anywhere' }}>{tenant.name}</h1>
+                {tenant.email && <p style={{ margin: '4px 0 0', fontSize: 14, color: '#6b7280', overflowWrap: 'anywhere' }}>{tenant.email}</p>}
               </div>
             </div>
 
