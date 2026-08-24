@@ -144,6 +144,7 @@ export const getHouses = async (req, res) => {
       const lease = leaseByHouse[h._id.toString()];
       if (lease) {
         hObj.lease = {
+          startDate: lease.startDate,
           paymentDay: lease.paymentDay,
           rentAmount: lease.rentAmount,
           frequency: lease.frequency,

@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import Layout from '../../components/Layout';
 import ConfirmModal from '../../components/ConfirmModal';
 import { backendUrl, API } from '../../config/constants';
+import { getNextDueDate, actualPayDay } from '../../utils/leaseSchedule';
 
 const emptyForm = { name: '', address: '', city: '', bedrooms: 1, bathrooms: 1, description: '' };
 
@@ -428,16 +429,18 @@ const Houses = () => {
                     const status = getRentStatus(h);
                     const statusClass = STATUS_CHIP[status] || STATUS_CHIP['VACANT'];
 
+                    // Frequency-aware — mirrors HouseDetail's "Next due" logic. The
+                    // current cycle is still open (unpaid) whenever the backend flagged
+                    // it overdue/due_soon; otherwise fall back to the next scheduled
+                    // installment month, which correctly skips months a non-monthly
+                    // lease (e.g. quarterly) doesn't actually bill.
                     let dueDateStr = '—';
                     if (lease?.paymentDay) {
                       const now = new Date();
-                      const currentMonthDue = new Date(now.getFullYear(), now.getMonth(), lease.paymentDay);
-                      // Advance to next month only if current month's due date has passed AND rent is paid (not overdue)
-                      const isPaid = currentMonthDue < now && h.rentStatus !== 'overdue';
-                      const due = isPaid
-                        ? new Date(now.getFullYear(), now.getMonth() + 1, lease.paymentDay)
-                        : currentMonthDue;
-                      dueDateStr = due.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase();
+                      const due = (h.rentStatus === 'overdue' || h.rentStatus === 'due_soon')
+                        ? new Date(now.getFullYear(), now.getMonth(), actualPayDay(lease.paymentDay, now.getFullYear(), now.getMonth()))
+                        : getNextDueDate(lease, now);
+                      if (due) dueDateStr = due.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase();
                     }
 
                     const rentDue = lease?.rentAmount ?? h.rentAmount;
