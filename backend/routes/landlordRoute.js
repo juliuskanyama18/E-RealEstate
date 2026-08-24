@@ -73,10 +73,12 @@ import {
   deleteRentHistory,
 } from "../controller/landlordController.js";
 import { protect, requireActive, requireRole } from "../middleware/auth.js";
+import { registerObjectIdParams } from "../middleware/validateObjectIdParams.js";
 
 const router = express.Router();
 
 router.use(protect, requireActive, requireRole("landlord"));
+registerObjectIdParams(router, ["id", "leaseId", "docId", "reminderId", "houseId"]);
 
 router.get("/cashflow", getCashflow);
 router.get("/org", getOrgSettings);

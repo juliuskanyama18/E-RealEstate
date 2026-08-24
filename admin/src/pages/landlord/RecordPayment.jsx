@@ -353,7 +353,7 @@ const RecordPayment = () => {
                   {chevronSvg}
                 </div>
               </div>
-              <a style={linkStyle}>Haven't added the lease yet?</a>
+              <a style={linkStyle} href="/houses" onClick={e => { e.preventDefault(); navigate('/houses'); }}>Haven't added the lease yet?</a>
 
               {/* Tenant select */}
               <div style={{ marginTop: 18, marginBottom: 4 }}>
@@ -375,7 +375,7 @@ const RecordPayment = () => {
                   {chevronSvg}
                 </div>
               </div>
-              <a style={linkStyle}>Add Tenants</a>
+              <a style={linkStyle} href="/tenants" onClick={e => { e.preventDefault(); navigate('/tenants'); }}>Add Tenants</a>
 
               {/* Amount + Month row */}
               <div style={{ marginTop: 20, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16 }}>

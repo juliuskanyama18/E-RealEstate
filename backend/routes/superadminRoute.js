@@ -18,11 +18,13 @@ import {
   forcePasswordReset,
 } from "../controller/superadminController.js";
 import { protect, requireActive, requireRole } from "../middleware/auth.js";
+import { registerObjectIdParams } from "../middleware/validateObjectIdParams.js";
 
 const router = express.Router();
 
 // All routes require: valid JWT + active account + superadmin role
 router.use(protect, requireActive, requireRole("superadmin"));
+registerObjectIdParams(router, ["id"]);
 
 /* ── Dashboard ── */
 router.get("/stats", getDashboardStats);

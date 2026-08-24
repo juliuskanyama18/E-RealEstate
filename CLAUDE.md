@@ -11,9 +11,9 @@ A full-stack property rental management SaaS platform with role-based access for
 - **Framework:** Express.js 4.x
 - **Database:** MongoDB Atlas (Mongoose ODM)
 - **Auth:** JWT + Bcrypt
-- **File Uploads:** Multer → ImageKit CDN
+- **File Uploads:** Multer → local disk (`backend/uploads/`), served statically at `/uploads`
 - **Email:** Nodemailer via Brevo HTTP API (not SMTP — Render blocks SMTP ports)
-- **SMS:** Twilio
+- **SMS:** Beem Africa
 - **Scheduler:** node-cron
 - **Security:** Helmet.js, CORS, express-rate-limit
 
@@ -76,7 +76,7 @@ npm run dev
 - `JWT_SECRET`
 - Superadmin / Landlord / Tenant seed credentials
 - Brevo API key for email
-- Twilio credentials for SMS
+- Beem Africa credentials for SMS (`BEEM_API_KEY`, `BEEM_SECRET_KEY`, `BEEM_SOURCE_ADDR`)
 - `WEBSITE_URL=http://localhost:5174`
 
 **Frontend** (`admin/.env`):
@@ -100,7 +100,8 @@ npm run dev
 ## Key Architectural Decisions
 
 - **Email via Brevo HTTP API** (not SMTP) — Render.com blocks SMTP ports 465/587
-- **ImageKit CDN** for all file/photo storage (Multer handles upload, then forwards to ImageKit)
+- **SMS via Beem Africa** for rent reminders
+- **Local disk storage** for all file/photo uploads (Multer writes to `backend/uploads/`, served statically) — note this may not persist across Render redeploys since container-local disk is typically ephemeral; the `imagekit` package is an installed-but-unused dependency, not wired to anything
 - **MongoDB Atlas** for cloud database — no local MongoDB needed
 - **Single frontend** (`/admin`) serves all three roles with route-based access control via `ProtectedRoute`
 - **node-cron** handles automated rent reminders and scheduled tasks

@@ -515,6 +515,18 @@ export const removeTenant = async (req, res) => {
     );
     await RentRecord.deleteMany({ tenant: tenant._id, landlord: req.user._id });
 
+    // Same reasoning for reminders/maintenance requests that reference this
+    // tenant directly — the house-level record is still valid history, it
+    // just shouldn't point at a User document that's gone.
+    await Reminder.updateMany(
+      { tenant: tenant._id, landlord: req.user._id },
+      { $unset: { tenant: 1 }, $set: { notifyTenant: false } }
+    );
+    await MaintenanceRequest.updateMany(
+      { tenant: tenant._id, landlord: req.user._id },
+      { $unset: { tenant: 1 } }
+    );
+
     res.json({ success: true, message: "Tenant removed" });
   } catch (error) {
     res.status(500).json({ success: false, message: "Server error", error: error.message });
@@ -710,6 +722,12 @@ export const deleteMaintenanceRequest = async (req, res) => {
       landlord: req.user._id,
     });
     if (!request) return res.status(404).json({ success: false, message: "Request not found" });
+
+    for (const photoPath of request.photos || []) {
+      const filePath = path.resolve(photoPath.replace(/^\//, ""));
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    }
+
     res.json({ success: true, message: "Maintenance request deleted" });
   } catch (error) {
     res.status(500).json({ success: false, message: "Server error", error: error.message });
@@ -1708,6 +1726,13 @@ export const deleteSupplier = async (req, res) => {
   try {
     const supplier = await Supplier.findOneAndDelete({ _id: req.params.id, landlord: req.user._id });
     if (!supplier) return res.status(404).json({ success: false, message: "Supplier not found" });
+
+    // Don't leave expenses pointing at a supplier that no longer exists.
+    await Expense.updateMany(
+      { supplier: supplier._id, landlord: req.user._id },
+      { $unset: { supplier: 1 } }
+    );
+
     res.json({ success: true, message: "Supplier deleted" });
   } catch (error) {
     res.status(500).json({ success: false, message: "Server error", error: error.message });

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { FileText, Upload } from 'lucide-react';
+import { Upload } from 'lucide-react';
 import Layout from '../../components/Layout';
 import MoneyInput from '../../components/MoneyInput';
 import { backendUrl, API } from '../../config/constants';
@@ -403,27 +403,15 @@ const DocumentsTab = () => (
         description="Upload default lease agreement templates. These can be sent to new tenants when they are added."
       />
 
-      {/* Upload zone */}
-      <label className="flex flex-col items-center justify-center gap-3 border-2 border-dashed border-gray-200 rounded-xl p-10 cursor-pointer hover:border-[#042238] hover:bg-[#04223808] transition-colors group">
-        <div className="w-12 h-12 rounded-full bg-[#04223810] flex items-center justify-center group-hover:bg-[#04223820] transition-colors">
+      {/* Upload zone — not wired up yet, shown disabled rather than silently doing nothing */}
+      <div className="flex flex-col items-center justify-center gap-3 border-2 border-dashed border-gray-200 rounded-xl p-10 opacity-60 cursor-not-allowed">
+        <div className="w-12 h-12 rounded-full bg-[#04223810] flex items-center justify-center">
           <Upload size={22} className="text-[#042238]" />
         </div>
         <div className="text-center">
-          <p className="text-sm font-medium text-gray-700">Click to upload a document</p>
-          <p className="text-xs text-gray-400 mt-0.5">PDF, DOCX up to 10 MB</p>
+          <p className="text-sm font-medium text-gray-700">Lease template uploads are coming soon</p>
+          <p className="text-xs text-gray-400 mt-0.5">Not available yet — check back in a future update.</p>
         </div>
-        <input type="file" accept=".pdf,.doc,.docx" className="hidden" />
-      </label>
-    </div>
-
-    {/* Documents list */}
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-      <div className="flex flex-col items-center py-8 text-center">
-        <FileText size={36} className="text-gray-200 mb-3" />
-        <p className="text-sm font-medium text-gray-500">No documents uploaded yet</p>
-        <p className="text-xs text-gray-400 mt-1">
-          Lease agreements, addendums, and inspection reports will appear here.
-        </p>
       </div>
     </div>
   </div>

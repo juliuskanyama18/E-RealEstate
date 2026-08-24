@@ -141,8 +141,6 @@ const SetUpMonthlyCharge = () => {
   const [lastMonth,   setLastMonth]   = useState(now.getMonth() === 0 ? 11 : now.getMonth() - 1);
   const [lastYear,    setLastYear]    = useState(now.getMonth() === 0 ? now.getFullYear() : now.getFullYear() + 1);
   const [untilEnd,    setUntilEnd]    = useState(true);
-  const [showLateFee, setShowLateFee] = useState(false);
-  const [lateFeeAmt,  setLateFeeAmt]  = useState('');
 
   const hiddenDateRef = useRef(null);
 
@@ -494,35 +492,6 @@ const SetUpMonthlyCharge = () => {
                   </>
                 )}
               </div>
-
-              {/* Add Late Fees */}
-              {!showLateFee ? (
-                <button
-                  type="button"
-                  onClick={() => setShowLateFee(true)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 6,
-                    fontFamily: FONT, fontSize: 13, fontWeight: 600, color: NAVY,
-                    background: '#fff', border: `1px solid #c8d0db`, borderRadius: 100,
-                    padding: '8px 18px', cursor: 'pointer', marginBottom: 24,
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#f5f6f8'}
-                  onMouseLeave={e => e.currentTarget.style.background = '#fff'}
-                >
-                  <span style={{ fontSize: 18, lineHeight: 1, marginTop: -1 }}>+</span>
-                  Add Late Fees
-                </button>
-              ) : (
-                <div style={{ marginBottom: 24 }}>
-                  <label style={labelStyle}>Late Fee Amount (TZS)</label>
-                  <MoneyInput
-                    value={lateFeeAmt}
-                    onChange={setLateFeeAmt}
-                    placeholder="0.00"
-                    style={inputStyle}
-                  />
-                </div>
-              )}
 
               {/* Submit */}
               <div style={{ textAlign: 'center' }}>

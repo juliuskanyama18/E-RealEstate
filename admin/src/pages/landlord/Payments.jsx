@@ -950,6 +950,7 @@ const Payments = () => {
   const [selectedExp,    setSelectedExp]    = useState(new Set());
   const [actionsOpen,    setActionsOpen]    = useState(false);
   const [actionsPos,     setActionsPos]     = useState(null);
+  const [moveToOpen,     setMoveToOpen]     = useState(false);
   const actionsRef    = useRef();
   const actionsBtnRef = useRef();
 
@@ -1238,6 +1239,7 @@ const Payments = () => {
                               style={{ position: 'fixed', top: actionsPos.top, left: actionsPos.left, zIndex: 9000, background: '#fff', border: '1px solid #e4e9f0', borderRadius: 8, boxShadow: '0 4px 20px rgba(4,34,56,0.14)', minWidth: 180, overflow: 'hidden' }}>
                               {[{ label: 'Mark paid', action: () => { bulkStatus('paid'); setActionsOpen(false); } },
                                 { label: 'Mark unpaid', action: () => { bulkStatus('unpaid'); setActionsOpen(false); } },
+                                { label: 'Move to property', action: () => { setMoveToOpen(true); setActionsOpen(false); } },
                                 { label: `Delete (${selectedExp.size})`, action: () => { bulkDelete(); setActionsOpen(false); }, red: true },
                               ].map((item, i) => (
                                 <button key={i} onClick={item.action}
@@ -1344,6 +1346,13 @@ const Payments = () => {
         )}
         {expModalOpen && <ExpenseModal onClose={() => setExpModalOpen(false)} onSaved={fetchExpenses} houses={houses} />}
         {editingExpense && <EditExpenseModal expense={editingExpense} onClose={() => setEditingExpense(null)} onSaved={() => { fetchExpenses(); setSelectedExp(new Set()); }} houses={houses} />}
+        {moveToOpen && (
+          <MoveToModal
+            selectedIds={[...selectedExp]}
+            onClose={() => setMoveToOpen(false)}
+            onSaved={() => { fetchExpenses(); setSelectedExp(new Set()); setMoveToOpen(false); }}
+          />
+        )}
         <ConfirmModal
           open={confirm.open}
           title={confirm.title}

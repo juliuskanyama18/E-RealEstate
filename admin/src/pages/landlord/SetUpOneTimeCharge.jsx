@@ -61,13 +61,6 @@ const CalIcon = () => (
   </svg>
 );
 
-/* ── Plus circle SVG (Add Attachment) ── */
-const PlusCircleIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 18 18" fill={NAVY}>
-    <path d="M9 16.7C13.3 16.7 16.7 13.3 16.7 9 16.7 4.7 13.3 1.3 9 1.3 4.7 1.3 1.3 4.7 1.3 9 1.3 13.3 4.7 16.7 9 16.7ZM9 18C4 18 0 14 0 9 0 4 4 0 9 0 14 0 18 4 18 9 18 14 14 18 9 18ZM9.8 8.2L12.2 8.2C12.6 8.2 13 8.6 13 9 13 9.4 12.6 9.8 12.2 9.8L9.8 9.8 9.8 12.2C9.8 12.6 9.4 13 9 13 8.6 13 8.2 12.6 8.2 12.2L8.2 9.8 5.8 9.8C5.4 9.8 5 9.4 5 9 5 8.6 5.4 8.2 5.8 8.2L8.2 8.2 8.2 5.8C8.2 5.4 8.6 5 9 5 9.4 5 9.8 5.4 9.8 5.8L9.8 8.2Z" />
-  </svg>
-);
-
 /* ── Custom Tooltip ── */
 const Tooltip = ({ text, size = 15 }) => {
   const [visible, setVisible] = useState(false);
@@ -207,9 +200,7 @@ const SetUpOneTimeCharge = () => {
   const [amount,      setAmount]      = useState('');
   const [dueDate,     setDueDate]     = useState('');
   const [calOpen,     setCalOpen]     = useState(false);
-  const [attachments, setAttachments] = useState([]);
 
-  const fileInputRef  = useRef(null);
   const calWrapRef    = useRef(null);
 
   /* Auto-slash as user types DD/MM/YYYY */
@@ -220,14 +211,6 @@ const SetUpOneTimeCharge = () => {
     if (digits.length > 4) val = digits.slice(0,2) + '/' + digits.slice(2,4) + '/' + digits.slice(4,8);
     setDueDate(val);
   };
-
-  const handleFileChange = e => {
-    const files = Array.from(e.target.files);
-    setAttachments(prev => [...prev, ...files]);
-    e.target.value = '';
-  };
-
-  const removeAttachment = idx => setAttachments(prev => prev.filter((_, i) => i !== idx));
 
   const [tenantId,   setTenantId]   = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -423,62 +406,6 @@ const SetUpOneTimeCharge = () => {
                   <span style={{ fontFamily: FONT, fontSize: 12, color: '#e53e3e', marginTop: 4, display: 'block' }}>
                     {errors.dueDate}
                   </span>
-                )}
-              </div>
-
-              {/* Add Attachment */}
-              <div style={{ marginBottom: 24 }}>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  accept=".jpg,.png,.jpeg,.pdf,.zip,.xls,.xlsx,.txt,.csv,.doc,.docx"
-                  style={{ display: 'none' }}
-                  onChange={handleFileChange}
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 8,
-                    fontFamily: FONT, fontSize: 13, fontWeight: 600, color: NAVY,
-                    background: '#fff', border: '1px solid #c8d0db', borderRadius: 100,
-                    padding: '8px 18px', cursor: 'pointer',
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#f5f6f8'}
-                  onMouseLeave={e => e.currentTarget.style.background = '#fff'}
-                >
-                  <PlusCircleIcon />
-                  Add Attachment
-                </button>
-
-                {/* Attached files list */}
-                {attachments.length > 0 && (
-                  <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {attachments.map((f, i) => (
-                      <div key={i} style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        background: '#f5f6f8', borderRadius: 4, padding: '6px 12px',
-                        fontFamily: FONT, fontSize: 13, color: NAVY,
-                      }}>
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 320 }}>
-                          {f.name}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => removeAttachment(i)}
-                          style={{
-                            background: 'none', border: 'none', cursor: 'pointer',
-                            color: '#8a9ab0', display: 'flex', alignItems: 'center', padding: 2,
-                          }}
-                          onMouseEnter={e => e.currentTarget.style.color = NAVY}
-                          onMouseLeave={e => e.currentTarget.style.color = '#8a9ab0'}
-                        >
-                          <X size={14} strokeWidth={2} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
                 )}
               </div>
 

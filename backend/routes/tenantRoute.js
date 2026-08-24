@@ -5,6 +5,7 @@ import { protect, requireActive, requireRole } from "../middleware/auth.js";
 const router = express.Router();
 
 router.use(protect, requireActive, requireRole("tenant"));
+// No :id-style route params exist in this file today, so nothing to register.
 
 router.get("/me", getMyDetails);
 router.get("/rent-status", getRentStatus);
