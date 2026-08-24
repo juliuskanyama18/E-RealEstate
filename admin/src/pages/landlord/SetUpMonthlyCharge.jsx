@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import Layout from '../../components/Layout';
+import MoneyInput from '../../components/MoneyInput';
 import { ArrowLeft, Info } from 'lucide-react';
 import { backendUrl, API } from '../../config/constants';
 import { openDatePicker } from '../../utils/datePicker';
@@ -333,10 +334,9 @@ const SetUpMonthlyCharge = () => {
                       position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)',
                       fontFamily: FONT, fontSize: 13, fontWeight: 600, color: NAVY, pointerEvents: 'none',
                     }}>TZS</span>
-                    <input
-                      type="number" min="0" step="0.01"
+                    <MoneyInput
                       value={amount}
-                      onChange={e => { setAmount(e.target.value); setErrors(prev => ({ ...prev, amount: '' })); }}
+                      onChange={v => { setAmount(v); setErrors(prev => ({ ...prev, amount: '' })); }}
                       style={{ ...inputStyle, paddingLeft: 44, ...(errors.amount ? { border: '1px solid #e53e3e' } : {}) }}
                     />
                   </div>
@@ -515,10 +515,9 @@ const SetUpMonthlyCharge = () => {
               ) : (
                 <div style={{ marginBottom: 24 }}>
                   <label style={labelStyle}>Late Fee Amount (TZS)</label>
-                  <input
-                    type="number" min="0" step="0.01"
+                  <MoneyInput
                     value={lateFeeAmt}
-                    onChange={e => setLateFeeAmt(e.target.value)}
+                    onChange={setLateFeeAmt}
                     placeholder="0.00"
                     style={inputStyle}
                   />

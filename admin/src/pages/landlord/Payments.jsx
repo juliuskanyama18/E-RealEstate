@@ -5,6 +5,7 @@ import { X, Search, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import Layout from '../../components/Layout';
 import ConfirmModal from '../../components/ConfirmModal';
+import MoneyInput from '../../components/MoneyInput';
 import { backendUrl, API } from '../../config/constants';
 import { openDatePicker } from '../../utils/datePicker';
 
@@ -314,7 +315,7 @@ const RentPaymentModal = ({ onClose, onSaved, payment = null }) => {
             <label style={lStyle}>Amount (TZS) <span style={{ color: '#ef4444' }}>*</span></label>
             <div style={{ position: 'relative' }}>
               <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontFamily: FONT, fontSize: 14, color: '#6b7280' }}>TZS</span>
-              <input type="number" min="0" step="1" value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))}
+              <MoneyInput value={form.amount} onChange={v => setForm(p => ({ ...p, amount: v }))}
                 placeholder="0" style={{ ...iStyle, paddingLeft: 48 }} />
             </div>
           </div>
@@ -568,7 +569,7 @@ const ExpenseModal = ({ onClose, onSaved, houses = [] }) => {
             <label style={lStyle}>Total Amount (TZS)</label>
             <div style={{ position: 'relative' }}>
               <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontFamily: FONT, fontSize: 14, color: '#6b7280' }}>TZS</span>
-              <input type="number" min="0" step="0.01" value={form.amount} placeholder="0.00" onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} style={{ ...iStyle, paddingLeft: 48 }} />
+              <MoneyInput value={form.amount} placeholder="0.00" onChange={v => setForm(p => ({ ...p, amount: v }))} style={{ ...iStyle, paddingLeft: 48 }} />
             </div>
           </div>
           <div>
@@ -843,7 +844,7 @@ const EditExpenseModal = ({ expense: init, onClose, onSaved, houses = [] }) => {
             <label style={lStyle}>Total Amount (TZS)</label>
             <div style={{ position: 'relative' }}>
               <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 14, color: '#6b7280' }}>TZS</span>
-              <input type="number" min="0" step="0.01" value={form.amount} placeholder="0.00" onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} style={{ ...iStyle, paddingLeft: 48 }} />
+              <MoneyInput value={form.amount} placeholder="0.00" onChange={v => setForm(p => ({ ...p, amount: v }))} style={{ ...iStyle, paddingLeft: 48 }} />
             </div>
           </div>
           <div>

@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import Layout from '../../components/Layout';
+import MoneyInput from '../../components/MoneyInput';
 import { backendUrl } from '../../config/constants';
 import { ChevronDown, ChevronUp, Plus, X } from 'lucide-react';
 import { openDatePicker } from '../../utils/datePicker';
@@ -185,8 +186,8 @@ const LateFeeRow = ({ fee, idx, onChange, onRemove }) => (
   <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginTop: 10 }}>
     <div style={{ flex: 1 }}>
       <label style={{ fontSize: 12, color: '#6b7280', display: 'block', marginBottom: 4 }}>Amount (TZS)</label>
-      <input type="number" min="0" value={fee.amount}
-        onChange={e => onChange(idx, 'amount', e.target.value)} style={inputStyle} placeholder="0" />
+      <MoneyInput value={fee.amount}
+        onChange={v => onChange(idx, 'amount', v)} style={inputStyle} placeholder="0" />
     </div>
     <div style={{ flex: 1 }}>
       <label style={{ fontSize: 12, color: '#6b7280', display: 'block', marginBottom: 4 }}>Days after due</label>
@@ -327,7 +328,7 @@ export default function CreateLease() {
               <Field label="Rent amount" required>
                 <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #d1d5db', borderRadius: 6, overflow: 'hidden' }}>
                   <span style={{ padding: '9px 12px', background: '#f3f4f6', borderRight: '1px solid #d1d5db', fontSize: 13, color: '#6b7280', fontWeight: 600, whiteSpace: 'nowrap' }}>TZS</span>
-                  <input type="number" min="0" value={rentAmount} onChange={e => setRentAmount(e.target.value)}
+                  <MoneyInput value={rentAmount} onChange={setRentAmount}
                     style={{ ...inputStyle, border: 'none', borderRadius: 0, flex: 1 }} placeholder="0" />
                 </div>
               </Field>
@@ -354,7 +355,7 @@ export default function CreateLease() {
               <Field label="Deposit amount" hint="(optional)">
                 <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #d1d5db', borderRadius: 6, overflow: 'hidden' }}>
                   <span style={{ padding: '9px 12px', background: '#f3f4f6', borderRight: '1px solid #d1d5db', fontSize: 13, color: '#6b7280', fontWeight: 600, whiteSpace: 'nowrap' }}>TZS</span>
-                  <input type="number" min="0" value={deposit} onChange={e => setDeposit(e.target.value)}
+                  <MoneyInput value={deposit} onChange={setDeposit}
                     style={{ ...inputStyle, border: 'none', borderRadius: 0, flex: 1 }} placeholder="0" />
                 </div>
               </Field>

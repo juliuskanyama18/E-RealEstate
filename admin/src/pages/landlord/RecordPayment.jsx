@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import Layout from '../../components/Layout';
+import MoneyInput from '../../components/MoneyInput';
 import { backendUrl, API } from '../../config/constants';
 import { ArrowLeft, Calendar, X } from 'lucide-react';
 
@@ -392,13 +393,10 @@ const RecordPayment = () => {
                     <div style={{ position: 'absolute', left: 10, pointerEvents: 'none', fontFamily: FONT, fontSize: 13, fontWeight: 600, color: '#8a9ab0' }}>
                       TZS
                     </div>
-                    <input
+                    <MoneyInput
                       id="amount"
-                      type="number"
-                      min="1"
-                      step="1"
                       value={form.amount}
-                      onChange={e => set('amount', e.target.value)}
+                      onChange={v => set('amount', v)}
                       placeholder="0"
                       style={{ fontFamily: FONT, fontSize: 14, color: NAVY, width: '100%', padding: '9px 12px 9px 46px', border: '1px solid #c8d0db', borderRadius: 4, background: '#fff', outline: 'none', lineHeight: 1.4 }}
                     />

@@ -3,6 +3,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { FileText, Upload } from 'lucide-react';
 import Layout from '../../components/Layout';
+import MoneyInput from '../../components/MoneyInput';
 import { backendUrl, API } from '../../config/constants';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -238,13 +239,22 @@ const PaymentSettingsTab = ({ data, onSave }) => {
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 font-medium pointer-events-none">
                 {form.lateFeeType === 'percentage' ? '%' : 'TZS'}
               </span>
-              <input
-                type="number" min={0}
-                className={`${inputCls} pl-12`}
-                value={form.lateFeeAmount}
-                onChange={set('lateFeeAmount')}
-                placeholder="0"
-              />
+              {form.lateFeeType === 'percentage' ? (
+                <input
+                  type="number" min={0}
+                  className={`${inputCls} pl-12`}
+                  value={form.lateFeeAmount}
+                  onChange={set('lateFeeAmount')}
+                  placeholder="0"
+                />
+              ) : (
+                <MoneyInput
+                  className={`${inputCls} pl-12`}
+                  value={form.lateFeeAmount}
+                  onChange={v => setForm(f => ({ ...f, lateFeeAmount: v }))}
+                  placeholder="0"
+                />
+              )}
             </div>
           </FormField>
         </div>

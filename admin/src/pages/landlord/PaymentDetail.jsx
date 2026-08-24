@@ -4,6 +4,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import Layout from '../../components/Layout';
 import ConfirmModal from '../../components/ConfirmModal';
+import MoneyInput from '../../components/MoneyInput';
 import { backendUrl, API } from '../../config/constants';
 
 const NAVY = '#042238';
@@ -231,13 +232,11 @@ const PaymentDetail = () => {
                 {/* Amount */}
                 <div>
                   <label style={labelStyle}>Amount (TZS)<span style={{ color: '#ef4444', marginLeft: 2 }}>*</span></label>
-                  <input
-                    type="number"
-                    min="1"
+                  <MoneyInput
                     value={draft.amount}
-                    onChange={e => setDraft(d => ({ ...d, amount: e.target.value }))}
+                    onChange={v => setDraft(d => ({ ...d, amount: v }))}
                     style={inputStyle}
-                    placeholder="e.g. 500000"
+                    placeholder="e.g. 500,000"
                   />
                 </div>
 

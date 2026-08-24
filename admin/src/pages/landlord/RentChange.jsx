@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import Layout from '../../components/Layout';
+import MoneyInput from '../../components/MoneyInput';
 import { backendUrl } from '../../config/constants';
 
 /* ── shared header ────────────────────────────────────────────────────────── */
@@ -137,11 +138,9 @@ const FormCard = ({ startDate, setStartDate, amount, setAmount, readOnly, isFirs
           <span style={lbl}>Amount<span style={{ color: '#ef4444' }}>*</span></span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
             <span style={{ fontSize: 14, color: '#6b7280', fontWeight: 600 }}>TZS</span>
-            <input
-              type="number"
-              min="0"
+            <MoneyInput
               value={amount}
-              onChange={e => setAmount(e.target.value)}
+              onChange={setAmount}
               readOnly={readOnly}
               style={{ ...inp, cursor: readOnly ? 'default' : 'text', color: readOnly ? '#6b7280' : '#042238' }}
             />

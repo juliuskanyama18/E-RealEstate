@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { ChevronLeft } from 'lucide-react';
 import Layout from '../../components/Layout';
 import ConfirmModal from '../../components/ConfirmModal';
+import MoneyInput from '../../components/MoneyInput';
 import { backendUrl } from '../../config/constants';
 
 const INPUT  = 'w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white';
@@ -219,7 +220,7 @@ export default function EditProperty() {
                 <label className={LABEL}>Monthly Rent *</label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">TZS</span>
-                  <input required type="number" min="0" value={rentAmount} onChange={e => setRentAmount(e.target.value)}
+                  <MoneyInput required value={rentAmount} onChange={setRentAmount}
                     className="w-full border border-gray-200 rounded-lg pl-12 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" placeholder="0"/>
                 </div>
               </div>

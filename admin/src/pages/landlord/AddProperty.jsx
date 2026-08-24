@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { ChevronLeft } from 'lucide-react';
+import MoneyInput from '../../components/MoneyInput';
 import { backendUrl, API } from '../../config/constants';
 
 /* ── Type constants ─────────────────────────────────────────── */
@@ -399,7 +400,7 @@ const AddProperty = () => {
                   </div>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">TZS</span>
-                    <input required type="number" min="0" value={rentAmount} onChange={e => setRentAmount(e.target.value)}
+                    <MoneyInput required value={rentAmount} onChange={setRentAmount}
                       className="w-full border border-gray-200 rounded-lg pl-12 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" placeholder="0"/>
                   </div>
                 </div>
@@ -419,7 +420,7 @@ const AddProperty = () => {
                   </div>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">TZS</span>
-                    <input type="number" min="0" value={deposit} onChange={e => setDeposit(e.target.value)}
+                    <MoneyInput value={deposit} onChange={setDeposit}
                       className="w-full border border-gray-200 rounded-lg pl-12 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" placeholder="0"/>
                   </div>
                 </div>

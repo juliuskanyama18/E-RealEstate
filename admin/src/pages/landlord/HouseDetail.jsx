@@ -5,6 +5,7 @@ import { ArrowLeft, Settings, Users, Home, DollarSign, FileText, ChevronRight } 
 import toast from 'react-hot-toast';
 import Layout from '../../components/Layout';
 import ConfirmModal from '../../components/ConfirmModal';
+import MoneyInput from '../../components/MoneyInput';
 import { backendUrl, API } from '../../config/constants';
 import { isDueMonth, getNextDueDate } from '../../utils/leaseSchedule';
 
@@ -2773,7 +2774,7 @@ const HouseDetail = () => {
                   <label style={lbl}>Amount</label>
                   <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #d1d5db', borderRadius: 6, overflow: 'hidden' }}>
                     <span style={{ padding: '7px 10px', background: '#f9fafb', borderRight: '1px solid #d1d5db', fontSize: 13, color: '#6b7280' }}>TZS</span>
-                    <input type="number" min="0" value={lf.amount} onChange={e => set('amount', e.target.value)} placeholder="0.00" style={{ flex: 1, padding: '7px 10px', border: 'none', outline: 'none', fontSize: 13, fontFamily: 'inherit', color: '#042238' }} />
+                    <MoneyInput value={lf.amount} onChange={v => set('amount', v)} placeholder="0.00" style={{ flex: 1, padding: '7px 10px', border: 'none', outline: 'none', fontSize: 13, fontFamily: 'inherit', color: '#042238' }} />
                   </div>
                 </div>
                 <div>
@@ -2875,7 +2876,7 @@ const HouseDetail = () => {
                   <label style={lbl}>Total Amount <span style={{ color: '#ef4444' }}>*</span></label>
                   <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #d1d5db', borderRadius: 6, overflow: 'hidden' }}>
                     <span style={{ padding: '7px 10px', background: '#f9fafb', borderRight: '1px solid #d1d5db', fontSize: 13, color: '#6b7280' }}>TZS</span>
-                    <input type="number" min="0" value={ef.amount} onChange={e => set('amount', e.target.value)} placeholder="0.00" style={{ flex: 1, padding: '7px 10px', border: 'none', outline: 'none', fontSize: 13, fontFamily: 'inherit', color: '#042238' }} />
+                    <MoneyInput value={ef.amount} onChange={v => set('amount', v)} placeholder="0.00" style={{ flex: 1, padding: '7px 10px', border: 'none', outline: 'none', fontSize: 13, fontFamily: 'inherit', color: '#042238' }} />
                   </div>
                 </div>
                 <div>
@@ -2977,7 +2978,7 @@ const HouseDetail = () => {
                   <label style={lbl}>Total Amount <span style={{ color: '#ef4444' }}>*</span></label>
                   <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #d1d5db', borderRadius: 6, overflow: 'hidden' }}>
                     <span style={{ padding: '7px 10px', background: '#f9fafb', borderRight: '1px solid #d1d5db', fontSize: 13, color: '#6b7280' }}>TZS</span>
-                    <input type="number" min="0" value={ef.amount} onChange={e => set('amount', e.target.value)} placeholder="0.00" style={{ flex: 1, padding: '7px 10px', border: 'none', outline: 'none', fontSize: 13, fontFamily: 'inherit', color: '#042238' }} />
+                    <MoneyInput value={ef.amount} onChange={v => set('amount', v)} placeholder="0.00" style={{ flex: 1, padding: '7px 10px', border: 'none', outline: 'none', fontSize: 13, fontFamily: 'inherit', color: '#042238' }} />
                   </div>
                 </div>
                 <div>
