@@ -7,6 +7,7 @@ import MoneyInput from '../../components/MoneyInput';
 import { backendUrl } from '../../config/constants';
 import { ChevronDown, ChevronUp, Plus, X } from 'lucide-react';
 import { openDatePicker } from '../../utils/datePicker';
+import { FREQ_MONTHS, getNextDueDate } from '../../utils/leaseSchedule';
 
 const NAVY = '#042238';
 const FONT = '"Inter", sans-serif';
@@ -53,6 +54,9 @@ const parseDMY = (str) => {
   const date = new Date(`${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`);
   return isNaN(date) ? null : `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
 };
+
+/* ── Local calendar date (not UTC-shifted, unlike toISOString) → YYYY-MM-DD ── */
+const localISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 /* ── Convert YYYY-MM-DD → DD/MM/YYYY ── */
 const isoToDMY = (iso) => {
@@ -245,6 +249,27 @@ export default function CreateLease() {
 
   const toggle = (n) => setOpenSection(prev => prev === n ? null : n);
 
+  // ── Live previews so "Rent amount" and "Payment frequency" don't silently
+  // disagree with what the landlord actually meant. "Rent amount" is always
+  // the FULL amount billed each cycle — not a monthly rate the app scales up
+  // — so for anything less frequent than monthly we show the per-month
+  // equivalent as a sanity check, and for every frequency we show exactly
+  // when the first bill actually lands (a non-monthly lease whose payment
+  // day already passed in the start month skips forward a full cycle, which
+  // is easy to miss otherwise).
+  const freqMonths = FREQ_MONTHS[frequency] ?? 1;
+  const rentAmountNum = Number(rentAmount) || 0;
+  const perMonthEquivalent = freqMonths > 1 && rentAmountNum > 0 ? rentAmountNum / freqMonths : null;
+
+  const parsedStartForPreview = parseDMY(startDate);
+  const firstDueDate = (parsedStartForPreview && paymentDay && freqMonths > 0)
+    ? getNextDueDate(
+        { startDate: parsedStartForPreview, paymentDay: Number(paymentDay), frequency },
+        new Date(parsedStartForPreview)
+      )
+    : null;
+  const fmtFirstDue = (d) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -325,12 +350,19 @@ export default function CreateLease() {
               </div>
 
               {/* Rent amount */}
-              <Field label="Rent amount" required>
+              <Field label="Rent amount" required hint="— the full amount due each cycle, not a monthly rate">
                 <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #d1d5db', borderRadius: 6, overflow: 'hidden' }}>
                   <span style={{ padding: '9px 12px', background: '#f3f4f6', borderRight: '1px solid #d1d5db', fontSize: 13, color: '#6b7280', fontWeight: 600, whiteSpace: 'nowrap' }}>TZS</span>
                   <MoneyInput value={rentAmount} onChange={setRentAmount}
                     style={{ ...inputStyle, border: 'none', borderRadius: 0, flex: 1 }} placeholder="0" />
                 </div>
+                {perMonthEquivalent !== null && (
+                  <p style={{ margin: '6px 0 0', fontSize: 12, color: '#6b7280' }}>
+                    This bills <strong style={{ color: '#374151' }}>TZS {rentAmountNum.toLocaleString()}</strong> every {frequency.toLowerCase()} &mdash;
+                    ≈ TZS {Math.round(perMonthEquivalent).toLocaleString()} / month.
+                    If {frequency.toLowerCase()} rent is really TZS {rentAmountNum.toLocaleString()}/month, enter TZS {(rentAmountNum * freqMonths).toLocaleString()} here instead.
+                  </p>
+                )}
               </Field>
 
               {/* Payment frequency */}
@@ -350,6 +382,22 @@ export default function CreateLease() {
                   ))}
                 </select>
               </Field>
+
+              {/* First due date preview */}
+              {parsedStartForPreview && (
+                <div style={{
+                  marginTop: 14, padding: '10px 14px', borderRadius: 6,
+                  background: freqMonths === 0 ? '#f9fafb' : '#eff6ff',
+                  border: `1px solid ${freqMonths === 0 ? '#e5e7eb' : '#bfdbfe'}`,
+                  fontSize: 13, color: freqMonths === 0 ? '#6b7280' : '#1d4ed8',
+                }}>
+                  {freqMonths === 0
+                    ? 'One-Time lease — no recurring due date will be scheduled.'
+                    : firstDueDate
+                      ? <>First rent due: <strong>{fmtFirstDue(firstDueDate)}</strong>{localISO(firstDueDate) !== parsedStartForPreview && ' — later than the start date, because the payment day already passed by then, so billing starts on the next full cycle'}</>
+                      : 'Set a payment day to see the first due date.'}
+                </div>
+              )}
 
               {/* Deposit */}
               <Field label="Deposit amount" hint="(optional)">

@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import Layout from '../../components/Layout';
 import MoneyInput from '../../components/MoneyInput';
 import { backendUrl } from '../../config/constants';
+import { FREQ_MONTHS } from '../../utils/leaseSchedule';
 
 /* ── shared header ────────────────────────────────────────────────────────── */
 const PageHeader = ({ backTo, title, rightSlot }) => (
@@ -113,10 +114,27 @@ const RentChangeList = ({ houseId, leaseId, navigate }) => {
 };
 
 /* ── shared form card ─────────────────────────────────────────────────────── */
-const FormCard = ({ startDate, setStartDate, amount, setAmount, readOnly, isFirst }) => {
+const FormCard = ({ houseId, startDate, setStartDate, amount, setAmount, readOnly, isFirst }) => {
   const lbl = { display: 'block', fontSize: 14, fontWeight: 700, color: '#374151', marginBottom: 0, minWidth: 120 };
   const row = { display: 'flex', alignItems: 'center', borderBottom: '1px solid #f3f4f6', padding: '14px 20px', gap: 16 };
   const inp = { flex: 1, border: 'none', outline: 'none', fontSize: 14, color: '#042238', background: 'transparent', fontFamily: 'inherit', padding: '4px 0' };
+
+  // Rent Change only ever adjusts the amount, never the frequency — but the
+  // amount is still the full amount due each cycle at whatever frequency
+  // the lease already bills, so the same "is this a monthly figure by
+  // mistake?" trap applies here too. Fetch just the frequency to show it.
+  const [frequency, setFrequency] = useState(null);
+  useEffect(() => {
+    if (!houseId) return;
+    const token = localStorage.getItem('rental_token');
+    axios.get(`${backendUrl}/api/landlord/houses/${houseId}/lease`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => setFrequency(r.data?.data?.frequency || null))
+      .catch(() => {});
+  }, [houseId]);
+
+  const freqMonths = frequency ? (FREQ_MONTHS[frequency] ?? 1) : null;
+  const amountNum = Number(amount) || 0;
+  const perMonthEquivalent = freqMonths && freqMonths > 1 && amountNum > 0 ? amountNum / freqMonths : null;
 
   return (
     <div style={{ maxWidth: 860, margin: '28px auto', padding: '0 24px' }}>
@@ -146,6 +164,11 @@ const FormCard = ({ startDate, setStartDate, amount, setAmount, readOnly, isFirs
             />
           </div>
         </div>
+        {perMonthEquivalent !== null && (
+          <div style={{ padding: '10px 20px', background: '#eff6ff', borderBottom: '1px solid #dbeafe', fontSize: 12, color: '#1d4ed8' }}>
+            This is the full amount due every {frequency.toLowerCase()} &mdash; ≈ TZS {Math.round(perMonthEquivalent).toLocaleString()} / month.
+          </div>
+        )}
         {isFirst && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 20px', background: '#eff6ff', borderTop: '1px solid #dbeafe' }}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="#1d4ed8"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2m1 15h-2v-6h2zm0-8h-2V7h2z"/></svg>
@@ -192,7 +215,7 @@ const RentChangeCreate = ({ houseId, leaseId, navigate }) => {
           >{saving ? 'Saving…' : 'Save'}</button>
         }
       />
-      <FormCard startDate={startDate} setStartDate={setStartDate} amount={amount} setAmount={setAmount} readOnly={false} isFirst={false} />
+      <FormCard houseId={houseId} startDate={startDate} setStartDate={setStartDate} amount={amount} setAmount={setAmount} readOnly={false} isFirst={false} />
     </>
   );
 };
@@ -259,7 +282,7 @@ const RentChangeEdit = ({ houseId, leaseId, changeId, isFirst, navigate }) => {
           >{saving ? 'Saving…' : 'Save'}</button>
         )}
       />
-      <FormCard startDate={startDate} setStartDate={setStartDate} amount={amount} setAmount={setAmount} readOnly={!!isFirst} isFirst={!!isFirst} />
+      <FormCard houseId={houseId} startDate={startDate} setStartDate={setStartDate} amount={amount} setAmount={setAmount} readOnly={!!isFirst} isFirst={!!isFirst} />
       {!isFirst && (
         <div style={{ maxWidth: 860, margin: '0 auto', padding: '0 24px 32px' }}>
           <button
