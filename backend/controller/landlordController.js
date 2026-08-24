@@ -989,15 +989,19 @@ export const createLease = async (req, res) => {
     const house = await House.findOne({ _id: req.params.id, landlord: req.user._id });
     if (!house) return res.status(404).json({ success: false, message: "House not found" });
 
-    // Terminate any existing active lease for this house
-    await Lease.updateMany(
-      { house: req.params.id, landlord: req.user._id, status: "active" },
-      { status: "terminated" }
-    );
+    // The UI's "Edit lease" button reuses this same create endpoint (there is no
+    // separate in-place edit form), so terminating the old active lease must carry
+    // its tenant forward — otherwise "editing" a lease's rent/dates silently
+    // unlinks the tenant from the property.
+    const previousLease = await Lease.findOne({ house: req.params.id, landlord: req.user._id, status: "active" });
+    if (previousLease) {
+      await Lease.updateOne({ _id: previousLease._id }, { status: "terminated" });
+    }
 
     const lease = await Lease.create({
       house: req.params.id,
       landlord: req.user._id,
+      tenant: previousLease?.tenant || undefined,
       startDate: new Date(startDate),
       endDate: endDate ? new Date(endDate) : undefined,
       rentAmount: Number(rentAmount),
@@ -1013,6 +1017,21 @@ export const createLease = async (req, res) => {
       furnishing: furnishing || "Unfurnished",
       notes: notes || "",
     });
+
+    // Keep the carried-over tenant's own record in sync with the new lease terms.
+    if (previousLease?.tenant) {
+      const tenantUpdate = {
+        $set: {
+          leaseStart:  lease.startDate,
+          rentAmount:  lease.rentAmount,
+          rentDueDate: lease.paymentDay,
+          frequency:   lease.frequency,
+        },
+      };
+      if (lease.endDate) tenantUpdate.$set.leaseEnd = lease.endDate;
+      else tenantUpdate.$unset = { leaseEnd: 1 };
+      await User.findByIdAndUpdate(previousLease.tenant, tenantUpdate);
+    }
 
     res.status(201).json({ success: true, message: "Lease created", data: lease });
   } catch (error) {
