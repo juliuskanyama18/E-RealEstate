@@ -39,16 +39,32 @@ app.use(
 app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true }));
 
+// Hardcoded alongside WEBSITE_URL rather than relying on that single env var
+// alone — a browser's Origin header is the exact scheme+host it navigated
+// to, so "kanyamaestates.com" and "www.kanyamaestates.com" (or http vs
+// https) are different origins to CORS even though they're "the same site"
+// to a person. Getting WEBSITE_URL's value slightly out of sync with
+// whichever variant a visitor actually lands on silently blocks every
+// request from the live site with no server-side error to point at.
+const allowedOrigins = [
+  "http://localhost:5174",
+  "http://localhost:5173",
+  // Capacitor's default WebView origins (Android + iOS native app)
+  "https://localhost",
+  "capacitor://localhost",
+  "https://kanyamaestates.com",
+  "https://www.kanyamaestates.com",
+  process.env.WEBSITE_URL,
+].filter(Boolean);
+
 app.use(
   cors({
-    origin: [
-      "http://localhost:5174",
-      "http://localhost:5173",
-      // Capacitor's default WebView origins (Android + iOS native app)
-      "https://localhost",
-      "capacitor://localhost",
-      process.env.WEBSITE_URL,
-    ].filter(Boolean),
+    origin: (origin, callback) => {
+      // No Origin header (server-to-server calls, curl, health checks) — allow.
+      if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+      console.warn(`[CORS] Rejected request from unrecognized origin: ${origin}`);
+      return callback(new Error("Not allowed by CORS"));
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
