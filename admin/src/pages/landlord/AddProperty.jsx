@@ -190,7 +190,14 @@ const AddProperty = () => {
       toast.success('Property added');
       navigate('/houses');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to add property');
+      // No `response` means the request never got an answer at all (most
+      // often the backend was still cold-starting after being idle) rather
+      // than the server actively rejecting the submission — worth telling
+      // the landlord that explicitly, since "try again" really does work.
+      toast.error(
+        err.response?.data?.message
+          || (err.response ? 'Failed to add property' : 'Could not reach the server — please try again in a moment')
+      );
     } finally {
       setSaving(false);
     }
