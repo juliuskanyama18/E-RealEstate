@@ -77,7 +77,7 @@ const TenantPaymentHistory = () => {
   return (
     <Layout>
       <div style={{ flex: 1, background: '#f5f6f8', fontFamily: FONT, color: NAVY, minHeight: '100vh' }}>
-        <div style={{ maxWidth: 1380, margin: '0 auto', width: '100%', boxSizing: 'border-box', padding: '28px 40px 40px', minWidth: 0 }}>
+        <div className="page-content" style={{ maxWidth: 1380, margin: '0 auto', width: '100%', boxSizing: 'border-box', paddingTop: 28, paddingBottom: 40, minWidth: 0 }}>
 
           {/* ── Toolbar: lease selector + search ── */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 0, flexWrap: 'wrap', gap: 12 }}>
@@ -149,36 +149,6 @@ const TenantPaymentHistory = () => {
 
           {/* ── Table ── */}
           <div style={{ background: '#fff', borderRadius: 4, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', marginTop: 20 }}>
-
-            {/* Column headers */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: '130px 1fr 160px 120px 130px',
-              alignItems: 'center', height: 45,
-              padding: '0 16px', gap: 8,
-              background: '#f5f6f8',
-              borderBottom: '1px solid rgba(224,224,224,1)',
-              boxSizing: 'border-box',
-            }}>
-              {[
-                { label: 'DATE',        align: 'left'  },
-                { label: 'DESCRIPTION', align: 'left'  },
-                { label: 'TENANT',      align: 'left'  },
-                { label: 'STATUS',      align: 'center'},
-                { label: 'AMOUNT',      align: 'right' },
-              ].map(({ label, align }) => (
-                <span key={label} style={{
-                  fontSize: '0.75rem', fontWeight: 500, color: NAVY, letterSpacing: '0.04em',
-                  fontFamily: FONT, textAlign: align,
-                  display: 'flex', alignItems: 'center', gap: 4,
-                  justifyContent: align === 'right' ? 'flex-end' : align === 'center' ? 'center' : 'flex-start',
-                }}>
-                  {label}
-                </span>
-              ))}
-            </div>
-
-            {/* Empty / rows */}
             {filtered.length === 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '80px 24px', color: '#9ca3af', minHeight: 200 }}>
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="#9ca3af">
@@ -187,48 +157,84 @@ const TenantPaymentHistory = () => {
                 <span style={{ fontSize: '0.875rem', fontFamily: FONT }}>You have no data to show</span>
               </div>
             ) : (
-              filtered.map((r, idx) => {
-                const sc  = STATUS_STYLE[r.status] || STATUS_STYLE.pending;
-                const date = fmt(r.status === 'paid' ? r.paidDate : r.dueDate);
-                return (
-                  <div
-                    key={r._id}
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: '130px 1fr 160px 120px 130px',
-                      alignItems: 'center', height: 65,
-                      padding: '0 16px', gap: 8,
-                      borderBottom: idx < filtered.length - 1 ? '1px solid rgba(224,224,224,1)' : 'none',
-                      fontFamily: FONT, fontSize: '0.875rem', boxSizing: 'border-box',
-                    }}
-                  >
-                    <span style={{ color: NAVY }}>{date}</span>
-
-                    <span style={{ color: NAVY, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {r.month ? `Rent — ${r.month}` : 'Rent'}
-                      {r.notes && <span style={{ fontWeight: 400, color: '#6b7280', marginLeft: 6 }}>· {r.notes}</span>}
-                    </span>
-
-                    <span style={{ color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {r.tenant?.name || '—'}
-                    </span>
-
-                    <div style={{ display: 'flex', justifyContent: 'center' }}>
-                      <span style={{
-                        display: 'inline-block', padding: '3px 12px', borderRadius: 20,
-                        fontSize: 11, fontWeight: 700, background: sc.bg, color: sc.color,
-                        textTransform: 'uppercase', whiteSpace: 'nowrap',
+              /* Horizontal scroll wrapper — the grid below has fixed-width
+                 columns that don't fit narrow screens; without this the
+                 outer card's overflow:hidden clips columns instead of
+                 letting the user scroll to reach them. */
+              <div style={{ overflowX: 'auto' }}>
+                <div style={{ minWidth: 700 }}>
+                  {/* Column headers */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: '130px 1fr 160px 120px 130px',
+                    alignItems: 'center', height: 45,
+                    padding: '0 16px', gap: 8,
+                    background: '#f5f6f8',
+                    borderBottom: '1px solid rgba(224,224,224,1)',
+                    boxSizing: 'border-box',
+                  }}>
+                    {[
+                      { label: 'DATE',        align: 'left'  },
+                      { label: 'DESCRIPTION', align: 'left'  },
+                      { label: 'TENANT',      align: 'left'  },
+                      { label: 'STATUS',      align: 'center'},
+                      { label: 'AMOUNT',      align: 'right' },
+                    ].map(({ label, align }) => (
+                      <span key={label} style={{
+                        fontSize: '0.75rem', fontWeight: 500, color: NAVY, letterSpacing: '0.04em',
+                        fontFamily: FONT, textAlign: align,
+                        display: 'flex', alignItems: 'center', gap: 4,
+                        justifyContent: align === 'right' ? 'flex-end' : align === 'center' ? 'center' : 'flex-start',
                       }}>
-                        {sc.label}
+                        {label}
                       </span>
-                    </div>
-
-                    <span style={{ textAlign: 'right', fontWeight: 600, color: NAVY, whiteSpace: 'nowrap' }}>
-                      TZS {(r.amount || 0).toLocaleString('en', { minimumFractionDigits: 2 })}
-                    </span>
+                    ))}
                   </div>
-                );
-              })
+
+                  {filtered.map((r, idx) => {
+                    const sc  = STATUS_STYLE[r.status] || STATUS_STYLE.pending;
+                    const date = fmt(r.status === 'paid' ? r.paidDate : r.dueDate);
+                    return (
+                      <div
+                        key={r._id}
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: '130px 1fr 160px 120px 130px',
+                          alignItems: 'center', height: 65,
+                          padding: '0 16px', gap: 8,
+                          borderBottom: idx < filtered.length - 1 ? '1px solid rgba(224,224,224,1)' : 'none',
+                          fontFamily: FONT, fontSize: '0.875rem', boxSizing: 'border-box',
+                        }}
+                      >
+                        <span style={{ color: NAVY }}>{date}</span>
+
+                        <span style={{ color: NAVY, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {r.month ? `Rent — ${r.month}` : 'Rent'}
+                          {r.notes && <span style={{ fontWeight: 400, color: '#6b7280', marginLeft: 6 }}>· {r.notes}</span>}
+                        </span>
+
+                        <span style={{ color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {r.tenant?.name || '—'}
+                        </span>
+
+                        <div style={{ display: 'flex', justifyContent: 'center' }}>
+                          <span style={{
+                            display: 'inline-block', padding: '3px 12px', borderRadius: 20,
+                            fontSize: 11, fontWeight: 700, background: sc.bg, color: sc.color,
+                            textTransform: 'uppercase', whiteSpace: 'nowrap',
+                          }}>
+                            {sc.label}
+                          </span>
+                        </div>
+
+                        <span style={{ textAlign: 'right', fontWeight: 600, color: NAVY, whiteSpace: 'nowrap' }}>
+                          TZS {(r.amount || 0).toLocaleString('en', { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             )}
           </div>
 

@@ -109,7 +109,7 @@ const TenantDashboard = () => {
   return (
     <Layout>
       <div style={{ flex: 1, background: '#f5f6f8', fontFamily: FONT, color: NAVY, minHeight: '100vh' }}>
-        <div style={{ maxWidth: 1380, margin: '0 auto', width: '100%', boxSizing: 'border-box', padding: '28px 40px 48px' }}>
+        <div className="page-content" style={{ maxWidth: 1380, margin: '0 auto', width: '100%', boxSizing: 'border-box', paddingTop: 28, paddingBottom: 48 }}>
 
           {/* ── Property / lease header ───────────────────────── */}
           {houseName && (

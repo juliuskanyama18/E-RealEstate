@@ -59,64 +59,68 @@ const TenantDocuments = () => {
             </div>
           ) : (
             <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-              {/* Header */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 100px 120px 80px', padding: '10px 20px', borderBottom: '1px solid #f3f4f6', background: '#fafafa' }}>
-                {['Document', 'Type', 'Date', ''].map(h => (
-                  <span key={h} style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.06em' }}>{h.toUpperCase()}</span>
-                ))}
-              </div>
-              {/* Rows */}
-              {documents.map((doc, idx) => {
-                const fileUrl = doc.filePath
-                  ? (doc.filePath.startsWith('http') ? doc.filePath : `${backendUrl}${doc.filePath}`)
-                  : null;
-                return (
-                  <div
-                    key={doc._id}
-                    style={{ display: 'grid', gridTemplateColumns: '1fr 100px 120px 80px', padding: '14px 20px', alignItems: 'center', borderBottom: idx < documents.length - 1 ? '1px solid #f3f4f6' : 'none' }}
-                  >
-                    {/* Name + size */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill={NAVY} style={{ flexShrink: 0 }}>
-                        <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8zm2 16H8v-2h8zm0-4H8v-2h8zm-3-5V3.5L18.5 9z"/>
-                      </svg>
-                      <div style={{ minWidth: 0 }}>
-                        <p style={{ margin: 0, fontSize: '1rem', fontWeight: 600, color: NAVY, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {doc.originalName || doc.fileName}
-                        </p>
-                        {(doc.description || doc.fileSize) && (
-                          <p style={{ margin: '2px 0 0', fontSize: '0.875rem', color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {doc.description || formatSize(doc.fileSize)}
-                          </p>
+              <div style={{ overflowX: 'auto' }}>
+                <div style={{ minWidth: 480 }}>
+                  {/* Header */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 100px 120px 80px', padding: '10px 20px', borderBottom: '1px solid #f3f4f6', background: '#fafafa' }}>
+                    {['Document', 'Type', 'Date', ''].map(h => (
+                      <span key={h} style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.06em' }}>{h.toUpperCase()}</span>
+                    ))}
+                  </div>
+                  {/* Rows */}
+                  {documents.map((doc, idx) => {
+                    const fileUrl = doc.filePath
+                      ? (doc.filePath.startsWith('http') ? doc.filePath : `${backendUrl}${doc.filePath}`)
+                      : null;
+                    return (
+                      <div
+                        key={doc._id}
+                        style={{ display: 'grid', gridTemplateColumns: '1fr 100px 120px 80px', padding: '14px 20px', alignItems: 'center', borderBottom: idx < documents.length - 1 ? '1px solid #f3f4f6' : 'none' }}
+                      >
+                        {/* Name + size */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill={NAVY} style={{ flexShrink: 0 }}>
+                            <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8zm2 16H8v-2h8zm0-4H8v-2h8zm-3-5V3.5L18.5 9z"/>
+                          </svg>
+                          <div style={{ minWidth: 0 }}>
+                            <p style={{ margin: 0, fontSize: '1rem', fontWeight: 600, color: NAVY, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {doc.originalName || doc.fileName}
+                            </p>
+                            {(doc.description || doc.fileSize) && (
+                              <p style={{ margin: '2px 0 0', fontSize: '0.875rem', color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {doc.description || formatSize(doc.fileSize)}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        {/* Type */}
+                        <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>{TYPE_LABEL[doc.type] || doc.type}</span>
+                        {/* Date */}
+                        <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>{fmt(doc.createdAt)}</span>
+                        {/* Download */}
+                        {fileUrl ? (
+                          <a
+                            href={fileUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            download
+                            style={{ fontSize: '0.875rem', fontWeight: 600, color: NAVY, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}
+                            onMouseEnter={e => { e.currentTarget.style.opacity = '0.7'; }}
+                            onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M19 9h-4V3H9v6H5l7 7 7-7zm-8 2V5h2v6h1.17L12 13.17 9.83 11H11zm-6 8h14v2H5z"/>
+                            </svg>
+                            View
+                          </a>
+                        ) : (
+                          <span />
                         )}
                       </div>
-                    </div>
-                    {/* Type */}
-                    <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>{TYPE_LABEL[doc.type] || doc.type}</span>
-                    {/* Date */}
-                    <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>{fmt(doc.createdAt)}</span>
-                    {/* Download */}
-                    {fileUrl ? (
-                      <a
-                        href={fileUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        download
-                        style={{ fontSize: '0.875rem', fontWeight: 600, color: NAVY, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}
-                        onMouseEnter={e => { e.currentTarget.style.opacity = '0.7'; }}
-                        onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M19 9h-4V3H9v6H5l7 7 7-7zm-8 2V5h2v6h1.17L12 13.17 9.83 11H11zm-6 8h14v2H5z"/>
-                        </svg>
-                        View
-                      </a>
-                    ) : (
-                      <span />
-                    )}
-                  </div>
-                );
-              })}
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           )}
         </div>
