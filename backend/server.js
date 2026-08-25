@@ -8,6 +8,7 @@ import path from "path";
 import bcrypt from "bcrypt";
 import connectdb from "./config/mongodb.js";
 import User from "./models/User.js";
+import RentRecord from "./models/RentRecord.js";
 import { startCronJob } from "./utils/cronJob.js";
 import authRoute from "./routes/authRoute.js";
 import superadminRoute from "./routes/superadminRoute.js";
@@ -116,6 +117,18 @@ connectdb().then(async () => {
     }
   } catch (err) {
     console.error("Superadmin seed error:", err.message);
+  }
+
+  try {
+    // The old unique index was {tenant, month} — a rent payment and a
+    // deposit payment logged for the same tenant in the same month used to
+    // collide and silently overwrite each other. Now that RentRecord keys
+    // on {tenant, month, category}, sync the actual index on the
+    // collection so existing databases (which still have the old one)
+    // pick up the fix without a manual migration step.
+    await RentRecord.syncIndexes();
+  } catch (err) {
+    console.error("RentRecord index sync error:", err.message);
   }
 
   startCronJob();

@@ -20,6 +20,8 @@ const EXPENSE_CATS = [
   'Other', 'Property Tax', 'Rates', 'Rent Arrears', 'Utilities', 'Water',
 ];
 
+const PAYMENT_CATEGORIES = ['Rent', 'Deposit', 'Late Fee', 'Utilities', 'Other'];
+
 const thStyle = {
   padding: '10px 16px', textAlign: 'left', fontWeight: 700, color: NAVY,
   fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase',
@@ -185,12 +187,14 @@ const RentPaymentModal = ({ onClose, onSaved, payment = null }) => {
     status:  payment.status || 'pending',
     paidDate: toDisplay(payment.paidDate),
     notes:   payment.notes || '',
+    category: payment.category || 'Rent',
   } : {
     tenantId: '',
     amount:   '',
     month:    new Date().toISOString().slice(0, 7),
     datePaid: toDisplay(new Date().toISOString()),
     notes:    '',
+    category: 'Rent',
   });
 
   useEffect(() => {
@@ -221,6 +225,7 @@ const RentPaymentModal = ({ onClose, onSaved, payment = null }) => {
           status:   form.status,
           paidDate: paidDate || undefined,
           notes:    form.notes || undefined,
+          category: form.category,
         });
         toast.success('Payment updated');
         onSaved(); onClose();
@@ -241,6 +246,7 @@ const RentPaymentModal = ({ onClose, onSaved, payment = null }) => {
           month:    form.month,
           datePaid: datePaid || undefined,
           notes:    form.notes || undefined,
+          category: form.category,
         });
         toast.success('Payment recorded');
         onSaved(); onClose();
@@ -297,6 +303,15 @@ const RentPaymentModal = ({ onClose, onSaved, payment = null }) => {
               </div>
             </>
           )}
+
+          {/* Category — lets a deposit logged for the same tenant/month as
+              rent be tracked as its own record instead of overwriting it */}
+          <div>
+            <label style={lStyle}>Category</label>
+            <select value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))} style={iStyle}>
+              {PAYMENT_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
 
           {/* Edit mode: Status */}
           {isEdit && (
@@ -1113,17 +1128,17 @@ const Payments = () => {
 
                 {/* Table */}
                 <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 620 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 700 }}>
                   <thead>
                     <tr style={{ background: '#f5f6f8' }}>
-                      {['Date Paid', 'Property', 'Tenant', 'Month', 'Status', 'Amount', ''].map((h, i) => (
+                      {['Date Paid', 'Property', 'Tenant', 'Month', 'Category', 'Status', 'Amount', ''].map((h, i) => (
                         <th key={i} style={thStyle}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {filteredPayments.length === 0 ? (
-                      <tr><td colSpan={7} style={{ padding: 0 }}><EmptyState message="No payments found" /></td></tr>
+                      <tr><td colSpan={8} style={{ padding: 0 }}><EmptyState message="No payments found" /></td></tr>
                     ) : filteredPayments.map(p => (
                       <tr key={p._id}
                         onClick={() => { setEditingPayment(p); setPayModalOpen(true); }}
@@ -1139,6 +1154,7 @@ const Payments = () => {
                         <td style={tdStyle}>{p.house?.name || p.house?.address || '—'}</td>
                         <td style={tdStyle}>{p.tenant?.name || '—'}</td>
                         <td style={{ ...tdStyle, color: '#6b7280' }}>{p.month || '—'}</td>
+                        <td style={{ ...tdStyle, color: '#6b7280' }}>{p.category || 'Rent'}</td>
                         <td style={tdStyle}><StatusBadge status={p.status} /></td>
                         <td style={{ ...tdStyle, fontWeight: 600 }}>{fmt(p.amount)}</td>
                         <td onClick={e => e.stopPropagation()} style={{ ...tdStyle, textAlign: 'right', padding: '4px 8px' }}>

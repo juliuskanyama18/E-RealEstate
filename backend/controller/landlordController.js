@@ -776,7 +776,7 @@ export const updateOrgSettings = async (req, res) => {
 // ─── Record a payment ───────────────────────────────────────────────────────
 export const recordPayment = async (req, res) => {
   try {
-    const { tenantId, amount, month, datePaid, paymentMethod, notes, sendReceipt } = req.body;
+    const { tenantId, amount, month, datePaid, paymentMethod, notes, category, sendReceipt } = req.body;
     if (!tenantId || amount === undefined || !month) {
       return res.status(400).json({ success: false, message: "tenantId, amount, and month are required" });
     }
@@ -792,15 +792,20 @@ export const recordPayment = async (req, res) => {
     const [yr, mo] = month.split("-").map(Number);
     const dueDate = new Date(yr, mo - 1, tenant.rentDueDate || 1);
     const paidDateVal = datePaid ? new Date(datePaid) : new Date();
+    const cat = category?.trim() || "Rent";
 
-    // Upsert RentRecord for this tenant + month
+    // Upsert RentRecord for this tenant + month + category — keying on
+    // category too (not just tenant+month) is what lets a rent payment and
+    // a deposit payment logged separately in the same month coexist as two
+    // records instead of the second silently overwriting the first.
     await RentRecord.findOneAndUpdate(
-      { tenant: tenant._id, month },
+      { tenant: tenant._id, month, category: cat },
       {
         landlord: req.user._id,
         house: tenant.house?._id || tenant.house,
         amount: paidAmt,
         month,
+        category: cat,
         dueDate,
         paidDate: paidDateVal,
         status: "paid",
@@ -1460,15 +1465,19 @@ export const createCharge = async (req, res) => {
 
     const chargeAmt = Number(amount);
     if (chargeAmt <= 0) return res.status(400).json({ success: false, message: "Amount must be positive" });
+    const cat = category?.trim() || "Rent";
 
-    // Create pending RentRecord (charge not yet paid)
+    // Create pending RentRecord (charge not yet paid) — keyed by
+    // tenant+month+category so e.g. a one-time "Security Deposit" charge
+    // doesn't collide with that same month's regular rent charge.
     const record = await RentRecord.findOneAndUpdate(
-      { tenant: tenant._id, month },
+      { tenant: tenant._id, month, category: cat },
       {
         landlord: req.user._id,
         house: tenant.house,
         amount: chargeAmt,
         month,
+        category: cat,
         dueDate: new Date(dueDate),
         status: "pending",
         notes: notes?.trim() || undefined,
