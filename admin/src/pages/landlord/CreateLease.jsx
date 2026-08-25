@@ -12,18 +12,27 @@ import { FREQ_MONTHS, getNextDueDate } from '../../utils/leaseSchedule';
 const NAVY = '#042238';
 const FONT = '"Inter", sans-serif';
 
-/* ── Payment frequencies (excluding Standalone, Weekly, Fortnightly, 4 Weeks) ── */
+// Every option's month-count is stated explicitly in its own label — a
+// named term like "Quarterly" without the "(3 Months)" alongside it reads,
+// at a glance, as if the 3-month option simply isn't in the list.
+//
+// Weekly/bi-weekly are deliberately not offered: the whole due-date engine
+// (cron reminders, tenant portal schedule, dashboard calendar, property
+// list due dates — see utils/leaseSchedule.js) works in whole-month
+// cycles. Real support for a sub-month cadence needs a day-based due-date
+// engine, not just another entry in this array.
 const PAYMENT_FREQUENCIES = [
-  { label: 'One-Time',                  value: 'One-Time' },
-  { label: 'Monthly (Calendar Month)',  value: '1 Month' },
-  { label: '2 Months',                  value: '2 Months' },
-  { label: 'Quarterly',                 value: '3 Months' },
-  { label: '4 Months',                  value: '4 Months' },
-  { label: '5 Months',                  value: '5 Months' },
-  { label: 'Bi-Annually (6 Months)',    value: '6 Months' },
-  { label: '18 Months',                 value: '18 Months' },
-  { label: '24 Months',                 value: '24 Months' },
-  { label: 'Yearly',                    value: '1 Year' },
+  { label: 'One-Time',                     value: 'One-Time' },
+  { label: 'Monthly (1 Month)',            value: '1 Month' },
+  { label: 'Every 2 Months',               value: '2 Months' },
+  { label: 'Quarterly (3 Months)',         value: '3 Months' },
+  { label: 'Every 4 Months',               value: '4 Months' },
+  { label: 'Every 5 Months',               value: '5 Months' },
+  { label: 'Bi-Annually (6 Months)',       value: '6 Months' },
+  { label: 'Every 9 Months',               value: '9 Months' },
+  { label: 'Yearly (12 Months)',           value: '1 Year' },
+  { label: 'Every 18 Months',              value: '18 Months' },
+  { label: 'Every 24 Months',              value: '24 Months' },
 ];
 
 /* ── Payment day options 1–30 + End of Month ── */

@@ -27,7 +27,7 @@ const CircleCheck = ({ checked }) => (
 /* ── Calendar event helpers (mirrors Dashboard logic) ───────── */
 const CAL_FREQ_MONTHS = {
   'One-Time': 0, '1 Month': 1, '2 Months': 2, '3 Months': 3,
-  '4 Months': 4, '5 Months': 5, '6 Months': 6,
+  '4 Months': 4, '5 Months': 5, '6 Months': 6, '9 Months': 9,
   '18 Months': 18, '24 Months': 24, '1 Year': 12,
 };
 const calActualPayDay = (paymentDay, yr, mo) => {
