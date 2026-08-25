@@ -8,16 +8,19 @@ import { backendUrl } from './config/constants';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '';
 
-// Render's free/hobby tier spins the backend down after a period of
-// inactivity — the first real request after that (often a brand-new user's
-// very first "Add Property"/"Add Tenant" submit) can time out entirely
-// while the dyno cold-starts, which then succeeds on a simple retry with
-// no code change. Firing this unauthenticated, rate-limit-exempt ping the
-// moment the app loads gives the backend a head start waking up while the
-// user is still on the login/register screen, well before they reach a
-// real form submission.
+// Render's free/hobby tier spins the backend down after ~15 minutes with no
+// HTTP traffic — the next request after that times out entirely while the
+// dyno cold-starts, and only a manual retry a few seconds later succeeds.
+// A single ping on page load only covers the very first action of a
+// session; any gap of normal human reading/navigating/deciding-what-to-do-
+// next between actions is enough for the backend to spin back down again,
+// so every subsequent action independently hits the same cold start. Keep
+// pinging on an interval for as long as the tab is open so the backend
+// never gets the chance to go idle mid-session.
 if (backendUrl) {
-  fetch(`${backendUrl}/status`).catch(() => {});
+  const keepAlive = () => fetch(`${backendUrl}/status`).catch(() => {});
+  keepAlive();
+  setInterval(keepAlive, 5 * 60 * 1000); // well under Render's 15-minute idle window
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(
